@@ -20,6 +20,31 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         private GameObject _root;
 
         [Test]
+        public void OwnerPowerUpView_선택탭만조회하고왕복은재사용하며새상태는갱신한다()
+        {
+            int scoutQueries = 0, trainingQueries = 0, enhancementQueries = 0;
+            OwnerPowerUpSnapshot CreateSnapshot() => new OwnerPowerUpSnapshot(
+                () => { scoutQueries++; return new OwnerScoutScreenSnapshot(Array.Empty<OwnerScoutProductSnapshot>(), "SP 0"); },
+                () => { trainingQueries++; return new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 0); },
+                () => { enhancementQueries++; return new OwnerEnhancementSaleScreenSnapshot(Array.Empty<OwnerEnhancementSaleTargetSnapshot>(), 0); });
+            var view = UI_Scene_OwnerPowerUp.CreateRuntime(_root.GetComponent<RectTransform>());
+            try
+            {
+                view.Bind(CreateSnapshot());
+                Assert.That(new[] { scoutQueries, trainingQueries, enhancementQueries }, Is.EqualTo(new[] { 1, 0, 0 }));
+                view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+                view.ShowRoute(OwnerNavigationRoutes.PowerUpScout);
+                view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+                Assert.That(new[] { scoutQueries, trainingQueries, enhancementQueries }, Is.EqualTo(new[] { 1, 1, 0 }));
+                view.Bind(CreateSnapshot(), OwnerNavigationRoutes.PowerUpEnhancementSale);
+                Assert.That(new[] { scoutQueries, trainingQueries, enhancementQueries }, Is.EqualTo(new[] { 1, 1, 1 }));
+                view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
+                Assert.That(trainingQueries, Is.EqualTo(2));
+            }
+            finally { UnityEngine.Object.DestroyImmediate(view.gameObject); }
+        }
+
+        [Test]
         public void OwnerPowerUpView_대량상품도선택확률만조회하고페이지버튼수를제한한다()
         {
             int queries = 0;
@@ -79,8 +104,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             for (int pass = 0; pass < 2; pass++)
             {
                 CareerUiSkin.Apply(view.transform);
-                string[] paths = { "EquippedSlots/Slot0", "EquippedSlots/Slot1",
-                    "ActiveSlots/ActiveSlot0", "CandidateList/Scroll/Content/Candidate0" };
+                string[] paths = { "EquippedSlots/ContentSafeRect/Slot0", "EquippedSlots/ContentSafeRect/Slot1",
+                    "CandidateList/ContentSafeRect/Scroll/Viewport/Content/Candidate0" };
                 foreach (string path in paths)
                 {
                     Transform card = workspace.Find(path);
@@ -98,10 +123,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     if (frame != null) Assert.That(frame.gameObject.activeSelf, Is.False, path);
                 }
                 // 필터가 새로 생성한 목록에도 동일한 시각 계약이 적용되어야 한다.
-                workspace.Find("CandidateList/Active").GetComponent<Button>().onClick.Invoke();
+                workspace.Find("CandidateList/ContentSafeRect/Active").GetComponent<Button>().onClick.Invoke();
             }
-            Assert.That(workspace.Find("ActiveSlots/ActiveSlot0").GetComponent<Button>().interactable, Is.False);
-            Assert.That(workspace.Find("ActiveSlots/ActiveSlot0/State").GetComponent<Text>().text, Is.EqualTo("발동"));
+            Assert.That(workspace.Find("Actions/ContentSafeRect/Confirm").GetComponent<Button>().interactable, Is.False);
+            Assert.That(workspace.Find("EquippedSlots/ContentSafeRect/Slot0/State").GetComponent<Text>().text, Is.EqualTo("발동"));
         }
 
         [SetUp]
@@ -435,6 +460,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             Transform training = _root.transform.Find(
                 "OwnerPowerUpWorkspace/PowerUpPanel/ContentSafeRect/TrainingContent");
+            view.ShowRoute(OwnerNavigationRoutes.PowerUpTraining);
             Transform miniCard = training.Find(
                 "TrainingTargets/ContentSafeRect/CardScroll/Viewport/Content/Card_training-card");
             Transform selectedCard = training.Find(
@@ -697,7 +723,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void TeamColorView_레퍼런스의세편성열과하단정보영역을구분한다()
+        public void TeamColorView_상단장착과목록및상세영역을구분한다()
         {
             TeamColorDefinition definition = InitialTeamColorDefinitionFactory.CreateGoldenGlove(2011)[0];
             var candidate = new OwnerTeamColorCandidateSnapshot(
@@ -716,9 +742,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Transform workspace = view.transform.Find("OwnerTeamColorWorkspace");
             Assert.That(workspace.Find("EquippedSlots"), Is.Not.Null);
             Assert.That(workspace.Find("CandidateList"), Is.Not.Null);
-            Assert.That(workspace.Find("ActiveSlots"), Is.Not.Null);
+            Assert.That(workspace.Find("Actions"), Is.Not.Null);
             Assert.That(workspace.Find("DetailPanel"), Is.Not.Null);
-            Assert.That(workspace.Find("ActiveSlots/ActiveSlot0/Label").GetComponent<Text>().text,
+            Assert.That(workspace.Find("EquippedSlots/ContentSafeRect/Slot0/Label").GetComponent<Text>().text,
                 Does.Contain(definition.DisplayName));
             Assert.That(workspace.Find("DetailPanel").GetComponent<RectTransform>().anchorMax.y,
                 Is.LessThan(workspace.Find("EquippedSlots").GetComponent<RectTransform>().anchorMin.y));
@@ -764,7 +790,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             view.Bind(snapshot);
 
-            Text detail = view.transform.Find("OwnerTeamColorWorkspace/DetailPanel/Description").GetComponent<Text>();
+            Text detail = view.transform.Find("OwnerTeamColorWorkspace/DetailPanel/ContentSafeRect/EffectScroll/Viewport/Content/Description").GetComponent<Text>();
             Assert.That(detail.text, Does.Contain("현재 활성 효과 2개"));
             Assert.That(detail.text, Does.Contain("정교한 타선 + 안정된 세대"));
             Assert.That(detail.text, Does.Contain("컨택 +3"));
@@ -885,8 +911,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             view.Bind(snapshot);
 
             Transform workspace = view.transform.Find("OwnerTeamColorWorkspace");
-            Text candidateGrade = workspace.Find("CandidateList/Scroll/Content/Candidate0/Grade").GetComponent<Text>();
-            Text activeGrade = workspace.Find("ActiveSlots/ActiveSlot0/Grade").GetComponent<Text>();
+            Text candidateGrade = workspace.Find("CandidateList/ContentSafeRect/Scroll/Viewport/Content/Candidate0/Grade").GetComponent<Text>();
+            Text activeGrade = workspace.Find("EquippedSlots/ContentSafeRect/Slot0/Grade").GetComponent<Text>();
             Assert.That(candidateGrade.text, Is.EqualTo(candidate.Grade));
             Assert.That(activeGrade.text, Is.EqualTo(candidate.Grade));
             foreach (Text text in workspace.GetComponentsInChildren<Text>(true))
@@ -911,7 +937,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             view.Bind(snapshot);
 
             Transform card = view.transform.Find(
-                "OwnerTeamColorWorkspace/CandidateList/Scroll/Content/Candidate0");
+                "OwnerTeamColorWorkspace/CandidateList/ContentSafeRect/Scroll/Viewport/Content/Candidate0");
             RawImage artwork = card.Find("Artwork").GetComponent<RawImage>();
             RectTransform grade = card.Find("Grade").GetComponent<RectTransform>();
             RectTransform title = card.Find("Label").GetComponent<RectTransform>();
@@ -922,7 +948,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(artwork.texture, Is.Not.Null);
             Assert.That(artwork.uvRect.y, Is.EqualTo(0.25f).Within(0.001f));
             Assert.That(artwork.uvRect.height, Is.EqualTo(0.50f).Within(0.001f));
-            Assert.That((grade.anchorMin.x + grade.anchorMax.x) * 0.5f, Is.EqualTo(0.182f).Within(0.001f));
+            Assert.That((grade.anchorMin.x + grade.anchorMax.x) * 0.5f, Is.EqualTo(0.192f).Within(0.001f));
             Assert.That(grade.anchorMin.y + grade.anchorMax.y, Is.EqualTo(1f).Within(0.001f));
             Assert.That(title.anchorMin.x, Is.EqualTo(0.34f).Within(0.001f));
             Assert.That(meta.anchorMin.x, Is.EqualTo(0.34f).Within(0.001f));
@@ -964,7 +990,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
             view.Bind(snapshot);
 
-            Transform content = view.transform.Find("OwnerTeamColorWorkspace/CandidateList/Scroll/Content");
+            Transform content = view.transform.Find("OwnerTeamColorWorkspace/CandidateList/ContentSafeRect/Scroll/Viewport/Content");
             Assert.That(content.Find("Candidate0/Artwork").GetComponent<RawImage>().texture.name,
                 Is.EqualTo("team_color_card_plate_common_v2"));
             Assert.That(content.Find("Candidate1/Artwork").GetComponent<RawImage>().texture.name,

@@ -37,6 +37,34 @@ namespace Baseball.Tests.EditMode.Presentation.Match
             Assert.That(OwnerMatchPlaybackGroup.ResolveOutBase(Event(MatchEventType.Out, 7, PlateAppearanceResult.Strikeout), 7, 11, 0, 0), Is.Zero);
         }
 
+        [TestCase(MatchEventType.Hit, PlateAppearanceResult.Double, false)]
+        [TestCase(MatchEventType.Hit, PlateAppearanceResult.HomeRun, false)]
+        [TestCase(MatchEventType.DoublePlay, PlateAppearanceResult.GroundOut, true)]
+        public void 이미공개한핵심판정은타석종료에서반복하지않는다(
+            MatchEventType primaryType,
+            PlateAppearanceResult result,
+            bool expectedDoublePlay)
+        {
+            var state = new OwnerMatchResultPresentationState();
+            state.Observe(Event(primaryType, 7, result));
+
+            Assert.That(state.IsRepeatedPlateAppearanceResult(
+                Event(MatchEventType.PlateAppearanceEnded, 7, result)), Is.True);
+            Assert.That(state.WasDoublePlay, Is.EqualTo(expectedDoublePlay));
+
+            state.Observe(Event(MatchEventType.PlateAppearanceEnded, 7, result));
+            Assert.That(state.HasPrimaryResult, Is.False);
+        }
+
+        [Test]
+        public void 별도핵심판정이없는타석종료는기존결과표시를유지한다()
+        {
+            var state = new OwnerMatchResultPresentationState();
+
+            Assert.That(state.IsRepeatedPlateAppearanceResult(
+                Event(MatchEventType.PlateAppearanceEnded, 7, PlateAppearanceResult.Strikeout)), Is.False);
+        }
+
         private static MatchEvent Event(MatchEventType type, int playerId, PlateAppearanceResult result = PlateAppearanceResult.None, int from = 0, int to = 0) =>
             new MatchEvent(1, type, 1, InningHalf.Top, 0, 2, playerId, PitchResult.None, result, from, to, 0, 0, 1, 0, 0);
     }

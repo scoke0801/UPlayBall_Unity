@@ -166,7 +166,7 @@ namespace Baseball.Presentation.Owner
             _opponentStarter.text = _model.ProbableStarterText;
             BindStarterCard(0, snapshot.OwnStarterCard, snapshot.OwnStarterDetail);
             BindStarterCard(1, snapshot.OpponentStarterCard, snapshot.OpponentStarterDetail);
-            _scoutingNotes.text = "— 미집계   |   감독 성향  " + _model.ManagerTendencyText + "   |   " + string.Join(" · ", _model.KeyThreats);
+            _scoutingNotes.text = "감독 성향  " + _model.ManagerTendencyText + "   |   " + string.Join(" · ", _model.KeyThreats);
         }
 
         private void BindStarterCard(

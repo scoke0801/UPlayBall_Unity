@@ -47,7 +47,7 @@ namespace Baseball.Presentation.Owner
             Text catalogMessage = OwnerDugoutDetailUiFactory.CreateLabel(
                 catalog,
                 "CatalogMessage",
-                "서포트 카드 정의와 보유 목록이\n아직 Runtime에 연결되지 않았습니다.",
+                "서포트 카드는 준비 중입니다.",
                 0.08f,
                 0.25f,
                 0.92f,
@@ -74,8 +74,7 @@ namespace Baseball.Presentation.Owner
             Text informationMessage = OwnerDugoutDetailUiFactory.CreateLabel(
                 information,
                 "Message",
-                "서포트 카드는 현재 시뮬레이션 효과와 저장 Command가 없습니다. " +
-                "효과를 임의로 만들지 않고, 카드 정의·검증·저장이 마련될 때 이 편성 화면에 연결합니다.",
+                "현재 서포트 카드를 장착할 수 없습니다.",
                 0.025f,
                 0.24f,
                 0.975f,

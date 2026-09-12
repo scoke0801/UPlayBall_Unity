@@ -3,6 +3,42 @@ using Baseball.Simulation.PlateAppearance;
 
 namespace Baseball.Presentation.Match
 {
+    /// <summary>한 타석에서 이미 크게 보여 준 핵심 판정을 추적해 종료 사건의 중복 표시를 막는다.</summary>
+    public struct OwnerMatchResultPresentationState
+    {
+        private MatchEventType _primaryResultEventType;
+
+        public bool HasPrimaryResult { get; private set; }
+        public bool WasDoublePlay => HasPrimaryResult && _primaryResultEventType == MatchEventType.DoublePlay;
+
+        /// <summary>안타 또는 병살 판정 뒤의 타석 종료가 같은 결과를 다시 표시하는지 판정한다.</summary>
+        public bool IsRepeatedPlateAppearanceResult(in MatchEvent value)
+        {
+            return HasPrimaryResult && value.EventType == MatchEventType.PlateAppearanceEnded;
+        }
+
+        /// <summary>공개된 사건을 반영하고 타석 경계에서 다음 타석을 위해 상태를 비운다.</summary>
+        public void Observe(in MatchEvent value)
+        {
+            if (value.EventType is MatchEventType.Hit or MatchEventType.DoublePlay)
+            {
+                _primaryResultEventType = value.EventType;
+                HasPrimaryResult = true;
+                return;
+            }
+
+            if (value.EventType is MatchEventType.PlateAppearanceEnded or MatchEventType.HalfInningEnded or
+                MatchEventType.MatchEnded or MatchEventType.MatchEndedAsDraw)
+                Reset();
+        }
+
+        public void Reset()
+        {
+            _primaryResultEventType = default;
+            HasPrimaryResult = false;
+        }
+    }
+
     /// <summary>결과보다 원인이 뒤에 기록된 아웃을 같은 연출 공개 단위로 묶는다.</summary>
     public readonly struct OwnerMatchPlaybackGroup
     {

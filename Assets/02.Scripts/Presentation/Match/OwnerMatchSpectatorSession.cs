@@ -449,9 +449,9 @@ namespace Baseball.Presentation.Match
 
             int playerTeamId = manager.Runtime?.ManagerMode.LiveSeason.PlayerTeamId ?? 0;
             var eventBuffer = new MatchEventBuffer();
-            ManagerModeMatchResult result = manager.PlayNextGame(
-                eventBuffer,
-                CreateSpectatorExecutionProfile());
+            ManagerModeMatchResult result = manager.IsNextPostseasonGamePlayerMatch
+                ? manager.PlayNextPostseasonGame(eventBuffer, CreateSpectatorExecutionProfile())
+                : manager.PlayNextGame(eventBuffer, CreateSpectatorExecutionProfile());
             var season = manager.Runtime.ManagerMode.LiveSeason;
             return new OwnerMatchSpectatorSession(result, eventBuffer.ToArray(), hudView, playerTeamId,
                 teamId => manager.GetClubDisplayName(season.GetTeamSeasonKey(teamId)),

@@ -15,7 +15,7 @@ namespace Baseball.Presentation.Match
         private static Font _font;
         private Text _awayLabel, _homeLabel, _inningLabel, _statusLabel, _pauseLabel;
         private Text _pitcherLabel, _batterLabel, _pitcherDetail, _batterDetail;
-        private Text _announcement, _commentary, _resultHeading, _resultSummary, _managerDecisionSummary, _recordHeader;
+        private Text _announcement, _commentary, _resultHeading, _resultSummary, _recordHeader;
         private Text _scoreCaption, _resultToggleLabel;
         private Button _pauseButton, _advanceButton, _revealAllButton, _homeButton, _resultButton;
         private Button[] _speedButtons;
@@ -27,6 +27,7 @@ namespace Baseball.Presentation.Match
         private MatchGameCastConfig _gameCastConfig;
         private MatchPlayVisualizer _playVisualizer;
         private Text _pitchHistory, _decisionNote, _playDetail, _currentPitch;
+        private RectTransform _playExplanation, _decisionExplanation;
         private RectTransform _miniLineScore;
         private Text _miniAwayTeam, _miniHomeTeam;
         private readonly System.Collections.Generic.List<Text[]> _miniInningColumns = new();
@@ -184,15 +185,19 @@ namespace Baseball.Presentation.Match
             _pitchHistory = Label("PitchHistory", detail, "첫 투구를 기다립니다.", 14, 232, 188, 256, 180, Ink);
             _pitchHistory.alignment = TextAnchor.UpperLeft;
             _pitchHistory.fontStyle = FontStyle.Normal;
-            Label("ZoneNote", detail, "포수 시점 · 바깥 투구는 가장자리 표시", 11, 16, 370, 472, 20, Muted);
-            Panel("PlayRule", detail, Silver, 16, 404, 472, 1);
-            Label("PlayTitle", detail, "플레이 해설", 13, 16, 413, 472, 22, Blue);
-            _playDetail = Label("PlayDetail", detail, "타구와 주자의 움직임을 함께 확인하세요.", 15, 16, 440, 472, 49, Ink);
+            Label("ZoneNote", detail, "포수 시점", 11, 16, 370, 472, 20, Muted);
+            _playExplanation = Panel("PlayExplanation", detail, Color.clear, 16, 404, 472, 85);
+            Panel("PlayRule", _playExplanation, Silver, 0, 0, 472, 1);
+            Label("PlayTitle", _playExplanation, "플레이 해설", 13, 0, 9, 472, 22, Blue);
+            _playDetail = Label("PlayDetail", _playExplanation, "", 15, 0, 36, 472, 49, Ink);
             _playDetail.fontStyle = FontStyle.Normal;
-            Panel("DecisionRule", side, Silver, 16, 504, 472, 1);
-            Label("DecisionTitle", side, "감독의 판단", 13, 16, 513, 472, 22, Blue);
-            _decisionNote = Label("DecisionNote", side, "경기 중 기용과 운영은 감독 AI가 결정합니다.", 14, 16, 541, 472, 50, Ink);
+            _playExplanation.gameObject.SetActive(false);
+            _decisionExplanation = Panel("DecisionExplanation", side, Color.clear, 16, 504, 472, 87);
+            Panel("DecisionRule", _decisionExplanation, Silver, 0, 0, 472, 1);
+            Label("DecisionTitle", _decisionExplanation, "감독의 판단", 13, 0, 9, 472, 22, Blue);
+            _decisionNote = Label("DecisionNote", _decisionExplanation, "", 14, 0, 37, 472, 50, Ink);
             _decisionNote.fontStyle = FontStyle.Normal;
+            _decisionExplanation.gameObject.SetActive(false);
             BuildHighlightInset(side);
             _miniLineScore = Panel("CompactLineScore", _canvas, Color.clear, 24, 622, 852, 54);
             Label("Title", _miniLineScore, "이닝별 득점", 13, 0, 0, 180, 18, Color.white);
@@ -218,7 +223,6 @@ namespace Baseball.Presentation.Match
             });
             _resultToggleLabel = _resultButton.GetComponentInChildren<Text>();
             _homeButton = Control("ReturnHome", _canvas, "구단 홈으로", 1242, 752, 176, () => HomeRequested?.Invoke());
-            Label("AiNote", _canvas, "감독 AI 자동 운영", 13, 1070, 753, 168, 32, Muted);
         }
 
         private void BuildResults()
@@ -230,19 +234,17 @@ namespace Baseball.Presentation.Match
             _resultSummary = Label("Versus", _resultPanel, "", 28, 40, 70, 1360, 55, Ink);
             _resultSummary.alignment = TextAnchor.MiddleCenter;
             _resultScoreRows = Panel("FinalLineScore", _resultPanel, Silver, 40, 140, 1360, 126);
-            _managerDecisionSummary = Label("ManagerDecisions", _resultPanel, "", 14, 40, 270, 1360, 62, Muted);
-            _managerDecisionSummary.alignment = TextAnchor.MiddleLeft;
-            Control("AwayRecords", _resultPanel, "원정 기록", 40, 342, 135, () => { _showHomeRecords = false; RenderRecords(); });
-            Control("HomeRecords", _resultPanel, "홈 기록", 185, 342, 135, () => { _showHomeRecords = true; RenderRecords(); });
-            Control("BattingRecords", _resultPanel, "타격 성적", 340, 342, 135, () => { _showPitching = false; RenderRecords(); });
-            Control("PitchingRecords", _resultPanel, "투구 성적", 485, 342, 135, () => { _showPitching = true; RenderRecords(); });
-            _recordHeader = Label("RecordHeader", _resultPanel, "", 17, 650, 342, 748, 38, Blue);
+            Control("AwayRecords", _resultPanel, "원정 기록", 40, 280, 135, () => { _showHomeRecords = false; RenderRecords(); });
+            Control("HomeRecords", _resultPanel, "홈 기록", 185, 280, 135, () => { _showHomeRecords = true; RenderRecords(); });
+            Control("BattingRecords", _resultPanel, "타격 성적", 340, 280, 135, () => { _showPitching = false; RenderRecords(); });
+            Control("PitchingRecords", _resultPanel, "투구 성적", 485, 280, 135, () => { _showPitching = true; RenderRecords(); });
+            _recordHeader = Label("RecordHeader", _resultPanel, "", 17, 650, 280, 748, 38, Blue);
             _recordHeader.alignment = TextAnchor.MiddleRight;
-            var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 394, 1334, 202);
+            var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 332, 1334, 264);
             viewport.GetComponent<Image>().raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             _recordScroll = viewport.gameObject.AddComponent<ScrollRect>();
-            _recordContent = Panel("Records", viewport, Paper, 0, 0, 1334, 202);
+            _recordContent = Panel("Records", viewport, Paper, 0, 0, 1334, 264);
             _recordScroll.viewport = viewport;
             _recordScroll.content = _recordContent;
             _recordScroll.horizontal = false;
@@ -256,12 +258,12 @@ namespace Baseball.Presentation.Match
 
         private Scrollbar BuildRecordScrollbar()
         {
-            RectTransform track = Panel("RecordScrollbar", _resultPanel, Silver, 1380, 394, 20, 202);
+            RectTransform track = Panel("RecordScrollbar", _resultPanel, Silver, 1380, 332, 20, 264);
             Image trackImage = track.GetComponent<Image>();
             trackImage.raycastTarget = true;
             var scrollbar = track.gameObject.AddComponent<Scrollbar>();
-            RectTransform slidingArea = Panel("SlidingArea", track, Color.clear, 3, 3, 14, 196);
-            RectTransform handle = Panel("Handle", slidingArea, Blue, 0, 0, 14, 196);
+            RectTransform slidingArea = Panel("SlidingArea", track, Color.clear, 3, 3, 14, 258);
+            RectTransform handle = Panel("Handle", slidingArea, Blue, 0, 0, 14, 258);
             handle.anchorMin = new Vector2(0f, 0f);
             handle.anchorMax = new Vector2(1f, 1f);
             handle.offsetMin = handle.offsetMax = Vector2.zero;

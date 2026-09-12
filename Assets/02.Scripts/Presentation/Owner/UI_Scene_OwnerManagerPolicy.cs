@@ -1,8 +1,6 @@
 using System;
 using Baseball.Core.Historical;
-using Baseball.Core.Teams;
 using Baseball.Presentation.UI;
-using Baseball.Simulation.Historical;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -54,9 +52,9 @@ namespace Baseball.Presentation.Owner
             OwnerDugoutStaffCandidate coach = snapshot.GetHeadCoach(snapshot.SelectedHeadCoachId);
             _staff.text = manager.DisplayName + " · " + manager.Specialty + "\n" +
                           coach.DisplayName + " · " + coach.Specialty + "\n\n" +
-                          "감독 신뢰도 " + snapshot.ManagerTrust + "/100\n조정 범위 ±" + snapshot.AllowedPolicyOffset;
-            RefreshProfilePreview();
-            SetFeedback("저장된 감독방침입니다. 결정 전에는 다음 경기에 반영되지 않습니다.", false);
+                          "감독 신뢰도 " + snapshot.ManagerTrust + "/100";
+            RefreshPolicyDescription();
+            SetFeedback(string.Empty, false);
         }
 
         public void SetVisible(bool visible)
@@ -93,7 +91,7 @@ namespace Baseball.Presentation.Owner
             RectTransform policy = OwnerDugoutDetailUiFactory.CreatePanel(_root, "PolicyPanel", 0.02f, 0.10f, 0.61f, 0.975f);
             RectTransform context = OwnerDugoutDetailUiFactory.CreatePanel(_root, "ContextPanel", 0.63f, 0.10f, 0.98f, 0.975f);
             OwnerDugoutDetailUiFactory.CreateLabel(policy, "Title", "감독 작전 방침", 0.04f, 0.91f, 0.96f, 0.98f, 21, FontStyle.Bold);
-            OwnerDugoutDetailUiFactory.CreateLabel(policy, "Hint", "다섯 단계 · 신뢰도와 관계없이 ±2까지 선택 가능", 0.04f, 0.86f, 0.96f, 0.91f, 12);
+            OwnerDugoutDetailUiFactory.CreateLabel(policy, "Hint", "원하는 단계를 눌러 운영 방침을 선택하세요.", 0.04f, 0.86f, 0.96f, 0.91f, 12);
             for (int index = 0; index < _policySelectors.Length; index++) BuildAxis(policy, index);
             OwnerDugoutDetailUiFactory.CreateButton(policy, "Neutral", "모두 중립", 0.67f, 0.035f, 0.96f, 0.10f, ResetNeutral);
 
@@ -129,7 +127,7 @@ namespace Baseball.Presentation.Owner
         private void OnAxisChanged(int index)
         {
             RefreshAxis(index);
-            RefreshProfilePreview();
+            RefreshPolicyDescription();
             SetFeedback("임시 방침을 조정했습니다. 결정하면 다음 경기부터 적용됩니다.", false);
         }
 
@@ -145,18 +143,30 @@ namespace Baseball.Presentation.Owner
                 _policySelectors[index].SetValue(DugoutPolicySettings.NeutralLevel);
         }
 
-        private void RefreshProfilePreview()
+        private void RefreshPolicyDescription()
         {
             if (_snapshot == null) return;
-            ManagerTacticalProfile profile = DugoutTacticalProfileResolver.PreviewPolicyChange(
-                _snapshot.EffectiveProfile,
-                _snapshot.Policy,
-                CreateDraftPolicy());
-            _profile.text = "다음 경기 Preview\n\n" +
-                            "타격 " + profile.BattingApproach + " · 도루 " + profile.RunningAggression + " · 번트 " + profile.SmallBallPreference + "\n" +
-                            "대타 " + profile.PinchHitAggression + " · 선발 훅 " + profile.HookSpeed + " · 불펜 " + profile.BullpenAggression + "\n\n" +
-                            "현재 저장값에서 방침 단계당 " + DugoutTacticalProfileResolver.PolicyStepValue +
-                            "만큼 판단 임계값이 변합니다. 선수 능력치는 직접 보정하지 않습니다.";
+            var lines = new string[AxisNames.Length];
+            for (int index = 0; index < lines.Length; index++)
+                lines[index] = AxisNames[index] + " · " + DescribePolicy((DugoutPolicyAxis)index,
+                    _policySelectors[index].Value);
+            _profile.text = "선택한 운영 방침\n\n" + string.Join("\n", lines);
+        }
+
+        private static string DescribePolicy(DugoutPolicyAxis axis, int level)
+        {
+            if (level == DugoutPolicySettings.NeutralLevel) return "균형 유지";
+            bool isAggressive = level > DugoutPolicySettings.NeutralLevel;
+            return axis switch
+            {
+                DugoutPolicyAxis.BattingApproach => isAggressive ? "장타 중시" : "정확한 타격 중시",
+                DugoutPolicyAxis.RunningAggression => isAggressive ? "적극적인 도루" : "안정적인 주루",
+                DugoutPolicyAxis.SmallBallPreference => isAggressive ? "번트 기회 활용" : "타격 기회 중시",
+                DugoutPolicyAxis.PinchHitAggression => isAggressive ? "적극적인 대타 기용" : "선발 타자 신뢰",
+                DugoutPolicyAxis.HookSpeed => isAggressive ? "빠른 선발 교체" : "선발에게 긴 이닝 맡김",
+                DugoutPolicyAxis.BullpenAggression => isAggressive ? "빠른 불펜 교체" : "불펜 투수에게 기회 부여",
+                _ => "균형 유지"
+            };
         }
 
         private DugoutPolicySettings CreateDraftPolicy()

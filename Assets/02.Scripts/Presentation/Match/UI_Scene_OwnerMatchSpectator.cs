@@ -20,6 +20,12 @@ namespace Baseball.Presentation.Match
         private int _lastVisibleCount = -1;
 
         public event Action HomeRequested;
+        public event Action PresentationCompleted;
+        /// <summary>경기 기록으로 복귀할 때 완료 화면의 기본 행동에 포커스를 복원한다.</summary>
+        public void FocusCompletedResult()
+        {
+            if (IsComplete) _homeButton.Select();
+        }
         public event Action<bool> MatchAudioEnabledChanged;
         public bool IsPresenting { get; private set; }
         public bool IsComplete => _session?.State.IsComplete == true;
@@ -50,10 +56,13 @@ namespace Baseball.Presentation.Match
             _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
             _lastVisibleCount = -1;
             ResetGameCast();
+            bool isPostseason = manager.IsNextPostseasonGamePlayerMatch;
+            _homeButton.GetComponentInChildren<Text>().text = isPostseason ? "대진으로 돌아가기" : "구단 홈으로";
             _session = OwnerMatchSpectatorSession.PlayNextGame(manager, this);
             OwnerMatchPresentationOptions settings = OwnerMatchPresentationSettings.Load();
             _session.TrySetPlaybackSpeed(settings.PlaybackSpeed);
-            _session.TrySetViewingMode(settings.ViewingMode);
+            _session.TrySetViewingMode(isPostseason && settings.ViewingMode == OwnerMatchViewingMode.ResultOnly
+                ? OwnerMatchViewingMode.KeyMoments : settings.ViewingMode);
             IsPresenting = true;
             SetVisible(true);
             ScheduleNextAutomaticAdvance();

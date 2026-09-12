@@ -56,6 +56,10 @@ namespace Baseball.Tests.EditMode.Presentation.Match
                 Assert.That(canvas.Find("ViewingModeResultOnly"), Is.Not.Null);
                 Assert.That(canvas.Find("InningOverlay/LineScore"), Is.Not.Null);
                 Assert.That(canvas.Find("MatchResult/FinalLineScore"), Is.Not.Null);
+                Assert.That(canvas.Find("MatchResult/ManagerDecisions"), Is.Null);
+                Assert.That(canvas.Find("AiNote"), Is.Null);
+                Assert.That(canvas.Find("GameCastSidebar/DecisionExplanation").gameObject.activeSelf, Is.False);
+                Assert.That(canvas.Find("GameCastSidebar/PitchContext/PlayExplanation").gameObject.activeSelf, Is.False);
                 Transform recordViewport = canvas.Find("MatchResult/RecordViewport");
                 Transform recordScrollbar = canvas.Find("MatchResult/RecordScrollbar");
                 Assert.That(recordViewport, Is.Not.Null);

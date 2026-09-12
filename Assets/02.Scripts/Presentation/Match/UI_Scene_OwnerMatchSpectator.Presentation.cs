@@ -77,8 +77,8 @@ namespace Baseball.Presentation.Match
                 : state.IsPaused
                     ? "중계 일시정지"
                     : state.ViewingMode == OwnerMatchViewingMode.KeyMoments
-                        ? "승부처 하이라이트 · 감독 AI 자동 진행"
-                        : "생중계 · 감독 AI 자동 진행";
+                    ? "승부처 하이라이트"
+                    : "생중계";
             SetCompletionControlVisibility(isComplete);
             _resultToggleLabel.text = _showResults ? "경기 화면" : "경기 결과";
             _resultPanel.gameObject.SetActive(isComplete && _showResults);
@@ -103,9 +103,11 @@ namespace Baseball.Presentation.Match
             if (isComplete && !_wasComplete)
             {
                 _showResults = true;
+                _resultToggleLabel.text = "경기 화면";
                 _resultPanel.gameObject.SetActive(true);
                 BuildFinalResult();
                 _wasComplete = true;
+                PresentationCompleted?.Invoke();
             }
         }
 
@@ -133,13 +135,18 @@ namespace Baseball.Presentation.Match
             RenderPlayDetail(matchEvent);
             // Out은 아웃 수 갱신 사건이다. 타자 결과는 타석 종료에서 한 번만 중계한다.
             if (matchEvent.EventType == MatchEventType.Out) return;
-            string result = FormatEventResult(matchEvent);
+            bool repeatedPlateAppearanceResult =
+                _resultPresentationState.IsRepeatedPlateAppearanceResult(matchEvent);
+            string result = repeatedPlateAppearanceResult && _resultPresentationState.WasDoublePlay
+                ? "병살"
+                : FormatEventResult(matchEvent);
             int runsScored = CountRunsSincePreviousBoundary(visibleCount);
             if (result != "경기 진행")
                 _commentary.text = FormatCommentary(matchEvent, result, runsScored);
-            if (IsEmphasized(matchEvent)) _announcement.text = result;
-            else if (matchEvent.EventType is MatchEventType.Contact or MatchEventType.RunnerAdvance)
+            if (IsEmphasized(matchEvent) && !repeatedPlateAppearanceResult) _announcement.text = result;
+            else if (matchEvent.EventType == MatchEventType.Contact)
                 _announcement.text = string.Empty;
+            _resultPresentationState.Observe(matchEvent);
         }
 
         private void BuildFinalResult()
@@ -149,15 +156,8 @@ namespace Baseball.Presentation.Match
             string home = CurrentModel?.HomeTeam.Name ?? "홈";
             _resultHeading.text = match.IsTie ? "경기 종료 · 무승부" :
                     (match.WinnerTeamId == match.AwayBoxScore.TeamId ? "원정팀 승리" : "홈팀 승리");
-            Baseball.Core.Teams.ManagerTacticalProfile profile = _session.Result.EffectiveManagerProfile;
             _resultSummary.text = away + "  " + match.AwayBoxScore.Runs + "  :  " +
-                                  match.HomeBoxScore.Runs + "  " + home + "\n" +
-                                  _session.Result.ManagerDisplayName + " 감독 · " +
-                                  _session.Result.HeadCoachDisplayName + " 수석코치 · " +
-                                  $"타격 {profile.BattingApproach} / 주루 {profile.RunningAggression} / " +
-                                  $"번트 {profile.SmallBallPreference} / 대타 {profile.PinchHitAggression} / " +
-                                  $"선발 훅 {profile.HookSpeed} / 불펜 {profile.BullpenAggression}";
-            _managerDecisionSummary.text = FormatManagerDecisionSummary(match.DecisionTrace);
+                                  match.HomeBoxScore.Runs + "  " + home;
             int inningCount = Math.Min(match.InningsPlayed,
                 Math.Min(match.AwayBoxScore.RunsByInning.Count, match.HomeBoxScore.RunsByInning.Count));
             var awayRuns = new int[inningCount];
@@ -171,37 +171,6 @@ namespace Baseball.Presentation.Match
                 homeRuns, away, home, match.AwayBoxScore.Hits,
                 match.HomeBoxScore.Hits, match.AwayBoxScore.Errors, match.HomeBoxScore.Errors);
             RenderRecords();
-        }
-
-        private string FormatManagerDecisionSummary(System.Collections.Generic.IReadOnlyList<DecisionTraceEntry> trace)
-        {
-            string result = string.Empty;
-            int count = 0;
-            for (int index = 0; index < trace.Count && count < 3; index++)
-            {
-                DecisionTraceEntry entry = trace[index];
-                if (!_session.IsPlayerTeamParticipant(entry.ActorId)) continue;
-                result += (count == 0 ? string.Empty : "  |  ") + entry.Inning + "회" +
-                          (entry.Half == InningHalf.Top ? "초 " : "말 ") +
-                          _session.GetParticipantName(entry.ActorId) + " · " + FormatDecisionAction(entry.Action) +
-                          $" (판단 {entry.Score:0.00} / 기준 {entry.Threshold:0.00})";
-                count++;
-            }
-            return count == 0 ? "오늘의 감독 판단 · 주요 개입 없음" : "오늘의 감독 판단 · " + result;
-        }
-
-        private static string FormatDecisionAction(string action)
-        {
-            return action switch
-            {
-                "PitchingChange" => "투수 교체",
-                "PinchHit" => "대타 기용",
-                "PinchRunner" => "대주자 기용",
-                "DefensiveReplacement" => "수비 교체",
-                "SacrificeBunt" => "희생번트",
-                "Steal" => "도루 시도",
-                _ => action
-            };
         }
 
         private void BuildLineScore(RectTransform host, MatchLineScore score, string away, string home, bool final)
@@ -328,8 +297,9 @@ namespace Baseball.Presentation.Match
                         false);
                 }
             }
-            _recordContent.sizeDelta = new Vector2(1334, Mathf.Max(202, y + 42));
-            _recordScrollbar.gameObject.SetActive(_recordContent.sizeDelta.y > 202f);
+            float viewportHeight = _recordScroll.viewport.rect.height;
+            _recordContent.sizeDelta = new Vector2(1334, Mathf.Max(viewportHeight, y + 42));
+            _recordScrollbar.gameObject.SetActive(_recordContent.sizeDelta.y > viewportHeight);
             _recordScroll.verticalNormalizedPosition = 1;
         }
 

@@ -406,9 +406,9 @@ namespace Baseball.Presentation.Owner
                     FindWarning(selected.Validation.Issues, snapshot.Lineup[index].CardId));
 
             bool canStart = snapshot.IsMatchStartAvailable && selected.Validation.CanStartGame;
-            string reason = canStart ? string.Empty : !snapshot.IsMatchStartAvailable
-                ? snapshot.MatchStartUnavailableReason
-                : BuildValidationReason(selected.Validation.Issues);
+            string reason = canStart ? string.Empty : !selected.Validation.CanStartGame
+                ? BuildValidationReason(selected.Validation.Issues)
+                : snapshot.MatchStartUnavailableReason;
             return new OwnerPregamePresentationModel(
                 snapshot,
                 presets,
@@ -636,7 +636,7 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < issues.Count; index++)
                 if (issues[index].Severity != LineupPresetIssueSeverity.Warning)
                     return FormatLineupIssue(issues[index].Code);
-            return "현재 프리셋을 다시 확인해 주세요.";
+            return "선수 배치를 다시 확인해 주세요.";
         }
 
         private static string FormatLineupIssue(LineupPresetValidationIssueCode code)
