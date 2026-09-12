@@ -196,7 +196,7 @@ namespace Baseball.Presentation.Shop
             dropdown.SetValueWithoutNotify(selectedIndex);
             foreach (Text text in root.GetComponentsInChildren<Text>(true))
             {
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
                 text.fontSize = 12;
                 text.color = CareerUiTheme.ReferenceText;
                 text.alignment = TextAnchor.MiddleLeft;

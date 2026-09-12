@@ -123,7 +123,7 @@ namespace Baseball.Presentation.Match
             rect.sizeDelta = size;
             rect.anchoredPosition = position;
             Text text = child.GetComponent<Text>();
-            text.font = _font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = _font ??= Baseball.Presentation.UI.UIProjectFonts.Default;
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;
             text.alignment = alignment;

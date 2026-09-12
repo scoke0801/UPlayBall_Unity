@@ -711,7 +711,7 @@ namespace Baseball.Presentation.Career
             return input;
         }
 
-        private static Font GetRuntimeFont() => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        private static Font GetRuntimeFont() => Baseball.Presentation.UI.UIProjectFonts.Default;
 
         private static void Stretch(RectTransform rect)
         {

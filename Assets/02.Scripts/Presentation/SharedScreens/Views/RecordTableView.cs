@@ -683,7 +683,7 @@ namespace Baseball.Presentation.SharedScreens
         }
 
         private static Font DefaultFont =>
-            _defaultFont ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _defaultFont ??= Baseball.Presentation.UI.UIProjectFonts.Default;
 
         private void AddOutline(Image image)
         {

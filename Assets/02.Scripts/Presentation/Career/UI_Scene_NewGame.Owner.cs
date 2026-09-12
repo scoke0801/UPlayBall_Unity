@@ -643,7 +643,7 @@ namespace Baseball.Presentation.Career
             dropdown.AddOptions(options);
             dropdown.SetValueWithoutNotify(Mathf.Clamp(selectedIndex, 0, options.Count - 1));
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = Baseball.Presentation.UI.UIProjectFonts.Default;
             Text[] labels = dropdownObject.GetComponentsInChildren<Text>(true);
             for (int index = 0; index < labels.Length; index++)
             {

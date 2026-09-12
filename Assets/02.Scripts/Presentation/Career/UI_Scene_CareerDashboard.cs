@@ -1897,7 +1897,7 @@ namespace Baseball.Presentation.Career
             RectTransform rect = CreateRect(name, parent, size, position);
             if (stretch) Stretch(rect);
             Text text = rect.gameObject.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
             text.text = value;
             text.fontSize = fontSize;
             text.fontStyle = style;

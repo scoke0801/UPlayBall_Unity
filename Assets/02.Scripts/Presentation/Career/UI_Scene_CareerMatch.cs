@@ -2020,7 +2020,7 @@ namespace Baseball.Presentation.Career
             }
 
             Text text = gameObject.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
             text.text = value;
             text.fontSize = fontSize;
             text.fontStyle = fontStyle;

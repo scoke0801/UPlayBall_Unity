@@ -355,7 +355,7 @@ namespace Baseball.Presentation.SharedUI
         }
 
         private static Font DefaultFont =>
-            _defaultFont ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _defaultFont ??= Baseball.Presentation.UI.UIProjectFonts.Default;
 
         private static void SetAnchors(
             RectTransform rect,

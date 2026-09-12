@@ -189,7 +189,7 @@ namespace Baseball.Presentation.Career
             rect.sizeDelta = dimensions;
             rect.anchoredPosition = position;
             Text text = gameObject.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
             text.text = value;
             text.fontSize = size;
             text.fontStyle = style;

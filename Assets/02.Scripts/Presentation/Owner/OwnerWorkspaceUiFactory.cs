@@ -207,6 +207,6 @@ namespace Baseball.Presentation.Owner
             return requested;
         }
 
-        private static Font Font => _font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        private static Font Font => _font ??= Baseball.Presentation.UI.UIProjectFonts.Default;
     }
 }

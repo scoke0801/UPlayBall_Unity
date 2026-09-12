@@ -220,7 +220,7 @@ namespace Baseball.Presentation.SceneFlow
             Stretch(rect, new Vector2(0.2f, 0.4f), new Vector2(0.8f, 0.46f), Vector2.zero, Vector2.zero);
 
             Text label = labelObject.GetComponent<Text>();
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.font = Baseball.Presentation.UI.UIProjectFonts.Default;
             label.fontSize = 20;
             label.alignment = TextAnchor.MiddleCenter;
             label.color = new Color(0.62f, 0.71f, 0.82f, 1f);
