@@ -131,6 +131,12 @@ namespace Baseball.Presentation.UI
         public static readonly Color RosterText = new Color32(239, 244, 250, 255);
         public static readonly Color RosterTextSecondary = new Color32(173, 189, 207, 255);
         public static readonly Color RosterAccent = new Color32(103, 174, 255, 255);
+        // 카드 컨디션 화살표의 낮음 → 높음 순서와 같은 5색이다.
+        public static readonly Color ConditionPoor = new Color32(173, 119, 225, 255);
+        public static readonly Color ConditionBelowNormal = RosterAccent;
+        public static readonly Color ConditionNormal = CardStatYellow;
+        public static readonly Color ConditionGood = CardStatOrange;
+        public static readonly Color ConditionExcellent = CardStatRed;
         public const float RosterActionHeight = 60f;
         public const float RosterToolbarHeight = 80f;
         public const float RosterCompactToolbarHeight = 72f;

@@ -379,7 +379,7 @@ namespace Baseball.Presentation.Owner
             InputField input = root.GetComponent<InputField>();
             foreach (Text text in root.GetComponentsInChildren<Text>())
             {
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
                 text.fontSize = 12;
                 text.color = CareerUiTheme.ReferenceText;
             }
@@ -397,34 +397,62 @@ namespace Baseball.Presentation.Owner
 
         private static void RenderRosterChart(RectTransform content, IReadOnlyList<OwnerLineupSlotModel> slots, bool pitcher)
         {
-            AddSectionTitle(content, pitcher ? "투수 컨디션" : "타선 컨디션");
-            // Game이 계산한 단계명을 그대로 표시한다. UI에서 별도 임계값이나 위험도를 만들지 않는다.
-            var summaries = new List<string>();
-            var counts = new List<int>();
+            AddSectionTitle(content, pitcher ? "투수 컨디션 · 역할별 비교" : "타선 컨디션 · 타순별 비교");
+            RectTransform chart = OwnerRuntimeUiFactory.CreateRect("RosterChart", content);
+            LayoutElement sizing = chart.gameObject.AddComponent<LayoutElement>();
+            sizing.minHeight = sizing.preferredHeight = 250f;
+            RectTransform plot = OwnerRuntimeUiFactory.CreateRect("Plot", chart);
+            OwnerRuntimeUiFactory.SetAnchors(plot, Vector2.zero, Vector2.one,
+                new Vector2(32f, 64f), new Vector2(-8f, -32f));
+            var graphic = plot.gameObject.AddComponent<UIRosterConditionPlot>();
+            var values = new float[slots.Count];
+            var valid = new bool[slots.Count];
+            var levels = new int[slots.Count];
             for (int index = 0; index < slots.Count; index++)
             {
-                string label = slots[index].Player?.ConditionLabel ?? "선수 미지정";
-                int group = summaries.IndexOf(label);
-                if (group < 0) { summaries.Add(label); counts.Add(1); }
-                else counts[group]++;
+                values[index] = slots[index].Player?.Condition ?? 0;
+                valid[index] = slots[index].Player != null;
+                levels[index] = slots[index].Player?.ConditionLevel ?? 0;
+                float left = (float)index / slots.Count;
+                float right = (float)(index + 1) / slots.Count;
+                Text label = CreateConditionChartText(plot, "Order" + index,
+                    FormatCompactRole(slots[index].Label), 11, CareerUiTheme.RosterText);
+                OwnerRuntimeUiFactory.SetAnchors(label.rectTransform, new Vector2(left, 0f), new Vector2(right, 0f),
+                    new Vector2(0f, -28f), new Vector2(0f, -8f));
+                Text state = CreateConditionChartText(plot, "Status" + index,
+                    valid[index] ? PlayerCardConditionSprites.GetLabel(levels[index]) : "미배치",
+                    10, PlayerCardConditionSprites.GetColor(levels[index]));
+                OwnerRuntimeUiFactory.SetAnchors(state.rectTransform, new Vector2(left, 0f), new Vector2(right, 0f),
+                    new Vector2(0f, -52f), new Vector2(0f, -28f));
+                Text value = CreateConditionChartText(plot, "Value" + index,
+                    valid[index] ? values[index].ToString("0") : "—", 13, CareerUiTheme.RosterText);
+                float height = valid[index] ? Mathf.Clamp01(values[index] / 100f) : 0f;
+                OwnerRuntimeUiFactory.SetAnchors(value.rectTransform, new Vector2(left, height), new Vector2(right, height),
+                    new Vector2(0f, 4f), new Vector2(0f, 24f));
             }
-            for (int index = 0; index < summaries.Count; index++)
+            graphic.Bind(values, valid, levels);
+            for (int tick = 0; tick <= 100; tick += 50)
             {
-                Text summary = OwnerWorkspaceUiFactory.CreateText(content, "ConditionSummary",
-                    $"{summaries[index]} · {counts[index]}명", 16, FontStyle.Bold,
-                    TextAnchor.MiddleLeft, CareerUiTheme.RosterText);
-                summary.gameObject.AddComponent<CareerUiPreserveTextColor>();
-                summary.gameObject.AddComponent<LayoutElement>().minHeight = 32f;
+                Text axis = CreateConditionChartText(plot, "Tick" + tick, tick.ToString(),
+                    10, CareerUiTheme.RosterTextSecondary);
+                OwnerRuntimeUiFactory.SetAnchors(axis.rectTransform, new Vector2(0f, tick / 100f),
+                    new Vector2(0f, tick / 100f), new Vector2(-32f, -8f), new Vector2(-4f, 8f));
             }
-            // 같은 상태의 막대를 반복하는 대신 선수별 상태를 읽기 쉬운 행으로 제공한다.
-            foreach (OwnerLineupSlotModel slot in slots)
-            {
-                Text row = OwnerWorkspaceUiFactory.CreateText(content, "ConditionPlayer",
-                    $"{slot.Label}  {slot.Player?.DisplayName ?? "미지정"}  ·  {slot.Player?.ConditionLabel ?? "정보 없음"}",
-                    13, FontStyle.Normal, TextAnchor.MiddleLeft, CareerUiTheme.RosterTextSecondary);
-                row.gameObject.AddComponent<CareerUiPreserveTextColor>();
-                row.gameObject.AddComponent<LayoutElement>().minHeight = 28f;
-            }
+            Text caption = CreateConditionChartText(content, "ConditionCaption",
+                "기본 컨디션 · 수비 배치와 선수 궁합에 따라 경기 컨디션이 달라집니다.",
+                11, CareerUiTheme.RosterTextSecondary);
+            caption.alignment = TextAnchor.MiddleLeft;
+            caption.horizontalOverflow = HorizontalWrapMode.Wrap;
+            caption.gameObject.AddComponent<LayoutElement>().minHeight = 36f;
+        }
+
+        private static Text CreateConditionChartText(Transform parent, string name, string value, int size, Color color)
+        {
+            Text text = CreateAnalysisText(parent, name, value, size, FontStyle.Normal, TextAnchor.MiddleCenter);
+            text.resizeTextForBestFit = false;
+            text.color = color;
+            text.raycastTarget = false;
+            return text;
         }
     }
 }

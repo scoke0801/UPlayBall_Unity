@@ -835,7 +835,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(ownedScroll.viewport.rect.height, Is.GreaterThanOrEqualTo(ownedGrid.cellSize.y),
                     "최초 진입 시 보유 카드 한 줄의 이름과 역할을 스크롤 없이 읽을 수 있어야 합니다.");
                 Assert.That(analysis.GetChild(0).GetComponent<Text>().text, Does.Contain("수비 배치 주의"));
-                Assert.That(analysis.Find("RosterChart"), Is.Null);
+                Transform conditionPlot = analysis.Find("RosterChart/Plot");
+                Assert.That(conditionPlot, Is.Not.Null, "타순별 저장 컨디션 그래프가 있어야 합니다.");
+                Assert.That(conditionPlot.GetComponent<Graphic>(), Is.Not.Null,
+                    "타순별 저장 컨디션은 기존 막대 그래프로 표시합니다.");
                 PlayerMiniCardView assigned = Array.Find(board.GetComponentsInChildren<PlayerMiniCardView>(), c => c.name == "Owned_0");
                 Assert.That(assigned.transform.Find("AssignmentBadge").GetComponent<RectTransform>().anchorMin.y, Is.GreaterThanOrEqualTo(.89f));
                 string output = Environment.GetEnvironmentVariable("BASEBALL_ROSTER_CAPTURE");

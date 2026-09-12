@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,6 +11,28 @@ namespace Baseball.Presentation.SharedUI
     internal static class PlayerCardConditionSprites
     {
         private static readonly Sprite[] Arrows = new Sprite[5];
+
+        /// <summary>カードの10段階を2段階ずつまとめた共通コンディション色を返す。</summary>
+        internal static Color GetColor(int level)
+        {
+            if (level < 1 || level > 10) return CareerUiTheme.RosterTextSecondary;
+            if (level <= 2) return CareerUiTheme.ConditionPoor;
+            if (level <= 4) return CareerUiTheme.ConditionBelowNormal;
+            if (level <= 6) return CareerUiTheme.ConditionNormal;
+            if (level <= 8) return CareerUiTheme.ConditionGood;
+            return CareerUiTheme.ConditionExcellent;
+        }
+
+        /// <summary>カードの矢印に対応する5段階の状態名を返す。</summary>
+        internal static string GetLabel(int level)
+        {
+            if (level < 1 || level > 10) return "정보 없음";
+            if (level <= 2) return "안좋음";
+            if (level <= 4) return "조금 나쁨";
+            if (level <= 6) return "평범";
+            if (level <= 8) return "좋음";
+            return "매우 좋음";
+        }
 
         public static Sprite Get(int? level)
         {

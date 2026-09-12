@@ -736,7 +736,8 @@ namespace Baseball.Presentation.Owner
             TextAnchor alignment)
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(
-                parent, name, value, fontSize, style, alignment, CareerUiTheme.ReferenceText);
+                parent, name, value, fontSize, style, alignment, CareerUiTheme.RosterText);
+            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 6;
             text.resizeTextMaxSize = fontSize;

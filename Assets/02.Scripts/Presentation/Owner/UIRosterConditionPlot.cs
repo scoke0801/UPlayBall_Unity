@@ -1,3 +1,5 @@
+using Baseball.Presentation.UI;
+using Baseball.Presentation.SharedUI;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,11 +11,14 @@ namespace Baseball.Presentation.Owner
     {
         private float[] _values;
         private bool[] _valid;
+        private int[] _levels;
 
-        public void Bind(float[] values, bool[] valid)
+        /// <summary>슬롯 순서대로 컨디션과 선수 배치 여부를 반영한다.</summary>
+        public void Bind(float[] values, bool[] valid, int[] levels)
         {
             _values = values;
             _valid = valid;
+            _levels = levels;
             raycastTarget = false;
             SetVerticesDirty();
         }
@@ -22,22 +27,33 @@ namespace Baseball.Presentation.Owner
         {
             vh.Clear();
             Rect r = rectTransform.rect;
-            Quad(vh, new Rect(r.x, r.y, r.width, r.height * 0.6f), new Color(0.83f, 0.84f, 0.85f));
-            Quad(vh, new Rect(r.x, r.y + r.height * 0.6f, r.width, r.height * 0.2f), new Color(0.97f, 0.93f, 0.73f));
-            Quad(vh, new Rect(r.x, r.y + r.height * 0.8f, r.width, r.height * 0.2f), new Color(0.94f, 0.82f, 0.82f));
-            for (int i = 0; i <= 10; i++)
-                Quad(vh, new Rect(r.x, r.y + r.height * i / 10f, r.width, 1), new Color(0.65f, 0.66f, 0.67f, 0.5f));
+            if (r.width <= 0f || r.height <= 0f) return;
+            Quad(vh, r, CareerUiTheme.RosterBoard);
+            DrawGuide(vh, r, 0f);
+            DrawGuide(vh, r, 0.5f);
+            DrawGuide(vh, r, 1f);
             if (_values == null || _values.Length == 0) return;
             float step = r.width / _values.Length;
             for (int i = 0; i < _values.Length; i++)
             {
                 float x = r.x + step * (i + 0.5f);
                 float y = r.y + r.height * Mathf.Clamp01(_values[i] / 100f);
-                Quad(vh, new Rect(r.x + step * i, r.y, 1, r.height), new Color(0.65f, 0.66f, 0.67f, 0.4f));
                 if (!_valid[i]) continue;
-                Quad(vh, new Rect(x - step * 0.24f, r.y, step * 0.48f, y - r.y),
-                    _values[i] >= 80 ? new Color(0.78f, 0.12f, 0.16f) : new Color(0.97f, 0.75f, 0.08f));
+                float width = Mathf.Min(24f, step * 0.44f);
+                Color accent = PlayerCardConditionSprites.GetColor(_levels[i]);
+                Color body = Color.Lerp(CareerUiTheme.RosterSurface, accent, 0.65f);
+                Quad(vh, new Rect(x - width / 2f, r.y, width, r.height), CareerUiTheme.RosterSurface);
+                Quad(vh, new Rect(x - width / 2f, r.y, width, y - r.y), body);
+                float capHeight = Mathf.Min(3f, y - r.y);
+                if (capHeight > 0f)
+                    Quad(vh, new Rect(x - width / 2f, y - capHeight, width, capHeight), accent);
             }
+        }
+
+        private static void DrawGuide(VertexHelper vh, Rect rect, float ratio)
+        {
+            Quad(vh, new Rect(rect.x, rect.y + (rect.height - 1f) * ratio, rect.width, 1f),
+                CareerUiTheme.RosterDivider);
         }
 
         private static void Quad(VertexHelper vh, Rect r, Color color)
