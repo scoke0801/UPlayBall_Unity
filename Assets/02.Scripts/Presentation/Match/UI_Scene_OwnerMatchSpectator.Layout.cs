@@ -155,6 +155,10 @@ namespace Baseball.Presentation.Match
         {
             Sprite baseballSprite = _gameCastConfig.LoadBaseballSprite();
             var side = Panel("GameCastSidebar", _canvas, Paper, 924, 74, 504, 602);
+            OwnerDashboardStyle.ApplySection(side.GetComponent<Image>(), 36f);
+            var duel = Panel("DuelSurface", side, OwnerDashboardStyle.TableAlternate, 8, 40, 488, 98);
+            OwnerDashboardStyle.ApplyInset(duel.GetComponent<Image>());
+            Panel("DuelDivider", side, OwnerDashboardStyle.Line, 252, 48, 1, 82);
             Label("Heading", side, "현재 승부", 15, 16, 8, 472, 27, Blue);
             _pitcherRole = Label("PitcherRole", side, "마운드 · 투수", 12, 16, 42, 226, 23, Muted);
             _batterRole = Label("BatterRole", side, "타석 · 타자", 12, 266, 42, 222, 23, Muted);
@@ -190,12 +194,14 @@ namespace Baseball.Presentation.Match
             _pitchHistory.fontStyle = FontStyle.Normal;
             Label("ZoneNote", detail, "포수 시점", 11, 16, 370, 472, 20, Muted);
             _playExplanation = Panel("PlayExplanation", detail, Color.clear, 16, 404, 472, 85);
+            OwnerDashboardStyle.ApplySection(_playExplanation.GetComponent<Image>(), 32f);
             Panel("PlayRule", _playExplanation, OwnerDashboardStyle.Line, 0, 0, 472, 1);
             Label("PlayTitle", _playExplanation, "플레이 해설", 13, 0, 9, 472, 22, Blue);
             _playDetail = Label("PlayDetail", _playExplanation, "", 15, 0, 36, 472, 49, Ink);
             _playDetail.fontStyle = FontStyle.Normal;
             _playExplanation.gameObject.SetActive(false);
             _decisionExplanation = Panel("DecisionExplanation", side, Color.clear, 16, 504, 472, 87);
+            OwnerDashboardStyle.ApplySection(_decisionExplanation.GetComponent<Image>(), 32f);
             Panel("DecisionRule", _decisionExplanation, OwnerDashboardStyle.Line, 0, 0, 472, 1);
             Label("DecisionTitle", _decisionExplanation, "감독의 판단", 13, 0, 9, 472, 22, Blue);
             _decisionNote = Label("DecisionNote", _decisionExplanation, "", 14, 0, 37, 472, 50, Ink);
@@ -203,6 +209,7 @@ namespace Baseball.Presentation.Match
             _decisionExplanation.gameObject.SetActive(false);
             BuildHighlightInset(side);
             _miniLineScore = Panel("CompactLineScore", _canvas, Paper, 24, 622, 852, 54);
+            OwnerDashboardStyle.ApplySection(_miniLineScore.GetComponent<Image>(), 18f);
             Label("Title", _miniLineScore, "이닝별 득점", 13, 0, 0, 180, 18, Color.white);
             _miniAwayTeam = Label("AwayTeam", _miniLineScore, "", 13, 0, 18, 180, 18, Color.white);
             _miniHomeTeam = Label("HomeTeam", _miniLineScore, "", 13, 0, 36, 180, 18, Color.white);
@@ -213,7 +220,9 @@ namespace Baseball.Presentation.Match
 
         private void BuildFooter()
         {
-            Panel("Footer", _canvas, Paper, 0, 682, 1440, 128);
+            var footer = Panel("Footer", _canvas, Paper, 0, 682, 1440, 128);
+            OwnerDashboardStyle.ApplyInset(footer.GetComponent<Image>());
+            Panel("CommentaryAccent", _canvas, Blue, 12, 696, 3, 24);
             Panel("FooterRule", _canvas, OwnerDashboardStyle.Line, 0, 682, 1440, 1);
             Label("CommentaryTitle", _canvas, "경기 중계", 16, 20, 692, 106, 28, Blue);
             _commentary = Label("Commentary", _canvas, "잠시 후 경기가 시작됩니다.", 17, 140, 692, 900, 108, Ink);

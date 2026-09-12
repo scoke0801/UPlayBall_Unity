@@ -109,6 +109,7 @@ namespace Baseball.Presentation.Owner
             BuildMatchPlan();
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerPregameActionBar", false);
+            OwnerDashboardStyle.ApplyActionBar(_actionRoot);
             HorizontalLayoutGroup actionLayout = OwnerWorkspaceUiFactory.AddHorizontalLayout(_actionRoot, CareerUiTheme.Space3);
             actionLayout.padding = new RectOffset(16, 16, 4, 4);
             actionLayout.childForceExpandWidth = false;
@@ -116,6 +117,7 @@ namespace Baseball.Presentation.Owner
             _startStateText = OwnerWorkspaceUiFactory.CreateText(
                 _actionRoot, "StartState", string.Empty, 14, FontStyle.Normal, TextAnchor.MiddleRight,
                 CareerUiTheme.TextSecondary);
+            OwnerDashboardStyle.SetDataText(_startStateText);
             LayoutElement startStateLayout = _startStateText.gameObject.AddComponent<LayoutElement>();
             startStateLayout.minHeight = 42f;
             startStateLayout.preferredHeight = 42f;
@@ -203,6 +205,7 @@ namespace Baseball.Presentation.Owner
         private static RectTransform CreateInformationBlock(Transform parent, string name, float height)
         {
             RectTransform block = UIClubOfficeStyle.Surface(name, parent, new Color32(31, 48, 65, 255)).rectTransform;
+            OwnerDashboardStyle.ApplyInset(block.GetComponent<Image>());
             LayoutElement blockLayout = block.gameObject.AddComponent<LayoutElement>();
             blockLayout.minHeight = height;
             blockLayout.preferredHeight = height;
@@ -221,7 +224,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, "Value", string.Empty, size, style,
                 TextAnchor.UpperLeft, Color.white);
-            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            OwnerDashboardStyle.SetDataText(text, style == FontStyle.Bold);
             text.color = new Color32(236, 239, 240, 255);
             LayoutElement layout = text.gameObject.AddComponent<LayoutElement>();
             layout.preferredHeight = height;
@@ -233,7 +236,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, "SectionTitle", title, 15, FontStyle.Bold,
                 TextAnchor.MiddleLeft, Color.white);
-            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            OwnerDashboardStyle.SetDataText(text, true);
             text.color = new Color32(220, 189, 125, 255);
             text.gameObject.AddComponent<LayoutElement>().preferredHeight = 26f;
         }
@@ -268,7 +271,7 @@ namespace Baseball.Presentation.Owner
             Image shade = UIClubOfficeStyle.Surface("TitleShade", hero.transform, new Color32(9, 23, 38, 220));
             UIClubOfficeStyle.Place(shade.rectTransform, 0f, 0f, 1f, .47f);
             Text title = UIClubOfficeStyle.Label("PlanTitle", shade.transform, "경기 계획", 23, true);
-            title.color = Color.white;
+            OwnerDashboardStyle.SetDataText(title, true);
             OwnerRuntimeUiFactory.Stretch(title.rectTransform, new Vector2(14f, 6f), new Vector2(-12f, -6f));
             Image rule = UIClubOfficeStyle.Surface("GoldRule", hero.transform, new Color32(198, 164, 101, 255));
             rule.rectTransform.anchorMax = new Vector2(1f, 0f);
@@ -302,6 +305,8 @@ namespace Baseball.Presentation.Owner
             UIClubOfficeStyle.Place(key.rectTransform, 0f, 0f, .4f, 1f);
             Text value = UIClubOfficeStyle.Label("Value", row, string.Empty, 14, true);
             value.color = Color.white;
+            OwnerDashboardStyle.SetDataText(key);
+            OwnerDashboardStyle.SetDataText(value, true);
             value.alignment = TextAnchor.MiddleRight;
             UIClubOfficeStyle.Place(value.rectTransform, .4f, 0f, 1f, 1f);
             return value;
@@ -317,7 +322,8 @@ namespace Baseball.Presentation.Owner
             icon.rectTransform.offsetMin = Vector2.zero;
             icon.rectTransform.offsetMax = new Vector2(58f, 0f);
             Text heading = UIClubOfficeStyle.Label("Title", header, title, 16, true);
-            heading.color = new Color32(220, 189, 125, 255);
+            OwnerDashboardStyle.SetDataText(heading, true);
+            heading.color = OwnerDashboardStyle.Gold;
             OwnerRuntimeUiFactory.Stretch(heading.rectTransform, new Vector2(70f, 0f), Vector2.zero);
             Text items = AddLine(card, 14, FontStyle.Normal, 70f);
             // 긴 팀컬러 이름과 최대 장착 슬롯도 잘리지 않도록 실제 텍스트 높이를 사용한다.

@@ -6,18 +6,18 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>구단정보 레퍼런스의 검은 소개판, 금색 지표와 흰색 기록표를 재현한다.</summary>
+    /// <summary>구단 정체성과 운영 지표를 공용 네이비 카드와 핵심 수치로 표시한다.</summary>
     [RequireComponent(typeof(RectTransform))]
     public sealed class UI_Scene_OwnerClubInformation : MonoBehaviour
     {
-        private static readonly Color Paper = new Color32(246, 247, 248, 255);
-        private static readonly Color White = new Color32(255, 255, 255, 255);
-        private static readonly Color Ink = new Color32(35, 39, 45, 255);
-        private static readonly Color Muted = new Color32(93, 101, 113, 255);
-        private static readonly Color Grid = new Color32(183, 189, 197, 255);
-        private static readonly Color Blue = new Color32(28, 83, 148, 255);
-        private static readonly Color Lime = new Color32(169, 215, 49, 255);
-        private static readonly Color Gold = new Color32(222, 164, 20, 255);
+        private static readonly Color Paper = OwnerDashboardStyle.TableSurface;
+        private static readonly Color White = OwnerDashboardStyle.Ivory;
+        private static readonly Color Ink = OwnerDashboardStyle.Ivory;
+        private static readonly Color Muted = OwnerDashboardStyle.Muted;
+        private static readonly Color Grid = OwnerDashboardStyle.Line;
+        private static readonly Color Blue = OwnerDashboardStyle.Gold;
+        private static readonly Color Lime = OwnerDashboardStyle.Gold;
+        private static readonly Color Gold = OwnerDashboardStyle.Gold;
         private OwnerClubInformationPresentationModel _model;
         private bool _showOwner = true;
         private Button _changeManagerButton;
@@ -108,7 +108,7 @@ namespace Baseball.Presentation.Owner
             portrait.sprite = FrontManagerPortraitSprites.LoadForManager(_model.FrontManagerId, "FM_WELCOME");
             portrait.preserveAspect = true;
             Place(portrait.rectTransform, .45f, .02f, 1f, .98f);
-            RectTransform speech = Surface(office.rectTransform, "Speech", new Color32(255, 255, 255, 242), .04f, .56f, .63f, .91f, true);
+            RectTransform speech = Surface(office.rectTransform, "Speech", OwnerDashboardStyle.TableHeader, .04f, .56f, .63f, .91f, true);
             Label(speech, "Message", "이번 시즌의 모든 결정은 기록으로 남습니다.\n구단의 현재 상태를 함께 확인해요.",
                 .06f, .1f, .94f, .9f, 15, Ink, TextAnchor.MiddleLeft);
             _changeManagerButton = OwnerWorkspaceUiFactory.CreateButton(manager, "ChangeFrontManager", "매니저 교체",
@@ -149,17 +149,16 @@ namespace Baseball.Presentation.Owner
             });
 
             RectTransform previous = Panel(root, "Previous", "이전 리그 성적", .51f, .08f, .975f, .445f);
-            GridRow(previous, .66f, new[] { "시즌", "기간", "등급", "순위" }, new[] { "—", "—", "—", "—" });
-            GridRow(previous, .38f, new[] { "시즌", "기간", "등급", "순위" }, new[] { "—", "—", "—", "—" });
-            GridRow(previous, .1f, new[] { "시즌", "기간", "등급", "순위" }, new[] { "—", "—", "—", "—" });
+            Label(previous, "HistoryEmptyTitle", "이전 시즌 기록 안내", .06f, .44f, .94f, .70f, 22, Ink);
+            Label(previous, "HistoryEmptyDetail", "완료된 시즌의 상세 성적은 구단 기록실에서 확인하세요.", .06f, .20f, .94f, .43f, 14, Muted);
         }
 
         private void Metric(RectTransform host, string title, string value, string note, float minX, float maxX)
         {
-            RectTransform box = Surface(host, "Metric_" + title, new Color32(255, 249, 222, 255), minX, .08f, maxX, .84f, true);
+            RectTransform box = Surface(host, "Metric_" + title, OwnerDashboardStyle.TableAlternate, minX, .08f, maxX, .84f, true);
             Surface(box, "GoldBar", Gold, 0f, .86f, 1f, 1f);
-            Label(box, "Title", title, .04f, .47f, .46f, .82f, 18, new Color32(122, 86, 0, 255), TextAnchor.MiddleLeft, FontStyle.Bold);
-            Label(box, "Value", value, .47f, .44f, .95f, .84f, 25, new Color32(154, 45, 30, 255), TextAnchor.MiddleRight, FontStyle.Bold);
+            Label(box, "Title", title, .04f, .47f, .46f, .82f, 18, Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Label(box, "Value", value, .47f, .44f, .95f, .84f, 32, Ink, TextAnchor.MiddleRight, FontStyle.Bold);
             Label(box, "Note", note, .05f, .08f, .95f, .4f, 12, Muted);
         }
 
@@ -167,20 +166,22 @@ namespace Baseball.Presentation.Owner
         {
             RectTransform panel = Surface(parent, name, White, minX, minY, maxX, maxY, true);
             UIOwnerFrontOfficePanel.Apply(panel, "ManagerReport");
-            Label(panel, "Title", title, .03f, .89f, .97f, 1f, 16, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Label(panel, "Title", title, .03f, .89f, .97f, .99f, 18, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            OwnerDashboardStyle.Rule(panel, "SectionRule", new Vector2(.03f, .88f), new Vector2(.97f, .88f),
+                Vector2.zero, new Vector2(0, 1), Grid);
             return panel;
         }
 
         private static void InfoBand(RectTransform parent, string caption, string value, float y)
         {
-            RectTransform band = Surface(parent, "Info_" + caption, new Color32(249, 249, 250, 255), .025f, y - .09f, .975f, y, true);
+            RectTransform band = Surface(parent, "Info_" + caption, OwnerDashboardStyle.TableAlternate, .025f, y - .09f, .975f, y, true);
             Label(band, "Caption_" + caption, caption, .0263f, 0f, .3316f, 1f, 14, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(band, "Value_" + caption, value, .3421f, 0f, .9632f, 1f, 16, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
         }
 
         private static void Section(RectTransform parent, string title, float y)
         {
-            RectTransform section = Surface(parent, "Section_" + title, new Color32(239, 241, 243, 255), .025f, y, .975f, y + .085f, true);
+            RectTransform section = Surface(parent, "Section_" + title, OwnerDashboardStyle.TableHeader, .025f, y, .975f, y + .085f, true);
             Label(section, "SectionLabel_" + title, title, .016f, 0f, .984f, 1f, 14, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
         }
 
@@ -190,9 +191,9 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < captions.Length; index++)
             {
                 float left = .025f + index * width;
-                RectTransform cell = Surface(parent, "Cell_" + y + "_" + index, White, left, y, left + width, y + .12f, true);
+                RectTransform cell = Surface(parent, "Cell_" + y + "_" + index, OwnerDashboardStyle.TableAlternate, left, y, left + width - .008f, y + .12f, true);
                 Label(cell, "Caption", captions[index], 0f, .51f, 1f, 1f, 12, Blue, TextAnchor.MiddleCenter, FontStyle.Bold);
-                Label(cell, "Value", values[index], 0f, 0f, 1f, .51f, 15, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+                Label(cell, "Value", values[index], 0f, 0f, 1f, .55f, 21, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
             }
         }
 
@@ -203,6 +204,7 @@ namespace Baseball.Presentation.Owner
         {
             Image image = OwnerRuntimeUiFactory.CreateImage(name, parent, color);
             Place(image.rectTransform, minX, minY, maxX, maxY);
+            OwnerDashboardStyle.SetDataSurface(image, color);
             if (outline)
             {
                 Outline border = image.gameObject.AddComponent<Outline>();
@@ -219,6 +221,8 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerRuntimeUiFactory.CreateText(name, parent, value, size, style, alignment, color);
             Place(text.rectTransform, minX, minY, maxX, maxY);
+            OwnerDashboardStyle.SetDataText(text, style == FontStyle.Bold);
+            text.color = color;
             return text;
         }
 

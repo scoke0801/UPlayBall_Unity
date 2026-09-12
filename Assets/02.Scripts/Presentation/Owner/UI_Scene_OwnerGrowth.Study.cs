@@ -31,11 +31,13 @@ namespace Baseball.Presentation.Owner
                 for (int index = 0; index < card.Studies.Length; index++)
                     RenderStudyDestinationNode(card.Studies[index]);
             }
+            OwnerDashboardStyle.ApplyInset(Surface(_content, "MapLegendSurface", 30, 462, 690, 32, OwnerDashboardStyle.InsetSurface));
             StudyLabel(_content, "MapLegend", "비행기  이용 가능    ·    ?  해금 조건 확인    ·    금색 테두리  선택", 11, 35, 466, 685, 26);
             Image informationFrame = Frame(_content, "StudyInformation", 742, 86, 338, 416);
             AddStudyDismissAction(informationFrame);
             StudyLabel(_content, "StudyInformationTitle", "유학지 정보", 15, 754, 92, 310, 25);
             Surface(_content, "StudyTitleRule", 753, 119, 315, 1, Border);
+            OwnerDashboardStyle.ApplyInset(Surface(_content, "StudyProgramSummary", 753, 124, 315, 172, OwnerDashboardStyle.InsetSurface));
             StudyLabel(_content, "StudyName", option?.Program.DisplayName ?? "목적지를 선택하세요", 16, 757, 126, 305, 28);
             StudyLabel(_content, "StudyDestination", option == null ? "" : "목적지  " + option.Program.DestinationName,
                 12, 757, 153, 305, 22);
@@ -209,7 +211,7 @@ namespace Baseball.Presentation.Owner
             UIOwnerFrontOfficePanel.Apply(image.rectTransform, "ManagerReport");
             Image data = OwnerRuntimeUiFactory.CreateImage("DataSurface", image.transform, OwnerDashboardStyle.TableSurface);
             OwnerRuntimeUiFactory.Stretch(data.rectTransform, new Vector2(8, 8), new Vector2(-8, -8));
-            OwnerDashboardStyle.SetDataSurface(data, OwnerDashboardStyle.TableSurface);
+            OwnerDashboardStyle.ApplySection(data, 28f);
             return image;
         }
 
@@ -256,11 +258,12 @@ namespace Baseball.Presentation.Owner
             OwnerDashboardStyle.SetDataSurface(track, OwnerDashboardStyle.TableHeader, true);
             OwnerDashboardStyle.SetDataSurface(handle, OwnerDashboardStyle.TableSecondary, true);
             Image surface = scroll.GetComponent<Image>();
-            if (surface != null) OwnerDashboardStyle.SetDataSurface(surface, OwnerDashboardStyle.TableSurface, true);
+            if (surface != null) OwnerDashboardStyle.ApplyInset(surface, true);
             bar.handleRect = handle.rectTransform;
             bar.targetGraphic = handle;
             bar.direction = Scrollbar.Direction.BottomToTop;
             scroll.verticalScrollbar = bar;
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
             scroll.viewport.offsetMax = new Vector2(-12, 0);
         }
     }

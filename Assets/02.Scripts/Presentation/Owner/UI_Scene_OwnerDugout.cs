@@ -13,9 +13,9 @@ namespace Baseball.Presentation.Owner
     {
         private const string ManagerPortraitPath = "UI/OwnerDugout/manager-male";
         private const string HeadCoachPortraitPath = "UI/OwnerDugout/coach-male";
-        private static readonly Color Ink = CareerUiTheme.ReferenceText;
-        private static readonly Color MutedInk = CareerUiTheme.ReferenceTextSecondary;
-        private static readonly Color Blue = CareerUiTheme.ReferenceAccent;
+        private static readonly Color Ink = OwnerDashboardStyle.Ivory;
+        private static readonly Color MutedInk = OwnerDashboardStyle.TableSecondary;
+        private static readonly Color Accent = OwnerDashboardStyle.Gold;
         private static readonly Color Red = CareerUiTheme.Loss;
         private readonly OwnerPolicyStepSelector[] _policySelectors = new OwnerPolicyStepSelector[6];
         private RectTransform _root;
@@ -107,6 +107,7 @@ namespace Baseball.Presentation.Owner
         private void Build(RectTransform host)
         {
             _root = OwnerWorkspaceUiFactory.CreateRoot(host, "OwnerDugoutWorkspace", false);
+            UIOwnerFrontOfficePanel.ApplyWorkspace(_root);
             _root.offsetMin = Vector2.one * CareerUiTheme.Space4;
             _root.offsetMax = -Vector2.one * CareerUiTheme.Space4;
             _root.gameObject.AddComponent<CareerUiPreserveTextColor>();
@@ -130,9 +131,9 @@ namespace Baseball.Presentation.Owner
             ActionButton(policy, "ResetPolicy", "방침을 모두 중립으로", .02f, .015f, .98f, .095f, ResetPolicy);
             var summary = CreateDugoutPanel(board, "PreviewPanel", "다음 경기 운영");
             Place(summary.Root, .769f, 0f, 1f, 1f);
-            CreateSummaryCard(summary.Content, 0, "공격", new[] { "타격 접근", "도루", "번트" }, "", Blue);
-            CreateSummaryCard(summary.Content, 1, "교체", new[] { "대타", "선발 투수", "불펜" }, "", Blue);
-            CreateSummaryCard(summary.Content, 2, "코칭스태프 조합", new[] { "불펜 역할", "상대 맞춤", "수비 교체" }, "", Blue);
+            CreateSummaryCard(summary.Content, 0, "공격", new[] { "타격 접근", "도루", "번트" }, "", Accent);
+            CreateSummaryCard(summary.Content, 1, "교체", new[] { "대타", "선발 투수", "불펜" }, "", Accent);
+            CreateSummaryCard(summary.Content, 2, "코칭스태프 조합", new[] { "불펜 역할", "상대 맞춤", "수비 교체" }, "", Accent);
             _trustHint = Label(summary.Content, "TrustHint", "", .04f, .015f, .96f, .14f, 15, MutedInk, TextAnchor.UpperLeft);
             _status = Label(body, "PreviewStatus", "덕아웃 데이터를 불러오는 중입니다.", .01f, .015f, .65f, .095f, 17, Ink, TextAnchor.MiddleLeft);
             _confirmButton = ActionButton(body, "Confirm", "다음 경기 적용", .79f, .02f, .99f, .095f, ConfirmConfiguration);
@@ -153,7 +154,7 @@ namespace Baseball.Presentation.Owner
             Label(row, "Low", low, .32f, .66f, .65f, 1f, 14, MutedInk, TextAnchor.MiddleLeft);
             Label(row, "High", high, .66f, .66f, 1f, 1f, 14, MutedInk, TextAnchor.MiddleRight);
             var description = Label(row, "Description", "감독과 코치의 기본 운영을 따릅니다.", 0f, 0f, 1f, .28f, 14, MutedInk, TextAnchor.MiddleLeft);
-            var selector = new OwnerPolicyStepSelector(Rect(row, "PolicySteps", 0f, .29f, 1f, .64f), Blue, 18);
+            var selector = new OwnerPolicyStepSelector(Rect(row, "PolicySteps", 0f, .29f, 1f, .64f), Accent, 18);
             selector.ValueChanged += value =>
             {
                 description.text = value < 2 ? lowDescription : value > 2 ? highDescription : "감독과 코치의 기본 운영을 따릅니다.";
@@ -167,7 +168,7 @@ namespace Baseball.Presentation.Owner
             bool manager = name == "Manager";
             var button = ActionButton(parent, name, title, manager ? 0f : .515f, bottom, manager ? .485f : 1f, top,
                 () => OpenSelection(manager));
-            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Primary);
+            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Secondary);
             var safe = Rect(button.transform, "ContentSafeRect", .065f, .035f, .935f, .965f);
             var role = button.transform.Find("Label").GetComponent<Text>();
             role.transform.SetParent(safe, false);
@@ -400,10 +401,12 @@ namespace Baseball.Presentation.Owner
         private static OwnerWorkspaceUiFactory.Panel CreateDugoutPanel(Transform parent, string name, string title)
         {
             var panel = OwnerWorkspaceUiFactory.CreatePanel(parent, name, title);
-            // 알파를 무시하는 기존 보조 Outline이 본문 전체를 덮지 않도록 공용 패널 자체의 테두리를 사용한다.
+            // 공통 스킨 재적용에도 V2 표면과 제목 대비를 유지한다.
             panel.Root.Find("ThinBorder").gameObject.SetActive(false);
-            panel.Root.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DecorativeFrame);
-            CareerUiSkin.ApplyPanel(panel.Root.GetComponent<Image>(), false);
+            panel.Root.Find("HeaderSurface").gameObject.SetActive(false);
+            panel.Root.Find("HeaderAccent").gameObject.SetActive(false);
+            UIOwnerFrontOfficePanel.Apply(panel.Root, "ManagerReport");
+            OwnerDashboardStyle.SetDataText(panel.Root.Find("HeaderSlot").GetComponent<Text>(), true);
             return panel;
         }
 
@@ -444,8 +447,8 @@ namespace Baseball.Presentation.Owner
             int size, Color color, TextAnchor alignment = TextAnchor.MiddleCenter)
         {
             Text label = OwnerWorkspaceUiFactory.CreateText(parent, name, text, size, size >= 19 ? FontStyle.Bold : FontStyle.Normal, alignment, color);
-            label.color = UIOwnerFrontOfficePanel.HasDarkSurface(parent)
-                ? UIOwnerFrontOfficePanel.ResolveTextColor(color) : color;
+            OwnerDashboardStyle.SetDataText(label, size >= 19);
+            label.color = color;
             Place(label.rectTransform, left, bottom, right, top);
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = size;

@@ -142,7 +142,7 @@ namespace Baseball.Presentation.Owner
             _lineupBoard.SetVisible(true);
             _lineupBoard.Bind(_lineupSnapshot, true, "역대 강팀으로 돌아가기",
                 "카드 우클릭: 선수 상세 · " + CreateMatchRecord() + " · 경기 중 교체에 따라 출전 선수가 달라질 수 있습니다.");
-            _lineupBoard.transform.Find("CloseLineup").GetComponent<Button>().Select();
+            _lineupBoard.FocusClose();
         }
 
         private string CreateMatchRecord()
@@ -170,7 +170,8 @@ namespace Baseball.Presentation.Owner
                 string status = progress.wins >= 3 ? progress.rewardClaimed ? "격파 완료" : "보상 수령 가능"
                     : available ? "도전 가능 · " + progress.wins + " / 3승" : "잠김 · " + (team.rank + 1) + "위 격파 시 해금";
                 _rows[i].transform.Find("Label").GetComponent<Text>().text = _name(team);
-                OwnerUiButtonSkin.SetSelected(_rows[i], selected);
+                OwnerDashboardStyle.SetDataRow(_rows[i], selected,
+                    i % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.InsetSurface);
                 _ranks[i].text = team.rank.ToString("00") + "위";
                 _ranks[i].color = selected ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Ivory;
                 _rowStates[i].text = (selected ? "선택 · " : "") + status;
@@ -242,6 +243,7 @@ namespace Baseball.Presentation.Owner
             _filter.onValueChanged.AddListener(index => { _decade = index == 0 ? 0 : 1970 + index * 10; _page = 0; RebuildList(); });
             Place((RectTransform)_filter.transform, .36f, .95f, .98f, 1);
             _filter.captionText.fontSize = 16;
+            OwnerDashboardStyle.SetDataDropdown(_filter);
             var guide = Text(list.Content, "ChallengeGuide", 14); guide.text = "팀별 3승 달성 시 다음 순위 해금";
             guide.color = OwnerDashboardStyle.Muted; Place(guide.rectTransform, .02f, .905f, .98f, .945f);
             for (int i = 0; i < 10; i++)
@@ -270,6 +272,8 @@ namespace Baseball.Presentation.Owner
             Place(_teamTitle.rectTransform, .04f, .84f, .96f, .98f);
             _record = Text(center.Content, "Record", 18); _record.color = Color.white;
             Place(_record.rectTransform, .04f, .71f, .96f, .84f);
+            SectionSurface(center.Content, "FeaturedSurface", .02f, .355f, .98f, .70f);
+            SectionSurface(center.Content, "RotationSurface", .02f, .08f, .98f, .345f);
             var featured = Text(center.Content, "FeaturedHeading", 16);
             featured.text = "주요 선수 · 코스트 TOP 3";
             Place(featured.rectTransform, .04f, .657f, .96f, .70f);
@@ -286,7 +290,9 @@ namespace Baseball.Presentation.Owner
             Place((RectTransform)compare.transform, .45f, 0, .68f, .07f);
             var edit = Button(center.Content, "EditOrder", "우리 선수 오더", () => LineupRequested?.Invoke());
             Place((RectTransform)edit.transform, .70f, 0, 1, .07f);
-            _completed = Text(reward.Content, "Completion", 23); Place(_completed.rectTransform, .03f, .84f, .97f, 1);
+            SectionSurface(reward.Content, "ProgressSurface", .01f, .615f, .99f, 1);
+            SectionSurface(reward.Content, "RewardSurface", .01f, .325f, .99f, .605f);
+            _completed = Text(reward.Content, "Completion", 23); Place(_completed.rectTransform, .05f, .84f, .95f, 1);
             _progress = Text(reward.Content, "Wins", 28); Place(_progress.rectTransform, .03f, .61f, .97f, .84f);
             _progress.color = OwnerDashboardStyle.Gold;
             _reward = Text(reward.Content, "Rewards", 20); Place(_reward.rectTransform, .03f, .32f, .97f, .61f);
@@ -339,11 +345,17 @@ namespace Baseball.Presentation.Owner
         }
         private static void StylePanel(RectTransform root)
         {
-            OwnerDashboardStyle.ApplySurface(root, true);
+            UIOwnerFrontOfficePanel.Apply(root, "ManagerReport");
             root.Find("ThinBorder").gameObject.SetActive(false);
             var header = root.Find("HeaderSurface").GetComponent<Image>(); header.color = OwnerDashboardStyle.Raised;
             var title = root.Find("HeaderSlot").GetComponent<Text>(); title.color = OwnerDashboardStyle.Ivory;
             OwnerDashboardStyle.SetTypography(title, true); title.fontSize = 20;
+        }
+        private static void SectionSurface(Transform parent, string name, float x, float y, float right, float top)
+        {
+            var image = OwnerRuntimeUiFactory.CreateImage(name, parent, OwnerDashboardStyle.InsetSurface);
+            Place(image.rectTransform, x, y, right, top);
+            OwnerDashboardStyle.ApplyInset(image);
         }
         private static void Place(RectTransform rect, float x, float y, float right, float top)
         { rect.anchorMin = new Vector2(x, y); rect.anchorMax = new Vector2(right, top); rect.offsetMin = rect.offsetMax = Vector2.zero; }

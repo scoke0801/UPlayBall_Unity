@@ -59,7 +59,9 @@ namespace Baseball.Presentation.Match
             root.anchorMax = Vector2.one;
             root.offsetMin = root.offsetMax = Vector2.zero;
             root.GetComponent<Image>().raycastTarget = false;
-            Baseball.Presentation.Owner.UIOwnerFrontOfficePanel.ApplyWorkspace(root);
+            // 비율 유지로 남는 좌우 공간은 낮은 대비의 배경으로 물려 경기 화면에 집중시킨다.
+            Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataSurface(root.GetComponent<Image>(),
+                Baseball.Presentation.Owner.OwnerDashboardStyle.Ink);
             var view = go.AddComponent<UI_Scene_OwnerMatchSpectator>();
             view._root = root;
             view.Build();

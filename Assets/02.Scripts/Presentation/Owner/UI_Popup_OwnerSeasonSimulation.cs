@@ -224,10 +224,12 @@ namespace Baseball.Presentation.Owner
             _matchupText.alignment = TextAnchor.MiddleCenter;
 
             Image track = OwnerRuntimeUiFactory.CreateImage(
-                "ProgressTrack", modal, new Color(0.72f, 0.74f, 0.76f, 1f));
+                "ProgressTrack", modal, OwnerDashboardStyle.InsetSurface);
             SetRect(track.rectTransform, new Vector2(48f, 192f), new Vector2(632f, 210f));
+            OwnerDashboardStyle.ApplyInset(track);
             _progressFill = OwnerRuntimeUiFactory.CreateImage(
-                "ProgressFill", track.transform, CareerUiTheme.ReferenceAccentLight);
+                "ProgressFill", track.transform, OwnerDashboardStyle.Gold);
+            OwnerDashboardStyle.SetDataSurface(_progressFill, OwnerDashboardStyle.Gold);
             _progressFill.rectTransform.anchorMin = Vector2.zero;
             _progressFill.rectTransform.anchorMax = Vector2.one;
             _progressFill.rectTransform.pivot = new Vector2(0f, 0.5f);
@@ -236,15 +238,23 @@ namespace Baseball.Presentation.Owner
             _progressFill.rectTransform.localScale = new Vector3(0f, 1f, 1f);
 
             Image metrics = OwnerRuntimeUiFactory.CreateImage(
-                "ProgressSummary", modal, CareerUiTheme.ReferencePanelHeader);
+                "ProgressSummary", modal, OwnerDashboardStyle.InsetSurface);
             SetRect(metrics.rectTransform, new Vector2(48f, 104f), new Vector2(632f, 178f));
-            _leagueProgressText = Label(metrics.transform, "LeagueProgress", string.Empty, 16, FontStyle.Bold,
-                CareerUiTheme.ReferenceText, new Vector2(16f, 37f), new Vector2(284f, 70f));
-            _playerProgressText = Label(metrics.transform, "PlayerProgress", string.Empty, 16, FontStyle.Bold,
-                CareerUiTheme.ReferenceText, new Vector2(300f, 37f), new Vector2(568f, 70f));
+            OwnerDashboardStyle.ApplyInset(metrics);
+            RectTransform summaryContent = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", metrics.transform);
+            OwnerRuntimeUiFactory.Stretch(summaryContent);
+            summaryContent.offsetMin = new Vector2(16f, 4f);
+            summaryContent.offsetMax = new Vector2(-16f, -4f);
+            _leagueProgressText = Label(summaryContent, "LeagueProgress", string.Empty, 16, FontStyle.Normal,
+                OwnerDashboardStyle.Ivory, new Vector2(0f, 33f), new Vector2(268f, 66f));
+            OwnerDashboardStyle.SetDataText(_leagueProgressText, true);
+            _playerProgressText = Label(summaryContent, "PlayerProgress", string.Empty, 16, FontStyle.Normal,
+                OwnerDashboardStyle.Ivory, new Vector2(284f, 33f), new Vector2(552f, 66f));
+            OwnerDashboardStyle.SetDataText(_playerProgressText, true);
             _playerProgressText.alignment = TextAnchor.MiddleRight;
-            _recordText = Label(metrics.transform, "SeasonRecord", string.Empty, 16, FontStyle.Normal,
-                CareerUiTheme.ReferenceTextSecondary, new Vector2(16f, 4f), new Vector2(568f, 37f));
+            _recordText = Label(summaryContent, "SeasonRecord", string.Empty, 16, FontStyle.Normal,
+                OwnerDashboardStyle.TableSecondary, Vector2.zero, new Vector2(552f, 33f));
+            OwnerDashboardStyle.SetDataText(_recordText);
             _recordText.alignment = TextAnchor.MiddleCenter;
 
             Button stopButton = OwnerWorkspaceUiFactory.CreateButton(

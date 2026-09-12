@@ -9,11 +9,11 @@ namespace Baseball.Presentation.Owner
 {
     public sealed partial class UI_Scene_OwnerPregame
     {
-        private static readonly Color Paper = new Color32(251, 250, 240, 255);
-        private static readonly Color Ink = new Color32(48, 47, 44, 255);
-        private static readonly Color Rule = new Color32(193, 193, 182, 255);
-        private static readonly Color OwnBlue = new Color32(35, 115, 187, 255);
-        private static readonly Color OpponentRed = new Color32(186, 51, 62, 255);
+        private static readonly Color Paper = OwnerDashboardStyle.TableSurface;
+        private static readonly Color Ink = OwnerDashboardStyle.Ivory;
+        private static readonly Color Rule = OwnerDashboardStyle.Line;
+        private static readonly Color OwnBlue = CareerUiTheme.RosterAccent;
+        private static readonly Color OpponentRed = CareerUiTheme.CardStatRed;
         private readonly Text[] _teamNames = new Text[2];
         private readonly Text[] _teamMonograms = new Text[2];
         private readonly Image[] _teamEmblems = new Image[2];
@@ -36,22 +36,22 @@ namespace Baseball.Presentation.Owner
 
         private void BuildAnalysisBoard()
         {
-            RectTransform frame = Surface(_workspaceRoot, "AnalysisFrame", new Color32(88, 57, 39, 255), 0, 0, 1, 1);
+            RectTransform frame = Surface(_workspaceRoot, "AnalysisFrame", Paper, 0, 0, 1, 1);
+            UIOwnerFrontOfficePanel.Apply(frame, "ManagerReport");
             _analysisBoard = frame;
-            RectTransform edge = Surface(frame, "MetalRim", Rule, .008f, .012f, .992f, .988f);
-            RectTransform board = Surface(edge, "AnalysisPaper", Paper, .005f, .009f, .995f, .991f);
-            Surface(board, "BlueBookmark", OwnBlue, .11f, .974f, .145f, 1);
-            Surface(board, "RedBookmark", OpponentRed, .855f, .974f, .89f, 1);
+            RectTransform board = Rect(frame, "AnalysisContent", 0, 0, 1, 1);
+            OwnerRuntimeUiFactory.Stretch(board, new Vector2(20, 16), new Vector2(-20, -16));
             _analysisLeague = Label(board, "League", "", 12, .02f, .915f, .38f, .97f);
             _analysisMatch = Label(board, "Match", "", 12, .62f, .915f, .98f, .97f, TextAnchor.MiddleRight);
-            Label(board, "Title", "상대 분석", 17, .38f, .925f, .62f, .985f, TextAnchor.MiddleCenter, true);
+            Label(board, "Title", "경기 전력 비교", 20, .38f, .925f, .62f, .985f, TextAnchor.MiddleCenter, true);
             for (int side = 0; side < 2; side++)
             {
                 float left = side == 0 ? .02f : .645f;
                 float right = side == 0 ? .355f : .98f;
                 Color accent = side == 0 ? OwnBlue : OpponentRed;
-                RectTransform team = Surface(board, "Team" + side, Paper, left, .625f, right, .913f);
-                RectTransform badge = Surface(team, "TeamBadge", new Color32(244, 246, 247, 255),
+                RectTransform team = Surface(board, "Team" + side, Paper, left, .625f, right, .90f);
+                OwnerDashboardStyle.ApplyInset(team.GetComponent<Image>());
+                RectTransform badge = Surface(team, "TeamBadge", OwnerDashboardStyle.TableHeader,
                     side == 0 ? 0 : .76f, .15f, side == 0 ? .24f : 1, .9f);
                 Surface(badge, "AccentRail", accent, side == 0 ? 0 : .965f, 0, side == 0 ? .035f : 1, 1);
                 _teamEmblems[side] = Rect(badge, "TeamEmblem", .10f, .20f, .90f, .96f).gameObject.AddComponent<Image>();
@@ -60,24 +60,25 @@ namespace Baseball.Presentation.Owner
                 _teamEmblems[side].raycastTarget = false;
                 _teamMonograms[side] = Label(badge, "EmblemFallback", "?", 28, .10f, .20f, .90f, .96f,
                     TextAnchor.MiddleCenter, true, accent);
-                Surface(badge, "ClubMarkSurface", accent, .035f, 0, .965f, .18f);
+                Surface(badge, "ClubMarkSurface", OwnerDashboardStyle.TableSurface, .035f, 0, .965f, .18f);
                 Label(badge, "ClubMark", side == 0 ? "우리 구단" : "상대 구단", 10, .035f, 0, .965f, .18f,
-                    TextAnchor.MiddleCenter, true, Color.white);
+                    TextAnchor.MiddleCenter, true, accent);
                 float textLeft = side == 0 ? .27f : 0;
                 float textRight = side == 0 ? 1 : .73f;
-                _teamNames[side] = Label(team, "TeamName", "", 16, textLeft, .72f, textRight, 1, TextAnchor.MiddleLeft, true);
+                _teamNames[side] = Label(team, "TeamName", "", 16, textLeft, .72f, textRight, .91f, TextAnchor.MiddleLeft, true);
                 _teamRecent[side] = Label(team, "RecentForm", "", 11, textLeft, .51f, textRight, .72f);
-                RectTransform marker = Surface(team, "HomeAway", accent, side == 0 ? .90f : 0, .94f, side == 0 ? 1 : .10f, 1.15f);
-                _teamSides[side] = Label(marker, "Side", "", 18, 0, 0, 1, 1, TextAnchor.MiddleCenter, true, Color.white);
-                RectTransform records = Surface(team, "SeasonRecord", Color.white, textLeft, .08f, textRight, .5f);
+                RectTransform marker = Surface(team, "HomeAway", OwnerDashboardStyle.TableHeader, side == 0 ? .80f : 0, .91f, side == 0 ? 1 : .20f, 1);
+                _teamSides[side] = Label(marker, "Side", "", 12, 0, 0, 1, 1, TextAnchor.MiddleCenter, true, accent);
+                RectTransform records = Surface(team, "SeasonRecord", OwnerDashboardStyle.TableHeader, textLeft, .08f, textRight, .5f);
                 CreateCells(records, new[] { "경기", "승", "패", "무", "승률" }, .52f, 1, accent, true);
                 _teamRecords[side] = CreateCells(records, new[] { "—", "—", "—", "—", "—" }, 0, .52f, Ink, false);
             }
-            RectTransform chart = Surface(board, "RadarPaper", new Color32(245, 244, 225, 255), .37f, .615f, .63f, .915f);
+            RectTransform chart = Surface(board, "RadarPaper", OwnerDashboardStyle.InsetSurface, .37f, .615f, .63f, .915f);
             Label(chart, "ChartTitle", "로스터 기본 능력 비교", 11, 0, .86f, 1, 1, TextAnchor.MiddleCenter, true);
             RectTransform radarRect = Rect(chart, "Radar", .20f, .14f, .80f, .82f);
             _radar = radarRect.gameObject.AddComponent<UIOpponentRadar>();
             _radar.raycastTarget = false;
+            _radar.SetPalette(OwnBlue, OpponentRed, OwnerDashboardStyle.Line);
             Label(chart, "Contact", "정확", 10, .37f, .76f, .63f, .9f, TextAnchor.MiddleCenter);
             Label(chart, "Power", "장타", 10, .76f, .51f, 1, .68f, TextAnchor.MiddleCenter);
             Label(chart, "Speed", "주력", 10, .63f, .03f, .90f, .20f, TextAnchor.MiddleCenter);
@@ -95,16 +96,24 @@ namespace Baseball.Presentation.Owner
                 for (int tab = 0; tab < 2; tab++)
                 {
                     bool pitchers = tab == 1;
-                    RectTransform buttonRect = Surface(section, "RecordTab" + tab, Paper, tab * .33f, .83f, (tab + 1) * .33f, 1);
+                    RectTransform buttonRect = Rect(section, "RecordTab" + tab, tab * .5f, .80f, (tab + 1) * .5f, 1);
+                    buttonRect.gameObject.AddComponent<Image>();
                     Button button = buttonRect.gameObject.AddComponent<Button>();
                     button.targetGraphic = buttonRect.GetComponent<Image>();
                     button.targetGraphic.raycastTarget = true;
                     Label(buttonRect, "Label", pitchers ? "투수 정보" : "야수 정보", 12, 0, 0, 1, 1, TextAnchor.MiddleCenter, true);
-                    button.onClick.AddListener(() => { _showPitchers[teamIndex] = pitchers; RenderRosterTable(teamIndex); });
+                    OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab);
+                    button.onClick.AddListener(() =>
+                    {
+                        if (_showPitchers[teamIndex] == pitchers) return;
+                        _showPitchers[teamIndex] = pitchers;
+                        RenderRosterTable(teamIndex);
+                    });
                     _recordTabs[side, tab] = button;
                 }
                 ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("RosterScroll" + side, section, out RectTransform content);
-                Place(scroll.GetComponent<RectTransform>(), 0, 0, 1, .82f);
+                Place(scroll.GetComponent<RectTransform>(), 0, 0, 1, .78f);
+                OwnerDashboardStyle.SetDataSurface(scroll.GetComponent<Image>(), Paper, true);
                 VerticalLayoutGroup tableLayout = content.GetComponent<VerticalLayoutGroup>();
                 tableLayout.spacing = 0;
                 tableLayout.padding = new RectOffset(1, 1, 1, 1);
@@ -116,7 +125,9 @@ namespace Baseball.Presentation.Owner
 
         private Text CreateStarter(RectTransform board, string name, float left, float right, Color accent, int side)
         {
-            RectTransform root = Rect(board, name, left, .395f, right, .55f);
+            RectTransform panel = Surface(board, name, Paper, left, .395f, right, .55f);
+            OwnerDashboardStyle.ApplyInset(panel.GetComponent<Image>());
+            RectTransform root = Rect(panel, "Content", .015f, .05f, .985f, .95f);
             PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(root, "PitcherCard");
             card.UseLineupSlotLayout();
             card.DetailRequested += _ => ShowStarterDetail(side);
@@ -226,8 +237,7 @@ namespace Baseball.Presentation.Owner
             for (int tab = 0; tab < 2; tab++)
             {
                 bool selected = (tab == 1) == pitchers;
-                _recordTabs[side, tab].GetComponent<Image>().color = selected ? Color.white : new Color32(225, 224, 215, 255);
-                _recordTabs[side, tab].GetComponentInChildren<Text>().color = selected ? accent : Ink;
+                OwnerUiButtonSkin.SetSelected(_recordTabs[side, tab], selected);
             }
             AddTableRow(content, new[] { "선수", "포지션", "컨디션 / 관측" }, accent, true, 0);
             IReadOnlyList<OwnerPregameRosterRowModel> rows = _model.GetRosterRows(side == 0, pitchers);
@@ -249,17 +259,14 @@ namespace Baseball.Presentation.Owner
         private static RectTransform AddTableRow(RectTransform content, string[] values, Color color, bool header, int index)
         {
             RectTransform row = Surface(content, header ? "TableHeader" : "PlayerRow" + index,
-                header ? new Color32(234, 237, 233, 255) : index % 2 == 0 ? Color.white : new Color32(242, 245, 246, 255), 0, 0, 1, 1);
-            row.gameObject.AddComponent<LayoutElement>().preferredHeight = header ? 24 : 28;
+                header ? OwnerDashboardStyle.TableHeader : index % 2 == 0 ? Paper : OwnerDashboardStyle.TableAlternate, 0, 0, 1, 1);
+            row.gameObject.AddComponent<LayoutElement>().preferredHeight = header ? 30 : 32;
             float[] bounds = { 0, .30f, .48f, 1 };
             for (int cell = 0; cell < 3; cell++)
             {
                 Text label = Label(row, "Cell" + cell, values[cell], 11, bounds[cell] + .012f, 0, bounds[cell + 1] - .012f, 1,
                     TextAnchor.MiddleLeft, header, color);
-                label.resizeTextForBestFit = true;
-                label.resizeTextMinSize = 9;
-                label.resizeTextMaxSize = 11;
-                Surface(row, "ColumnRule" + cell, Rule, bounds[cell], 0, bounds[cell] + .002f, 1);
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
             }
             Surface(row, "RowRule", Rule, 0, 0, 1, .025f);
             return row;
@@ -272,7 +279,6 @@ namespace Baseball.Presentation.Owner
             {
                 float left = (float)index / labels.Length, right = (float)(index + 1) / labels.Length;
                 result[index] = Label(parent, "Stat" + index, labels[index], 11, left, bottom, right, top, TextAnchor.MiddleCenter, bold, color);
-                Surface(parent, "StatRule" + index, Rule, left, bottom, left + .004f, top);
             }
             Surface(parent, "HorizontalRule", Rule, 0, bottom, 1, bottom + .018f);
             return result;
@@ -284,6 +290,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, name, value, size,
                 bold ? FontStyle.Bold : FontStyle.Normal, alignment, color ?? Ink);
+            OwnerDashboardStyle.SetDataText(text, bold);
             text.color = color ?? Ink;
             text.supportRichText = false;
             Place(text.rectTransform, left, bottom, right, top);

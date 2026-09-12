@@ -178,6 +178,9 @@ namespace Baseball.Presentation.Owner
                 detail, "EffectScroll", .04f, .505f, .96f, .625f, out ScrollRect effectScroll);
             effectScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
             _detail = CreateBoardLabel(effectContent, "Description", string.Empty, 0f, 0f, 1f, 1f, 18, FontStyle.Bold, TextAnchor.UpperLeft);
+            OwnerDashboardStyle.SetTypography(_detail);
+            _detail.rectTransform.offsetMin = new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space3);
+            _detail.rectTransform.offsetMax = -_detail.rectTransform.offsetMin;
             _playersTitle = CreateBoardLabel(
                 detail, "PlayersTitle", "효과를 받는 선수", .04f, .445f, .96f, .495f, 14, FontStyle.Bold);
             _playerContent = CreateHorizontalBoardScroll(
@@ -460,7 +463,7 @@ namespace Baseball.Presentation.Owner
             float effectTop = hasCandidate ? (compact ? .785f : .705f) : (compact ? .86f : .79f);
             // 기본 시너지는 빈 선수 영역을 활용한다. 후보 선택 후에는 선수 카드의 가독성을 보존한다.
             float effectHeight = hasCandidate ? (compact ? .07f : .12f) :
-                Mathf.Clamp((_detail.preferredHeight + CareerUiTheme.Space2) / panelHeight,
+                Mathf.Clamp((_detail.preferredHeight + CareerUiTheme.Space3 * 2f) / panelHeight,
                     .24f, effectTop - (compact ? .43f : .40f));
             float effectBottom = effectTop - effectHeight;
             OwnerDugoutDetailUiFactory.Place((RectTransform)_detail.transform.parent.parent.parent,
@@ -553,7 +556,8 @@ namespace Baseball.Presentation.Owner
             if (label == null) return;
             RectTransform content = (RectTransform)label.transform.parent;
             // 콘텐츠는 가로만 Stretch하고 세로는 상단 고정이므로 실제 전체 높이를 지정한다.
-            float height = Mathf.Max(((RectTransform)content.parent).rect.height, label.preferredHeight + CareerUiTheme.Space2);
+            float padding = label.rectTransform.offsetMin.y - label.rectTransform.offsetMax.y;
+            float height = Mathf.Max(((RectTransform)content.parent).rect.height, label.preferredHeight + padding);
             if (Mathf.Abs(content.sizeDelta.y - height) > .5f)
                 content.sizeDelta = new Vector2(0f, height);
         }

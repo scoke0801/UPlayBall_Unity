@@ -19,6 +19,8 @@ namespace Baseball.Presentation.Owner
         private readonly Button[] _honors = new Button[3];
         private Text _title, _description;
         private RectTransform _tableHost, _trophies;
+        private RectTransform _seasonSummary;
+        private readonly Text[] _summaryValues = new Text[4];
         private RecordTableView _table;
         private Button _back, _players;
         private OwnerClubHistoryPresentationModel _model;
@@ -101,6 +103,7 @@ namespace Baseball.Presentation.Owner
                     _tab == 3 ? "이 리그에서 획득한 타이틀이 없습니다. 새로운 우승의 역사를 만들어 보세요." : "선택한 리그에서 운영한 시즌이 없습니다.";
             }
             RenderTrophies();
+            RenderSeasonSummary();
             _table.AllowRowActivation = _tab != 1 && _detail == null;
             _table.HighlightBadge = "현재 시즌";
             _table.Bind(table, table.Rows.Count == 0 ? UiContentStateModel.CreateEmpty("기록 없음", empty) : UiContentStateModel.Ready);
@@ -110,6 +113,11 @@ namespace Baseball.Presentation.Owner
         {
             var root = (RectTransform)transform;
             UIOwnerFrontOfficePanel.ApplyWorkspace(root);
+            Image navigation = OwnerRuntimeUiFactory.CreateImage("HistoryNavigation", root, OwnerDashboardStyle.TableSurface);
+            Place(navigation.rectTransform, .025f, .755f, .975f, .905f);
+            OwnerDashboardStyle.ApplyInset(navigation);
+            OwnerDashboardStyle.Rule(root, "HistoryFilterRule", new Vector2(.03f, .83f), new Vector2(.97f, .83f),
+                Vector2.zero, new Vector2(0, 1), OwnerDashboardStyle.Line);
             _title = Text("Title", root, 21, FontStyle.Bold); Place(_title.rectTransform, .03f, .91f, .70f, .99f);
             for (int i = 0; i < _tabs.Length; i++)
             {
@@ -125,8 +133,22 @@ namespace Baseball.Presentation.Owner
                 Place((RectTransform)_grades[i].transform, .03f + i * .08545f, .765f, .03f + (i + 1) * .08545f - .003f, .825f);
             }
             _description = Text("Description", root, 13, FontStyle.Normal); Place(_description.rectTransform, .03f, .705f, .97f, .763f);
+            _seasonSummary = OwnerRuntimeUiFactory.CreateRect("SeasonSummary", root);
+            Place(_seasonSummary, .03f, .605f, .97f, .70f);
+            string[] captions = { "운영 시즌", "정규시즌 완료", "페넌트레이스 우승", "포스트시즌 우승" };
+            for (int index = 0; index < captions.Length; index++)
+            {
+                var card = OwnerRuntimeUiFactory.CreateImage("Summary" + index, _seasonSummary, OwnerDashboardStyle.InsetSurface);
+                Place(card.rectTransform, index * .25f, 0, (index + 1) * .25f - .008f, 1);
+                OwnerDashboardStyle.ApplyInset(card);
+                var caption = Text("Caption", card.transform, 13, FontStyle.Normal);
+                caption.text = captions[index]; Place(caption.rectTransform, .05f, .52f, .95f, .94f);
+                _summaryValues[index] = Text("Value", card.transform, 24, FontStyle.Bold);
+                Place(_summaryValues[index].rectTransform, .05f, .04f, .95f, .54f);
+            }
             _tableHost = OwnerRuntimeUiFactory.CreateRect("HistoryTableHost", root);
             _table = RecordTableView.CreateRuntime(_tableHost, "HistoryTable");
+            _table.RowHeight = 56f;
             _table.SetVisualStyle(RecordTableVisualStyle.OwnerFrontOffice); _table.RowSelected += OpenSeason;
             BuildTrophies(root);
             _back = Button("BackToHistory", root, "기록 목록으로", () => TryGoBack());
@@ -157,7 +179,7 @@ namespace Baseball.Presentation.Owner
         private void UpdateTableBounds()
         {
             bool isTrophyRoom = _tab == 3 && _detail == null;
-            Place(_tableHost, .03f, .06f, .97f, isTrophyRoom ? .25f : .70f);
+            Place(_tableHost, .03f, .06f, .97f, isTrophyRoom ? .25f : _tab == 0 && _detail == null ? .59f : .70f);
             if (isTrophyRoom && _trophies != null)
             {
                 float trophyWidth = Mathf.Min(((RectTransform)transform).rect.width * .94f, TrophyRoomMaximumWidth);
@@ -177,6 +199,23 @@ namespace Baseball.Presentation.Owner
             _tableHost.anchorMax = new Vector2(.5f, .70f);
             _tableHost.offsetMin = new Vector2(-width * .5f, 0f);
             _tableHost.offsetMax = new Vector2(width * .5f, 0f);
+        }
+        private void RenderSeasonSummary()
+        {
+            _seasonSummary.gameObject.SetActive(_tab == 0 && _detail == null);
+            int count = 0, completed = 0, pennants = 0, champions = 0;
+            foreach (var season in _model.Seasons)
+            {
+                if (_grade.HasValue && season.Grade != _grade.Value) continue;
+                count++;
+                if (season.IsCompleted) completed++;
+                if (season.HasPennant) pennants++;
+                if (season.Postseason == OwnerTeamPostseasonResult.Champion) champions++;
+            }
+            _summaryValues[0].text = count + "시즌";
+            _summaryValues[1].text = completed + "시즌";
+            _summaryValues[2].text = pennants + "회";
+            _summaryValues[3].text = champions + "회";
         }
         private void OnDestroy() { if (_table != null) _table.RowSelected -= OpenSeason; SeasonPlayersRequested = null; }
     }

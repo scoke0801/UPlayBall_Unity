@@ -25,6 +25,9 @@ namespace Baseball.Presentation.SharedScreens
     {
         public const float DefaultHeaderHeight = 42f;
         public const float DefaultRowHeight = 36f;
+        private float _rowHeight = DefaultRowHeight;
+        /// <summary>기록의 용도에 맞는 행 높이를 Bind 전에 지정한다.</summary>
+        public float RowHeight { get => _rowHeight; set => _rowHeight = Mathf.Max(DefaultRowHeight, value); }
         public const int DefaultOverscanRows = 2;
 
         private const float ScrollbarThickness = 11f;
@@ -369,7 +372,7 @@ namespace Baseball.Presentation.SharedScreens
                 totalWeight += ColumnWidthWeight(_model.Columns[i]);
 
             _contentWidth = Mathf.Max(viewportWidth, totalWeight * (IsOwnerFrontOffice ? 120f : MinimumColumnWidthPerWeight));
-            float contentHeight = Mathf.Max(viewportHeight, _model.Rows.Count * DefaultRowHeight);
+            float contentHeight = Mathf.Max(viewportHeight, _model.Rows.Count * RowHeight);
             _content.sizeDelta = new Vector2(_contentWidth, contentHeight);
             _headerContent.sizeDelta = new Vector2(_contentWidth, DefaultHeaderHeight);
 
@@ -447,7 +450,7 @@ namespace Baseball.Presentation.SharedScreens
 
         private int CalculateRequiredPoolSize()
         {
-            int visibleRows = Mathf.Max(1, Mathf.CeilToInt(ResolveViewportHeight() / DefaultRowHeight));
+            int visibleRows = Mathf.Max(1, Mathf.CeilToInt(ResolveViewportHeight() / RowHeight));
             return visibleRows + DefaultOverscanRows * 2;
         }
 
@@ -457,7 +460,7 @@ namespace Baseball.Presentation.SharedScreens
                 return;
 
             float scrollOffset = Mathf.Max(0f, _content.anchoredPosition.y);
-            int first = Mathf.Max(0, Mathf.FloorToInt(scrollOffset / DefaultRowHeight) - DefaultOverscanRows);
+            int first = Mathf.Max(0, Mathf.FloorToInt(scrollOffset / RowHeight) - DefaultOverscanRows);
             int maxFirst = Mathf.Max(0, _model.Rows.Count - _rowPool.Count);
             _firstRenderedRowIndex = Mathf.Min(first, maxFirst);
 
@@ -537,8 +540,8 @@ namespace Baseball.Presentation.SharedScreens
         {
             float viewportHeight = ResolveViewportHeight();
             float currentTop = Mathf.Max(0f, _content.anchoredPosition.y);
-            float rowTop = rowIndex * DefaultRowHeight;
-            float rowBottom = rowTop + DefaultRowHeight;
+            float rowTop = rowIndex * RowHeight;
+            float rowBottom = rowTop + RowHeight;
             float targetTop = currentTop;
             if (rowTop < currentTop)
                 targetTop = rowTop;
@@ -940,9 +943,9 @@ namespace Baseball.Presentation.SharedScreens
                 SetTopLeftRect(
                     Root,
                     0f,
-                    rowIndex * DefaultRowHeight,
+                    rowIndex * _owner.RowHeight,
                     contentWidth,
-                    DefaultRowHeight - 1f);
+                    _owner.RowHeight - 1f);
                 Root.gameObject.SetActive(true);
 
                 _background.color = isSelected
@@ -957,7 +960,8 @@ namespace Baseball.Presentation.SharedScreens
                     bool hasAction = _owner.RowSelected != null && _owner.AllowRowActivation;
                     _button.interactable = hasAction;
                     OwnerDashboardStyle.SetDataRow(_button, isSelected && hasAction,
-                        rowIndex % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.TableSurface);
+                        row.IsHighlighted ? OwnerDashboardStyle.TableSelected :
+                        rowIndex % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.InsetSurface);
                     _button.navigation = new Navigation { mode = hasAction ? Navigation.Mode.Automatic : Navigation.Mode.None };
                     if (!hasAction)
                     {

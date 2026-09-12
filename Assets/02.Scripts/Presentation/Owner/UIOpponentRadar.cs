@@ -11,6 +11,18 @@ namespace Baseball.Presentation.Owner
         private float[] _opponent;
         private int _axisCount = 5;
         private float _maximum = 100f;
+        private Color _ownColor = new Color32(35, 115, 187, 255);
+        private Color _opponentColor = new Color32(186, 51, 62, 255);
+        private Color _gridColor = new Color32(185, 184, 173, 255);
+
+        /// <summary>비교할 두 구단과 배경에 맞는 표현 색상을 지정한다.</summary>
+        public void SetPalette(Color own, Color opponent, Color grid)
+        {
+            _ownColor = own;
+            _opponentColor = opponent;
+            _gridColor = grid;
+            SetVerticesDirty();
+        }
 
         /// <summary>기본 5축 팀 비교 또는 지정한 축 수·표시 상한으로 두 집합을 복사한다.</summary>
         public void Bind(float[] own, float[] opponent, int axisCount = 5, float maximum = 100f)
@@ -28,13 +40,13 @@ namespace Baseball.Presentation.Owner
             vh.Clear();
             Vector2 center = rectTransform.rect.center;
             float radius = Mathf.Min(rectTransform.rect.width, rectTransform.rect.height) * .46f;
-            Color grid = new Color32(185, 184, 173, 255);
+            Color grid = _gridColor;
             for (int ring = 1; ring <= 4; ring++)
                 for (int axis = 0; axis < _axisCount; axis++)
                     Line(vh, Point(center, radius * ring / 4, axis), Point(center, radius * ring / 4, axis + 1), grid, .6f);
             for (int axis = 0; axis < _axisCount; axis++) Line(vh, center, Point(center, radius, axis), grid, .6f);
-            Polygon(vh, center, radius, _own, new Color32(35, 115, 187, 255));
-            Polygon(vh, center, radius, _opponent, new Color32(186, 51, 62, 255));
+            Polygon(vh, center, radius, _own, _ownColor);
+            Polygon(vh, center, radius, _opponent, _opponentColor);
         }
 
         private void Polygon(VertexHelper vh, Vector2 center, float radius, float[] values, Color color)
