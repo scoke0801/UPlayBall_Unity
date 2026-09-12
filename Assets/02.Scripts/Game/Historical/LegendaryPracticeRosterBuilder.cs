@@ -1,0 +1,248 @@
+using System;
+using System.Collections.Generic;
+using Baseball.Core.Balance;
+using Baseball.Core.Growth;
+using Baseball.Core.Historical;
+using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Simulation.Career;
+using Baseball.Simulation.Historical;
+using Baseball.Simulation.Match;
+
+namespace Baseball.Game.Historical
+{
+    /// <summary>역사 정본 Core25의 약한 슬롯을 같은 프랜차이즈 레전드로 보강해 경기 입력에 동결한다.</summary>
+    public sealed class LegendaryPracticeRosterBuilder
+    {
+        /// <summary>구멍 판정과 후보 비교에 쓰는 슬롯 역할별 능력치 가중치다.</summary>
+        private static readonly PlayerAbility[] BatterAbilities =
+        {
+            PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed,
+            PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental
+        };
+        private static readonly PlayerAbility[] PitcherAbilities =
+        {
+            PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff,
+            PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental
+        };
+        private static readonly int[] BatterWeights = { 4, 4, 2, 1, 2, 2 };
+        private static readonly int[] PitcherWeights = { 3, 3, 4, 3, 4, 2 };
+
+        /// <summary>후보 점수는 로스터 구성 중 반복 비교되므로 카드별로 한 번만 계산해 둔다.</summary>
+        private readonly struct LegendCandidate
+        {
+            public LegendCandidate(PlayerCardDefinition card, PlayerSeasonDefinition season,
+                int batterScore, int starterScore, int relieverScore)
+            {
+                Card = card; Season = season;
+                BatterScore = batterScore; StarterScore = starterScore; RelieverScore = relieverScore;
+            }
+
+            public PlayerCardDefinition Card { get; }
+            public PlayerSeasonDefinition Season { get; }
+            public int BatterScore { get; }
+            public int StarterScore { get; }
+            public int RelieverScore { get; }
+        }
+
+        private readonly HistoricalBakedContent _content;
+        private readonly BalanceTable _balance;
+        private readonly WorldCardCatalog _cardCatalog;
+        private readonly Dictionary<string, PlayerCardDefinition> _rareUpgrades = new Dictionary<string, PlayerCardDefinition>(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<LegendCandidate>> _franchiseLegends = new Dictionary<string, List<LegendCandidate>>(StringComparer.Ordinal);
+
+        public LegendaryPracticeRosterBuilder(HistoricalBakedContent content, BalanceTable balance)
+        {
+            _content = content; _balance = balance;
+            var allCards = new List<PlayerCardDefinition>(content.NormalCards);
+            if (content.SpecialCards != null) allCards.AddRange(content.SpecialCards.Cards);
+            _cardCatalog = new WorldCardCatalog(content.PlayerSeasons, allCards, content.PlayerPersons,
+                content.SpecialCards?.Lineages, content.SpecialCards?.Recipes);
+            if (content.SpecialCards == null) return;
+            foreach (var card in content.SpecialCards.Cards)
+            {
+                if (card.Edition == PlayerCardEdition.Rare)
+                {
+                    if (!_rareUpgrades.TryGetValue(card.PlayerSeasonId, out var chosen) ||
+                        string.CompareOrdinal(card.CardId, chosen.CardId) < 0)
+                        _rareUpgrades[card.PlayerSeasonId] = card;
+                    continue;
+                }
+                if (card.Edition != PlayerCardEdition.CareerHigh && card.Edition != PlayerCardEdition.Legend) continue;
+                if (!content.TryGetPlayerSeason(card.PlayerSeasonId, out var season)) continue;
+                if (!_franchiseLegends.TryGetValue(season.OriginFranchiseId, out var pool))
+                    _franchiseLegends.Add(season.OriginFranchiseId, pool = new List<LegendCandidate>());
+                var source = season.CreateBaseAttributes();
+                pool.Add(new LegendCandidate(card, season,
+                    Score(source, card, BatterWeights, isBatter: true, staminaWeight: 0),
+                    Score(source, card, PitcherWeights, isBatter: false, staminaWeight: 3),
+                    Score(source, card, PitcherWeights, isBatter: false, staminaWeight: 1)));
+            }
+            foreach (var pool in _franchiseLegends.Values)
+                pool.Sort((a, b) => string.CompareOrdinal(a.Card.CardId, b.Card.CardId));
+        }
+
+        /// <summary>Contact·Stuff처럼 결과 기여가 큰 능력치에 가중치를 실어 슬롯 전력을 한 정수로 압축한다.</summary>
+        private static int Score(AbilityRatings source, PlayerCardDefinition card, int[] weights, bool isBatter, int staminaWeight)
+        {
+            var abilities = isBatter ? BatterAbilities : PitcherAbilities;
+            int total = 0;
+            for (int i = 0; i < abilities.Length; i++)
+            {
+                int weight = !isBatter && abilities[i] == PlayerAbility.Stamina ? staminaWeight : weights[i];
+                total += weight * (source.Get(abilities[i]) + card.GetModifier(abilities[i]));
+            }
+            return total;
+        }
+
+        /// <summary>같은 선수의 Rare 승격을 적용한 뒤 남은 약점 슬롯을 프랜차이즈 레전드로 메운다.</summary>
+        public PlayerCardDefinition[] SelectCards(TeamSeasonDefinition team)
+        {
+            var cards = new PlayerCardDefinition[25];
+            var seasons = new PlayerSeasonDefinition[25];
+            for (int i = 0; i < 25; i++)
+            {
+                if (!_content.TryGetNormalCard(team.Core25CardIds[i], out var card))
+                    throw new InvalidOperationException("역사 팀의 기본 카드가 없습니다.");
+                if (_rareUpgrades.TryGetValue(card.PlayerSeasonId, out var rare)) card = rare;
+                if (!_content.TryGetPlayerSeason(card.PlayerSeasonId, out seasons[i]))
+                    throw new InvalidOperationException("역사 팀의 선수 원본이 없습니다.");
+                cards[i] = card;
+            }
+            FillRosterHoles(team, cards, seasons);
+            return cards;
+        }
+
+        /// <summary>이득이 가장 큰 슬롯부터 차례로 메워, 전력 최약점이 항상 먼저 보강되게 한다.</summary>
+        private void FillRosterHoles(TeamSeasonDefinition team, PlayerCardDefinition[] cards, PlayerSeasonDefinition[] seasons)
+        {
+            if (!_franchiseLegends.TryGetValue(team.FranchiseId, out var pool)) return;
+            var persons = new HashSet<string>(StringComparer.Ordinal);
+            var scores = new int[25];
+            var replaced = new bool[25];
+            for (int i = 0; i < 25; i++)
+            {
+                persons.Add(seasons[i].PlayerPersonId);
+                var source = seasons[i].CreateBaseAttributes();
+                scores[i] = i < 14 ? Score(source, cards[i], BatterWeights, isBatter: true, staminaWeight: 0)
+                    : Score(source, cards[i], PitcherWeights, isBatter: false, staminaWeight: i < 19 ? 3 : 1);
+            }
+            int total = 0, hitters = 0, pitchers = 0;
+            while (total < OwnerSpecialCardRosterRule.MaxTotalCount)
+            {
+                int bestSlot = -1, bestCandidate = -1, bestGain = 0;
+                for (int slot = 0; slot < 25; slot++)
+                {
+                    if (replaced[slot]) continue;
+                    if (slot < 14 ? hitters >= OwnerSpecialCardRosterRule.MaxHitterCount
+                        : pitchers >= OwnerSpecialCardRosterRule.MaxPitcherCount) continue;
+                    for (int index = 0; index < pool.Count; index++)
+                    {
+                        var candidate = pool[index];
+                        if (!IsSlotCompatible(slot, seasons[slot], candidate.Season)) continue;
+                        if (!string.Equals(candidate.Season.PlayerPersonId, seasons[slot].PlayerPersonId, StringComparison.Ordinal) &&
+                            persons.Contains(candidate.Season.PlayerPersonId)) continue;
+                        int gain = CandidateScore(slot, candidate) - scores[slot];
+                        if (gain > bestGain) { bestGain = gain; bestSlot = slot; bestCandidate = index; }
+                    }
+                }
+                if (bestSlot < 0) break;
+                var chosen = pool[bestCandidate];
+                persons.Remove(seasons[bestSlot].PlayerPersonId);
+                persons.Add(chosen.Season.PlayerPersonId);
+                cards[bestSlot] = chosen.Card; seasons[bestSlot] = chosen.Season;
+                scores[bestSlot] = CandidateScore(bestSlot, chosen);
+                replaced[bestSlot] = true; total++;
+                if (bestSlot < 14) hitters++; else pitchers++;
+            }
+        }
+
+        private static int CandidateScore(int slot, LegendCandidate candidate) =>
+            slot < 14 ? candidate.BatterScore : slot < 19 ? candidate.StarterScore : candidate.RelieverScore;
+
+        /// <summary>포지션·외국인 구성을 그대로 두어야 25인 엔트리와 백업 포수 검증이 유지된다.</summary>
+        private static bool IsSlotCompatible(int slot, PlayerSeasonDefinition current, PlayerSeasonDefinition candidate)
+        {
+            if (candidate.RegistrationType != current.RegistrationType) return false;
+            if (slot < 14) return candidate.PlayerType == PlayerType.Batter && candidate.Position == current.Position;
+            if (candidate.PlayerType != PlayerType.Pitcher) return false;
+            return slot < 19 ? candidate.PitcherRole == PitcherRole.Starter : candidate.PitcherRole != PitcherRole.Starter;
+        }
+
+        public string GetRosterHash(TeamSeasonDefinition team)
+        {
+            var text = new System.Text.StringBuilder(_content.Manifest.ContentHash).Append('|').Append(team.TeamSeasonKey);
+            foreach (var card in SelectCards(team))
+            {
+                text.Append('|').Append(card.CardId);
+                for (int i = 0; i < PlayerAbilityCatalog.AbilityCount; i++) text.Append(':').Append(card.GetModifier((PlayerAbility)i));
+            }
+            return LegendaryPracticeCatalog.Hash(text.ToString());
+        }
+
+        /// <summary>Bake와 실제 도전에서 동일한 5개 선발 스냅샷을 사용한다.</summary>
+        public MatchRosterSnapshot[] Build(TeamSeasonDefinition team, WorldIdentityRegistry identities, int teamId,
+            int playerIdBase, out TeamColorDefinition[] teamColors)
+        {
+            var seasons = new PlayerSeasonDefinition[25];
+            var cards = SelectCards(team);
+            var persons = new PlayerPersonDefinition[25];
+            var entries = new ActiveRosterEntry[25];
+            var unique = new HashSet<string>(StringComparer.Ordinal);
+            int catchers = 0;
+            for (int i = 0; i < 25; i++)
+            {
+                if (!_content.TryGetPlayerSeason(cards[i].PlayerSeasonId, out seasons[i]) ||
+                    !_content.TryGetPlayerPerson(seasons[i].PlayerPersonId, out persons[i]) ||
+                    !unique.Add(seasons[i].PlayerPersonId))
+                    throw new InvalidOperationException("역사 팀의 선수 원본 또는 중복 검증에 실패했습니다.");
+                ActiveRosterRole role = i < 9 ? (ActiveRosterRole)i : i < 14 ? ActiveRosterRole.BenchHitter :
+                    (ActiveRosterRole)((int)ActiveRosterRole.StartingPitcher1 + i - 14);
+                entries[i] = new ActiveRosterEntry(cards[i].CardId, seasons[i].PlayerSeasonId,
+                    seasons[i].PlayerPersonId, seasons[i].RegistrationType, role);
+                if (seasons[i].Position == PlayerPosition.Catcher) catchers++;
+            }
+            var roster = new CurrentRosterState(team.TeamSeasonKey, entries);
+            if (!new ActiveRosterValidator().Validate(roster).IsValid || catchers < 2)
+                throw new InvalidOperationException("역사 팀의 엔트리 또는 백업 포수가 유효하지 않습니다.");
+            var bonuses = ManagerModeMatchService.ResolveAiTeamColorBonuses(roster, _cardCatalog, _balance.TeamColor, out teamColors);
+            var players = new Player[25];
+            for (int i = 0; i < 25; i++)
+            {
+                var season = seasons[i]; var card = cards[i]; var source = season.CreateBaseAttributes();
+                int Raw(PlayerAbility ability) => checked(source.Get(ability) + card.GetModifier(ability) + bonuses.Get(card.CardId, ability));
+                int Permanent(PlayerAbility ability) => Math.Max(1, Math.Min(AttributeRating.Maximum,
+                    checked(source.Get(ability) + card.GetModifier(ability))));
+                double Effective(PlayerAbility ability) => Math.Max(1d, Math.Min(_balance.MatchRatingCurve.Caps.HardCap, Raw(ability)));
+                int Get(PlayerAbility ability) => MatchRatingCurve.ResolveMatchInput(Raw(ability), ability, _balance.MatchRatingCurve);
+                players[i] = new Player(playerIdBase + i + 1, identities.GetPlayerDisplayName(season.PlayerPersonId),
+                    season.Position, persons[i].Bats, persons[i].Throws,
+                    new BatterAttributes(Get(PlayerAbility.Contact), Get(PlayerAbility.Power), Get(PlayerAbility.Speed),
+                        Get(PlayerAbility.Bunt), Get(PlayerAbility.Defense), Get(PlayerAbility.BatterMental)),
+                    new PitcherAttributes(Get(PlayerAbility.Stamina), Get(PlayerAbility.Velocity), Get(PlayerAbility.Stuff),
+                        Get(PlayerAbility.Breaking), Get(PlayerAbility.Control), Get(PlayerAbility.PitcherMental)),
+                    secondaryPositions: season.SecondaryPositions, pitchRepertoire: season.PitchRepertoire,
+                    isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
+                    bakedPitcherAttributes: source.ToPitcherAttributes(), permanentPitcherAttributes: new PitcherAttributes(
+                        Permanent(PlayerAbility.Stamina), Permanent(PlayerAbility.Velocity), Permanent(PlayerAbility.Stuff),
+                        Permanent(PlayerAbility.Breaking), Permanent(PlayerAbility.Control), Permanent(PlayerAbility.PitcherMental)),
+                    hasResolvedMatchRatings: true,
+                    uncurvedPitcherAttributes: new PitcherRatingValues(Effective(PlayerAbility.Stamina), Effective(PlayerAbility.Velocity),
+                        Effective(PlayerAbility.Stuff), Effective(PlayerAbility.Breaking), Effective(PlayerAbility.Control), Effective(PlayerAbility.PitcherMental)));
+            }
+            var fielding = new LineupSlot[9];
+            for (int i = 0; i < 9; i++) fielding[i] = new LineupSlot(players[i], (PlayerPosition)(i + 1));
+            var lineup = new ManagerLineupAi(_balance.ManagerLineup).BuildLineup(fielding);
+            var bench = new Player[5]; Array.Copy(players, 9, bench, 0, 5);
+            PitcherRosterEntry Pitcher(int index, PitcherRole role) => new PitcherRosterEntry(players[index], role,
+                naturalRole: seasons[index].PitcherRole, playerSeasonId: seasons[index].PlayerSeasonId);
+            var bullpen = new PitcherRosterEntry[6];
+            for (int i = 0; i < 6; i++) bullpen[i] = Pitcher(19 + i, i < 4 ? PitcherRole.MiddleRelief : i == 4 ? PitcherRole.Setup : PitcherRole.Closer);
+            string name = team.OriginYear + " " + identities.GetFranchiseDisplayName(team.FranchiseId);
+            var result = new MatchRosterSnapshot[5];
+            for (int i = 0; i < 5; i++) result[i] = new MatchRosterSnapshot(teamId, name, lineup,
+                Pitcher(14 + i, PitcherRole.Starter), bullpen, bench, default, RunningApproach.Balanced);
+            return result;
+        }
+    }
+}
