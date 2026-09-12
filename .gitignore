@@ -556,6 +556,10 @@ Assets/Editor Default Resources/*
 !Tools/KBOImporter/test_hitter_record_calibration.py
 Research/HistoricalStrengthCandidate20260911*/
 !Tools/KBOImporter/reference_calibration_policy.json
+!Tools/KBOImporter/reference_source_policy.py
+!Tools/KBOImporter/reference_source_policy.json
+!Tools/KBOImporter/repair_rejected_reference_cost.py
+!Tools/KBOImporter/test_reference_source_policy.py
 !Tools/KBOImporter/calibrate_annual_reference.py
 !Tools/KBOImporter/verify_annual_calibration.py
 !Tools/KBOImporter/test_record_calibration.py

@@ -10,6 +10,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import synthetic_bake as bake
+from reference_source_policy import rejection_reason
 from record_calibration import evaluate_model, has_observed_sample, read_feature, resolve_model_cost, validate_models
 from study_pm_calibration import metrics
 
@@ -78,6 +79,8 @@ def load_labels(seasons, policy):
 
     def add(year, team, name, kind, edition, values, origin, text='', record_counts=None,
             reference_position=None):
+        if rejection_reason(origin):
+            rejected.append(dict(origin=origin, name=name, year=year, reason='RejectedSourceGame')); return
         if not is_annual_reference(year, edition, text, policy):
             rejected.append(dict(origin=origin, name=name, year=year, reason='OutOfScope')); return
         kinds = (kind,) if kind else ('Hitter', 'Pitcher')

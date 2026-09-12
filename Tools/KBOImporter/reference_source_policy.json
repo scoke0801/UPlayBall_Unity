@@ -1,0 +1,11 @@
+{
+  "version": "reference-source-policy-v1",
+  "rejectedArticles": [
+    {
+      "domain": "inven.co.kr",
+      "newsId": "107123",
+      "sourceGame": "MVP Baseball Online",
+      "reason": "프야매와 다른 게임의 카드 가격이며 같은 척도의 관측값으로 사용할 수 없다."
+    }
+  ]
+}

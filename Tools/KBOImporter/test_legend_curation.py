@@ -100,6 +100,22 @@ class LegendCurationTests(unittest.TestCase):
         with self.assertRaises(BakeValidationError):
             compile_curation(evaluation, curation)
 
+    def test_price_fallback_returns_to_peak_only_when_eligible(self):
+        evaluation, curation = self.fixture()
+        fallback = dict(evaluation['careerHigh'][0], playerSeasonId='fallback', year=2000, qualified=True)
+        evaluation['seasons'].append(fallback)
+        entry = curation['legends'][0]
+        entry['basePlayerSeasonId'] = 'fallback'
+        entry['curatedReasonTags'].append('PeakCostEligibleSeason')
+        evaluation['careerHigh'][0]['cost'] = 8
+        self.assertEqual('fallback',compile_curation(evaluation,curation)[0][0]['basePlayerSeasonId'])
+        evaluation['careerHigh'][0]['cost'] = 10
+        rows, report = compile_curation(evaluation,curation)
+        self.assertEqual('peak',rows[0]['basePlayerSeasonId'])
+        self.assertNotIn('PeakCostEligibleSeason',report[0]['reasonTags'])
+        entry['curatedReasonTags'].remove('PeakCostEligibleSeason')
+        self.assertEqual('fallback',compile_curation(evaluation,curation)[0][0]['basePlayerSeasonId'])
+
 
 if __name__ == '__main__':
     unittest.main()

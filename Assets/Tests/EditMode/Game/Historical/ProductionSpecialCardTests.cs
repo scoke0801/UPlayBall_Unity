@@ -20,9 +20,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(asset.SpecialCards, Is.Not.Null);
             var content = new UnityHistoricalContentProvider(asset, mode).Load();
             var special = content.SpecialCards;
-            Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Ex), Is.EqualTo(88));
+            Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Ex), Is.EqualTo(73));
             Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Rare), Is.EqualTo(363));
-            Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.CareerHigh), Is.EqualTo(123));
+            Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.CareerHigh), Is.EqualTo(116));
             Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Legend), Is.EqualTo(105));
             Assert.That(special.Recipes.Count, Is.EqualTo(special.Cards.Count(c => c.IsUniqueOwnedCard)));
             var catalog = WorldCardCatalogBuilder.Build(content.PlayerSeasons, null, CardEditionBalanceTable.CreateInitial(),

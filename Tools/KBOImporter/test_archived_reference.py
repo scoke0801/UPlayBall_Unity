@@ -59,7 +59,7 @@ class ArchivedReferenceTests(unittest.TestCase):
 
     def test_source_hash_and_count_validate(self):
         cards = bake.load_annual_reference_overrides()
-        self.assertEqual(7543, len(cards))
+        self.assertEqual(7533, len(cards))
         self.assertNotIn('SEASON_6840de0aeb942aea0991', cards)
         for card in self.data['cards']:
             self.assertEqual(card, cards[card['playerSeasonId']])

@@ -1,6 +1,14 @@
 # KBO Reference Data Extractor / Canonical Baker
 
-최신 가격 산식은 **Cost v20 / Balance v28**이다. 확인된 일반 카드 가격은 모든 추정 하한보다
+현재 정본은 **Cost v21 / Balance v30 / Ability v13**이다.
+`reference_source_policy.json`은 다른 게임의 기사를 관측값·보정 학습에서 제외한다.
+`repair_rejected_reference_cost.py --output <새 후보 경로>`는 오염된 관측만 이력으로 옮기고
+저장된 모델 가격과 기존 가격 하한을 적용한다. 이번 수정은 10장 출처 제외·7장 가격 변경이며,
+특수 카드는 657장·221레시피다. 상세 결과는
+[출처 오류 정정 기록](../../docs/reports/rejected-source-cost-20260911.md)을 따른다.
+아래 v20 이하 설명은 이전 이력이다.
+
+이전 가격 산식 **Cost v20 / Balance v28**은 확인된 일반 카드 가격을 모든 추정 하한보다
 우선하며 재평가 확인값은 `annual_reference_reevaluations.json`에서 이전 값·출처를 명시해 대체한다.
 2000년 김동주는 일반 10코스트·레전드 기준 시즌 2000으로 반영했다. 원본 10코스트 미달 EX 19장은
 취소하며 발급 규약을 완화하지 않는다. 501장 가격 정정·566장 특수 카드 발급·검증 결과는

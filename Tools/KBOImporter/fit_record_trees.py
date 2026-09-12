@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
+from reference_source_policy import validate_training_sources
 
 from record_calibration import evaluate_model, read_feature, resolve_model_cost, validate_models
 from record_tree_calibration import MODEL_TYPE, model_hash, write_balance_config
@@ -78,6 +79,8 @@ def main():
     args=parser.parse_args()
     read=lambda path:json.loads(path.read_text(encoding='utf-8-sig'))
     policy=read(args.policy); settings=policy['recordTreeTraining']; rows=read(args.rows)
+    override_payload=read(args.reference_overrides)
+    validate_training_sources(rows, override_payload['cards'])
     config=read(args.base_fit/'derivation_balance.json')
     args.output.mkdir(parents=True,exist_ok=True)
     reports=[]; predicted={}
@@ -125,7 +128,6 @@ def main():
                   costFormulaVersion='historical-season-value-v17')
     config['referenceCalibration']['policySha256']=hashlib.sha256(args.policy.read_bytes()).hexdigest()
     config['referenceCalibration']['costModel']='RecordGradientBoosting; 선택 전 선수 분리 검증, 선택 후 전체 근거 재적합'
-    override_payload=read(args.reference_overrides)
     override_name='annual_reference_overrides.json'
     override_hash=hashlib.sha256(args.reference_overrides.read_bytes()).hexdigest()
     config['annualReferenceOverride']=dict(enabled=True,relativePath=override_name,

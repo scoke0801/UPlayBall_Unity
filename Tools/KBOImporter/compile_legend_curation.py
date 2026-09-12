@@ -32,6 +32,12 @@ def compile_curation(evaluation, curation):
         seen.add(key)
         peak = peaks[key]
         selected_id = entry.get('basePlayerSeasonId')
+        reason_tags = list(entry['curatedReasonTags'])
+        # 가격 미달 때문에 고른 대체 시즌은 실제 Peak가 자격을 회복하면 필요하지 않다.
+        # 별도로 저작한 대표 시즌(예: 재평가 확정 시즌)은 이 태그가 없으므로 유지한다.
+        if 'PeakCostEligibleSeason' in reason_tags and peak['cost'] in (9, 10):
+            selected_id = None
+            reason_tags.remove('PeakCostEligibleSeason')
         if selected_id:
             selected = next((row for row in seasons if row['playerSeasonId'] == selected_id), None)
             if (selected is None or (selected['playerPersonId'], selected['lineage']) != key
@@ -73,13 +79,13 @@ def compile_curation(evaluation, curation):
                                      years=sorted(row['year'] for row in selected)))
         results.append(dict(playerPersonId=key[0], lineage=key[1], enabled=True,
                             basePlayerSeasonId=peak['playerSeasonId'],
-                            curatedReasonTags=entry['curatedReasonTags'],
+                            curatedReasonTags=reason_tags,
                             allowTargetPersonMaterials=curation['allowTargetPersonMaterials'],
                             requireDistinctMaterialPersons=True, materialGroups=groups))
         report.append(dict(lineage=key[1], playerPersonId=key[0], sourceNames=peak['sourceNames'],
                            peakYear=peak['year'], peakCost=peak['cost'], peakSeasonId=peak['playerSeasonId'],
                            qualifiedYears=peak['qualifiedDistinctYears'], role=peak['role'],
-                           reasonTags=entry['curatedReasonTags'], groups=group_report))
+                           reasonTags=reason_tags, groups=group_report))
     return results, report
 
 

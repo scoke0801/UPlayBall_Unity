@@ -19,6 +19,7 @@ import velocity_estimation
 import elite_cost
 import hitter_record_calibration
 import bunt_primary_stat
+import reference_source_policy
 
 from kbo_importer import IMPORTER_VERSION as NORMALIZED_IMPORTER_VERSION
 from kbo_importer import SCHEMA_VERSION as NORMALIZED_SCHEMA_VERSION
@@ -126,7 +127,8 @@ def load_annual_reference_overrides() -> dict[str, dict[str, Any]]:
             if cards[identity].get("supersedes") != previous:
                 raise ValueError("추가 연도 카드 자료의 중복은 기존 값·출처를 명시적으로 검토해야 합니다.")
         result.update(cards)
-    return result
+    return {identity: card for identity, card in result.items()
+            if not reference_source_policy.card_rejection_reason(card)}
 
 
 def load_annual_reference_file(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -162,6 +164,8 @@ def apply_annual_reference_overrides(seasons: list[dict[str, Any]], overrides: d
         card=overrides.get(season["playerSeasonId"])
         if card is None:
             continue
+        if reference_source_policy.card_rejection_reason(card):
+            raise ValueError("다른 게임의 카드 관측을 적용할 수 없습니다.")
         if (card["playerType"]!=season["playerType"]
                 or int(card["originYear"])!=int(season["originYear"])):
             raise ValueError("연도 카드 Reference Override 대상이 Source 시즌과 일치하지 않습니다.")
