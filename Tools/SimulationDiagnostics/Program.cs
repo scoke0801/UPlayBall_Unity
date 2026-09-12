@@ -36,6 +36,8 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && args[0] == "dugout-comparison") return RunDugoutComparison(args);
+            if (args.Length > 0 && args[0] == "study-comparison") return RunStudyComparison(args);
             if (args.Length > 0 && args[0] == "rating-cap")
                 return RunRatingCap(args);
             if (args.Length > 0 && string.Equals(args[0], "bunt-audit", StringComparison.Ordinal))

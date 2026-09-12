@@ -1,7 +1,7 @@
 param([string]$UnityPath = 'C:/Program Files/Unity/Hub/Editor/6000.3.21f1/Editor/Unity.exe')
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-$reportRoot = Join-Path $repoRoot 'output/roster-ui-validation'
+$reportRoot = Join-Path $repoRoot 'output/training-ui-validation'
 $validationRoot = Join-Path $reportRoot 'UnityProject'
 # 원본 에디터의 실행 상태와 저장 파일을 보존하는 별도 검수 프로젝트다.
 New-Item -ItemType Directory -Path "$validationRoot/Assets/Tests", "$validationRoot/Packages", "$validationRoot/ProjectSettings", "$validationRoot/Assets/Resources", "$validationRoot/Assets/10.Datas" -Force | Out-Null
@@ -27,10 +27,8 @@ Get-ChildItem "$repoRoot/Library/PackageCache" -Directory | ForEach-Object {
 $manifest = @{dependencies=$dependencies} | ConvertTo-Json -Depth 4
 # 검수용 패키지 경로의 기계적 직렬화다.
 [IO.File]::WriteAllText("$validationRoot/Packages/manifest.json", $manifest, [Text.UTF8Encoding]::new($false))
-$env:BASEBALL_POSITION_CAPTURE = "$reportRoot/positions"
-$env:BASEBALL_ROSTER_CAPTURE = "$reportRoot/screenshots"
 $arguments = @('-batchmode', '-projectPath', $validationRoot, '-runTests', '-testPlatform', 'EditMode',
-    '-testFilter', 'OwnerRosterLineupPresentationTests;PlayerMiniCard', '-testResults', "$reportRoot/editmode-results.xml",
+    '-testFilter', 'OwnerTrainingUiTests;OwnerPowerUpPerformanceTests', '-testResults', "$reportRoot/editmode-results.xml",
     '-logFile', "$reportRoot/unity.log")
 $quotedArguments = $arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }
 $process = Start-Process -FilePath $UnityPath -ArgumentList $quotedArguments -WindowStyle Hidden -PassThru

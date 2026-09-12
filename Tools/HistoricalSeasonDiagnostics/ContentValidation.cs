@@ -11,7 +11,7 @@ namespace Baseball.Tools.HistoricalSeasonDiagnostics;
 internal static class ContentValidation
 {
     /// <summary>후보 Archive를 두 검증 모드로 읽고 발급 카드와 레시피를 실제로 조회한다.</summary>
-    public static int Run(string directory)
+    public static int Run(string directory, string practicePath = null)
     {
         string root = Path.GetFullPath(directory);
         string specialPath = Path.Combine(root, "BakedSpecialCards.json");
@@ -34,6 +34,12 @@ internal static class ContentValidation
                 throw new InvalidOperationException("검증할 특수 카드가 없습니다.");
             var catalog = WorldCardCatalogBuilder.Build(content.PlayerSeasons, null, CardEditionBalanceTable.CreateInitial(),
                 content.PlayerPersons, content.TeamSeasons, special);
+            var personsBySeason = content.PlayerSeasons.ToDictionary(season => season.PlayerSeasonId, season => season.PlayerPersonId);
+            var careerHighPersons = special.Cards.Where(card => card.Edition == PlayerCardEdition.CareerHigh)
+                .Select(card => personsBySeason[card.PlayerSeasonId]).ToHashSet();
+            if (special.Cards.Where(card => card.Edition == PlayerCardEdition.Legend)
+                .Any(card => careerHighPersons.Contains(personsBySeason[card.PlayerSeasonId])))
+                throw new InvalidOperationException("동일 선수의 커리어하이와 레전드가 중복 발급되었습니다.");
             foreach (var card in special.Cards)
             {
                 var issued = catalog.GetRequiredCard(card.CardId);
@@ -44,7 +50,35 @@ internal static class ContentValidation
                     _ = catalog.SpecialCards.GetRequiredRecipe(card.CardId);
             }
             Console.WriteLine($"{mode}: 특수 카드 {special.Cards.Count}장, 레시피 {special.Recipes.Count}개 참조 검증 통과");
+            if (practicePath != null) ValidatePractice(content, practicePath);
         }
         return 0;
+    }
+
+    /// <summary>기존 순위 Bake의 모든 상대가 현재 카드로 같은 편성을 재구성하는지 검증한다.</summary>
+    private static void ValidatePractice(HistoricalBakedContent content, string path)
+    {
+        var practice = JsonSerializer.Deserialize<LegendaryPracticeCatalog>(File.ReadAllText(path),
+            new JsonSerializerOptions { IncludeFields = true });
+        practice.Validate();
+        if (practice.contentHash != content.Manifest.ContentHash || practice.simulationVersion !=
+            LegendaryPracticeCatalog.CreateSimulationVersion(
+                File.ReadAllText(Baseball.Tools.CommonMatchBalanceInput.DefaultPath),
+                File.ReadAllText(Baseball.Tools.CommonMatchBalanceInput.RatingCurvePath)))
+            throw new InvalidOperationException("연습경기 Bake의 정본 또는 경기 규칙이 변경되었습니다.");
+        var balance = Baseball.Tools.CommonMatchBalanceInput.Load(Baseball.Tools.CommonMatchBalanceInput.DefaultPath,
+            Baseball.Tools.CommonMatchBalanceInput.RatingCurvePath);
+        var builder = new LegendaryPracticeRosterBuilder(content, balance);
+        var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
+            content.IdentityNameCatalog, practice.seed);
+        foreach (var entry in practice.teams)
+        {
+            if (!content.TryGetTeamSeason(entry.teamSeasonKey, out var team) ||
+                builder.GetRosterHash(team) != entry.rosterHash)
+                throw new InvalidOperationException("연습경기 Bake 편성이 변경되었습니다: " + entry.challengeTeamId);
+            if (builder.Build(team, identities, entry.rank, entry.rank * 100, out _).Length != 5)
+                throw new InvalidOperationException("연습경기 선발 로테이션을 구성할 수 없습니다.");
+        }
+        Console.WriteLine($"연습경기 {practice.teams.Length}팀: 기존 Bake 해시·카드·5선발 편성 검증 통과");
     }
 }

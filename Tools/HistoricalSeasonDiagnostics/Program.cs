@@ -28,6 +28,7 @@ internal static class Program
 
     private static int Run(string[] args)
     {
+        if (args.Length == 3 && args[0] == "--legendary-practice") return LegendaryPracticeBake.Run(args);
         int workers = 1;
         if (args.Length >= 2 && args[0] == "--workers")
         {
@@ -37,6 +38,8 @@ internal static class Program
         }
         if (args.Length == 2 && args[0] == "--validate-content")
             return ContentValidation.Run(args[1]);
+        if (args.Length == 3 && args[0] == "--validate-practice")
+            return ContentValidation.Run(args[1], args[2]);
         if (args.Length == 2 && args[0] == "--validate-world-bakes")
             return WorldBakeValidation.Run(args[1]);
         string balancePath = Baseball.Tools.CommonMatchBalanceInput.DefaultPath;
