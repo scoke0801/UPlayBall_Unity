@@ -1627,35 +1627,7 @@ namespace Baseball.Game.Historical
         /// <summary>3연패를 직접 끊은 순간에만 업적 전용 Signature 전술을 한 번 지급한다.</summary>
         private bool TryUnlockLosingStreakSignature()
         {
-            if (Runtime.TacticCollection.Contains(LosingStreakSignatureCardId))
-                return false;
-
-            IReadOnlyList<ScheduledGameState> games = Runtime.ManagerMode.LiveSeason.Schedule.Games;
-            var latestResults = new bool[4];
-            int resultCount = 0;
-            int playerTeamId = Runtime.ManagerMode.LiveSeason.PlayerTeamId;
-            for (int index = 0; index < games.Count; index++)
-            {
-                ScheduledGameState game = games[index];
-                if (!game.IsCompleted || !game.IncludesTeam(playerTeamId))
-                    continue;
-                bool isWin = game.AwayTeamId == playerTeamId
-                    ? game.AwayRuns > game.HomeRuns
-                    : game.HomeRuns > game.AwayRuns;
-                if (resultCount < latestResults.Length)
-                    latestResults[resultCount++] = isWin;
-                else
-                {
-                    latestResults[0] = latestResults[1];
-                    latestResults[1] = latestResults[2];
-                    latestResults[2] = latestResults[3];
-                    latestResults[3] = isWin;
-                }
-            }
-            if (resultCount < latestResults.Length || latestResults[0] || latestResults[1] || latestResults[2] || !latestResults[3])
-                return false;
-            Runtime.TacticCollection.Acquire(LosingStreakSignatureCardId);
-            return true;
+            return OwnerMatchAchievementResolver.TryUnlockLosingStreakSignature(Runtime);
         }
 
         private void RefreshAvailableTacticCards()
