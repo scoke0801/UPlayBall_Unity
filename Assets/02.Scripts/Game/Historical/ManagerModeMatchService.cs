@@ -7,6 +7,7 @@ using Baseball.Core.Players;
 using Baseball.Core.Rules;
 using Baseball.Core.Teams;
 using Baseball.Game.Career;
+using Baseball.Game.Diagnostics;
 using Baseball.Simulation.Historical;
 using Baseball.Simulation.Match;
 using Baseball.Simulation.Random;
@@ -129,28 +130,35 @@ namespace Baseball.Game.Historical
         {
             CurrentRosterState roster = runtime.GetRoster(teamSeasonKey);
             if (_aiRosterPreparations.TryGetValue(teamSeasonKey, out AiRosterPreparation preparation) &&
+                ReferenceEquals(preparation.Runtime, runtime) &&
                 ReferenceEquals(preparation.Roster, roster) &&
                 ReferenceEquals(preparation.Catalog, runtime.WorldCardCatalog))
                 return preparation;
-            preparation = new AiRosterPreparation(roster, runtime.WorldCardCatalog, _balance.TeamColor);
+            preparation = new AiRosterPreparation(runtime, roster, runtime.WorldCardCatalog, _balance.TeamColor);
             _aiRosterPreparations[teamSeasonKey] = preparation;
             return preparation;
         }
 
         private sealed class AiRosterPreparation
         {
-            public AiRosterPreparation(CurrentRosterState roster, WorldCardCatalog catalog, TeamColorBalanceTable balance)
+            public AiRosterPreparation(ManagerHistoricalRuntimeState runtime, CurrentRosterState roster,
+                WorldCardCatalog catalog, TeamColorBalanceTable balance)
             {
+                Runtime = runtime;
                 Roster = roster;
                 Catalog = catalog;
                 Plan = CreateRosterRolePlan(roster, catalog);
                 Bonuses = ResolveAiTeamColorBonuses(roster, catalog, balance, out _);
+                Players = new Player[roster.Entries.Count];
             }
 
+            public ManagerHistoricalRuntimeState Runtime { get; }
             public CurrentRosterState Roster { get; }
             public WorldCardCatalog Catalog { get; }
             public LineupPresetState Plan { get; }
             public PerCardBonusMap Bonuses { get; }
+            // Player는 불변 경기 입력이다. 피로·컨디션·호흡은 여기 저장하지 않는다.
+            public Player[] Players { get; }
         }
 
         public ManagerModeMatchService(
@@ -514,18 +522,21 @@ namespace Baseball.Game.Historical
             PlayerIdMap playerIds,
             AiScheduleCursor cursor,
             int throughRound,
-            out int completedRound)
+            out int completedRound,
+            out bool isPlayerLeagueGame)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             if (playerIds == null) throw new ArgumentNullException(nameof(playerIds));
             if (cursor == null) throw new ArgumentNullException(nameof(cursor));
             completedRound = 0;
+            isPlayerLeagueGame = false;
             if (throughRound <= 0) return false;
             if (!cursor.TryTakeNext(runtime, throughRound, out ManagerLiveSeasonState season,
                     out ScheduledGameState game))
                 return false;
             SimulateAiGame(runtime, playerIds, game, season);
             completedRound = game.Round;
+            isPlayerLeagueGame = ReferenceEquals(season, runtime.ManagerMode.LiveSeason);
             return true;
         }
 
@@ -566,13 +577,17 @@ namespace Baseball.Game.Historical
                     _content.Manifest.ContentHash,
                     (int)SimulationRulesVersion.DetailedV2),
                 configuration);
-            MatchResult match = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed))
-                .Simulate(input, NullMatchEventSink.Instance, ResolveBackgroundExecutionProfile(runtime, season));
+            MatchResult match;
+            using (new ProfilerSection("OwnerSeason.MatchEngine").Auto())
+                match = new MatchSimulator(_balance, MatchRandomStreams.Create(game.RandomSeed))
+                    .Simulate(input, NullMatchEventSink.Instance, ResolveBackgroundExecutionProfile(runtime, season));
 
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
-            ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
-            new LeagueStatisticsService(season.Statistics).RecordMatch(match, CompetitionScope.RegularSeason,
-                game.Round, isChampionship: false, isSeriesClinching: false);
+            using (new ProfilerSection("OwnerSeason.ApplyState").Auto())
+                ApplyPostGameState(runtime.ManagerMode, awayBuild, homeBuild, match);
+            using (new ProfilerSection("OwnerSeason.Statistics").Auto())
+                new LeagueStatisticsService(season.Statistics).RecordMatch(match, CompetitionScope.RegularSeason,
+                    game.Round, isChampionship: false, isSeriesClinching: false);
         }
 
         /// <summary>같은 순위표를 겨루는 조 전체에 같은 경기 해상도를 적용한다.</summary>
@@ -704,6 +719,7 @@ namespace Baseball.Game.Historical
             PlayerIdMap playerIds,
             int? restRoundsOverride = null)
         {
+            using var preparationScope = new ProfilerSection("OwnerSeason.BuildTeam").Auto();
             CurrentRosterState activeRoster = runtime.GetRoster(teamSeasonKey);
             int restRounds = restRoundsOverride ?? ResolveRestRounds(runtime, teamSeasonKey, rotationIndex);
             var pitcherIds = new List<int>(ActiveRosterCompositionRule.PitcherCount);
@@ -721,21 +737,27 @@ namespace Baseball.Game.Historical
             IReadOnlyList<string> equippedColors = playerPlan?.TeamColorIds ?? plan.TeamColorIds;
 
             PerCardBonusMap teamColorBonuses;
+            AiRosterPreparation aiPreparation = null;
             if (runtime.HasOwnedEconomy(teamSeasonKey))
                 teamColorBonuses = ResolveTeamColorBonuses(activeRoster, runtime.WorldCardCatalog, equippedColors);
             else
-                teamColorBonuses = GetAiRosterPreparation(runtime, teamSeasonKey).Bonuses;
+            {
+                aiPreparation = GetAiRosterPreparation(runtime, teamSeasonKey);
+                teamColorBonuses = aiPreparation.Bonuses;
+            }
             var playersByCard = new Dictionary<string, Player>(activeRoster.Entries.Count, StringComparer.Ordinal);
             var personByPlayerId = new Dictionary<int, string>(activeRoster.Entries.Count);
             for (int index = 0; index < activeRoster.Entries.Count; index++)
             {
                 ActiveRosterEntry entry = activeRoster.Entries[index];
-                Player player = CreatePlayer(
-                    runtime,
-                    teamSeasonKey,
-                    entry,
-                    teamColorBonuses,
-                    playerIds.Get(teamSeasonKey, entry.PlayerSeasonId));
+                int playerId = playerIds.Get(teamSeasonKey, entry.PlayerSeasonId);
+                Player player = aiPreparation?.Players[index];
+                // 새 시즌·구단 편성이 ID 매핑을 바꿔도 이전 경기 입력이 섞이지 않는다.
+                if (player == null || player.PlayerId != playerId)
+                {
+                    player = CreatePlayer(runtime, teamSeasonKey, entry, teamColorBonuses, playerId);
+                    if (aiPreparation != null) aiPreparation.Players[index] = player;
+                }
                 playersByCard.Add(entry.CardId, player);
                 personByPlayerId.Add(player.PlayerId, entry.PlayerPersonId);
                 if (runtime.WorldCardCatalog.GetPlayerSeason(GetCard(runtime, entry.CardId)).PlayerType == PlayerType.Pitcher)
@@ -901,6 +923,7 @@ namespace Baseball.Game.Historical
             PerCardBonusMap teamColorBonuses,
             int playerId)
         {
+            using var playerScope = new ProfilerSection("OwnerSeason.CreatePlayer").Auto();
             PlayerCardDefinition card = GetCard(runtime, entry.CardId);
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             if (!_content.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person))
@@ -913,7 +936,7 @@ namespace Baseball.Game.Historical
                 return _ownerCardAbilityResolver.ResolveRawPermanent(
                     season, card, usesOwnedEconomy ? owned : null, ability);
             }
-            int GetPermanent(PlayerAbility ability) => Math.Max(1, Math.Min(100, GetRawPermanent(ability)));
+            int GetPermanent(PlayerAbility ability) => Math.Max(1, Math.Min(AttributeRating.Maximum, GetRawPermanent(ability)));
             double GetRawEffective(PlayerAbility ability) => Math.Max(1d, Math.Min(_balance.MatchRatingCurve.Caps.HardCap,
                 checked(GetRawPermanent(ability) + teamColorBonuses.Get(entry.CardId, ability))));
             int Get(PlayerAbility ability)
@@ -1291,6 +1314,9 @@ namespace Baseball.Game.Historical
 
         private string GetTeamDisplayName(ManagerHistoricalRuntimeState runtime, string teamSeasonKey)
         {
+            // 플레이어 구단은 중계·기록 표기 전부에서 구단주가 직접 지은 이름을 쓴다.
+            if (runtime.TryGetPlayerClubName(teamSeasonKey, out string playerClubName))
+                return playerClubName;
             // 합성 참가팀은 Franchise TeamSeason 정의가 없으므로 Key에서 직접 이름을 만든다.
             if (SpecialCompositeTeamDefinition.TryCreateDisplayName(teamSeasonKey, out string compositeName))
                 return compositeName;

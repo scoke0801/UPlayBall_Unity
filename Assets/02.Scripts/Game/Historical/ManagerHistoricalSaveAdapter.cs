@@ -120,6 +120,22 @@ namespace Baseball.Game.Historical
             };
         }
 
+        /// <summary>가변 진행 상태를 복제하면서 AI 벤치 기용에 영향을 주는 현재 로스터 순서도 보존한다.</summary>
+        public ManagerHistoricalRuntimeState CreateSimulationCopy(ManagerHistoricalRuntimeState state)
+        {
+            ManagerHistoricalSaveData data = CreateSaveData(state);
+            var guideEntries = data.guideRepeatState?.entries ?? Array.Empty<Baseball.Game.Guide.GuideRepeatStateEntryData>();
+            data.guideRepeatState = new Baseball.Game.Guide.GuideRepeatStateData
+            {
+                entries = Array.ConvertAll(guideEntries, entry => entry == null ? null : new Baseball.Game.Guide.GuideRepeatStateEntryData
+                {
+                    dedupeKey = entry.dedupeKey,
+                    displays = entry.displays
+                })
+            };
+            return Restore(data);
+        }
+
         public ManagerHistoricalRuntimeState Restore(ManagerHistoricalSaveData saveData)
         {
             if (saveData == null)
@@ -1525,7 +1541,7 @@ namespace Baseball.Game.Historical
                         role = (int)entry.Role
                     };
                 }
-                Array.Sort(entries, CompareRosterEntries);
+                // 같은 역할의 배열 순서는 AI 벤치 기용 우선순위이므로 저장에서도 그대로 보존한다.
                 rosters[rosterIndex] = new CurrentRosterSaveData
                 {
                     teamSeasonKey = roster.TeamSeasonKey,
@@ -1764,14 +1780,6 @@ namespace Baseball.Game.Historical
                     project.cardId, project.programId, project.startedSeason, project.remainingWeeks));
             }
             return result;
-        }
-
-        private static int CompareRosterEntries(ActiveRosterEntrySaveData left, ActiveRosterEntrySaveData right)
-        {
-            int comparison = left.role.CompareTo(right.role);
-            return comparison != 0
-                ? comparison
-                : StringComparer.Ordinal.Compare(left.playerSeasonId, right.playerSeasonId);
         }
 
         private static T Require<T>(T value, string parameterName) where T : class

@@ -18,6 +18,195 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class ManagerModeMatchServiceTests
     {
         [Test]
+        public void 저장복원은전체조로스터순서와시즌재개결과를보존한다()
+        {
+            CreateRuntime(out var expected, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial(), balance: balance);
+            foreach (var roster in expected.WorldRosters.ToArray())
+            {
+                var entries = roster.Entries.Reverse().ToArray();
+                typeof(ManagerHistoricalRuntimeState).GetMethod("ReplaceCurrentRoster", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(expected, new object[] { new CurrentRosterState(roster.TeamSeasonKey, entries) });
+            }
+            var baseline = new ManagerRegularSeasonSimulationSession(expected, new ManagerModeMatchService(provider, balance));
+            for (int step = 0; step < 20 && !baseline.IsCompleted; step++) baseline.AdvanceNextStep();
+            var saved = adapter.CreateSaveData(expected);
+            foreach (var roster in saved.rosters.Concat(saved.leagueWorld.rosters))
+                Assert.That(roster.entries.Select(entry => entry.cardId),
+                    Is.EqualTo(expected.GetRoster(roster.teamSeasonKey).Entries.Select(entry => entry.CardId)), roster.teamSeasonKey);
+            var actual = adapter.Restore(saved);
+            actual = adapter.Restore(adapter.CreateSaveData(actual));
+            foreach (var roster in expected.WorldRosters)
+                Assert.That(actual.GetRoster(roster.TeamSeasonKey).Entries.Select(entry => entry.CardId),
+                    Is.EqualTo(roster.Entries.Select(entry => entry.CardId)), roster.TeamSeasonKey);
+            var resumed = new ManagerRegularSeasonSimulationSession(actual, new ManagerModeMatchService(provider, balance));
+            while (!baseline.IsCompleted) baseline.AdvanceNextStep();
+            while (!resumed.IsCompleted) resumed.AdvanceNextStep();
+            AssertSaveFieldsEqual(adapter.CreateSaveData(expected), adapter.CreateSaveData(actual), "save");
+        }
+
+        [Test]
+        public void 백그라운드시즌은순차실행과전체저장상태가같다()
+        {
+            CreateRuntime(out var expected, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial(), balance: balance);
+            // 저장 정렬과 다른 벤치 우선순위도 복사 후 유지되어야 한다.
+            var opponent = expected.Rosters.First(roster => roster.TeamSeasonKey != expected.PlayerTeamSeasonKey);
+            var entries = opponent.Entries.ToArray();
+            Array.Reverse(entries);
+            typeof(ManagerHistoricalRuntimeState).GetMethod("ReplaceCurrentRoster", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(expected, new object[] { new CurrentRosterState(opponent.TeamSeasonKey, entries) });
+            var actual = adapter.CreateSimulationCopy(expected);
+            Assert.That(actual.GetRoster(opponent.TeamSeasonKey).Entries.Select(entry => entry.CardId),
+                Is.EqualTo(entries.Select(entry => entry.CardId)));
+            var baseline = new ManagerRegularSeasonSimulationSession(expected, new ManagerModeMatchService(provider, balance));
+            while (!baseline.IsCompleted) baseline.AdvanceNextStep();
+            var session = new ManagerRegularSeasonSimulationSession(actual, new ManagerModeMatchService(provider, balance));
+            var worker = new ManagerRegularSeasonSimulationWorker(session);
+            try
+            {
+                Assert.That(System.Threading.SpinWait.SpinUntil(() => worker.IsCompleted, 30000), Is.True);
+                Assert.That(worker.Fault, Is.Null);
+                Assert.That(worker.ReadProgress().IsCompleted, Is.True);
+                AssertSaveFieldsEqual(adapter.CreateSaveData(expected), adapter.CreateSaveData(actual), "save");
+            }
+            finally { worker.StopAndWait(); }
+        }
+
+        [Test]
+        public void 백그라운드중단은완료경기를보존하고재개시같은결과를낸다()
+        {
+            CreateRuntime(out var expected, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial(), balance: balance);
+            var actual = adapter.CreateSimulationCopy(expected);
+            var initial = adapter.CreateSaveData(expected);
+            using var checkpoint = new System.Threading.ManualResetEventSlim();
+            using var release = new System.Threading.ManualResetEventSlim();
+            var session = new ManagerRegularSeasonSimulationSession(actual, new ManagerModeMatchService(provider, balance));
+            var worker = new ManagerRegularSeasonSimulationWorker(session, _ =>
+            {
+                checkpoint.Set();
+                if (!release.Wait(10000)) throw new TimeoutException("중단 검증 동기화 시간 초과");
+            });
+            try
+            {
+                Assert.That(checkpoint.Wait(10000), Is.True);
+                // Worker의 경기 완료가 UI가 소유한 원본을 변경하지 않는다.
+                AssertSaveFieldsEqual(initial, adapter.CreateSaveData(expected), "original");
+                worker.RequestStop();
+                release.Set();
+                worker.StopAndWait();
+                Assert.That(worker.Fault, Is.Null);
+                Assert.That(worker.ReadProgress().Status, Is.EqualTo(ManagerRegularSeasonSimulationStatus.StoppedByUser));
+                Assert.That(worker.ReadProgress().PlayerGamesSimulated, Is.EqualTo(1));
+                var baseline = new ManagerRegularSeasonSimulationSession(expected, new ManagerModeMatchService(provider, balance));
+                for (int index = 0; index < worker.ReadProgress().LeagueGamesSimulated; index++) baseline.AdvanceNextStep();
+                AssertSaveFieldsEqual(adapter.CreateSaveData(expected), adapter.CreateSaveData(actual), "stopped");
+                // 중간 저장·복원을 포함해 세션을 새로 만들어도 같은 결과다.
+                actual = adapter.Restore(adapter.CreateSaveData(actual));
+                var resumed = new ManagerRegularSeasonSimulationSession(actual, new ManagerModeMatchService(provider, balance));
+                while (!resumed.IsCompleted) resumed.AdvanceNextStep();
+                while (!baseline.IsCompleted) baseline.AdvanceNextStep();
+                AssertSaveFieldsEqual(adapter.CreateSaveData(expected), adapter.CreateSaveData(actual), "resumed");
+            }
+            finally { release.Set(); worker.StopAndWait(); }
+        }
+
+        [Test]
+        public void 백그라운드예외는관측가능하며완료경기를잃지않는다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var session = new ManagerRegularSeasonSimulationSession(runtime,
+                new ManagerModeMatchService(provider, BalanceTable.CreateDefault()));
+            var worker = new ManagerRegularSeasonSimulationWorker(session, _ => throw new InvalidOperationException("검증 오류"));
+            try
+            {
+                Assert.That(System.Threading.SpinWait.SpinUntil(() => worker.IsCompleted, 30000), Is.True);
+                Assert.That(worker.Fault, Is.TypeOf<InvalidOperationException>());
+                Assert.That(worker.ReadProgress().PlayerGamesSimulated, Is.EqualTo(1));
+                Assert.That(worker.LastMatch, Is.Not.Null);
+            }
+            finally { worker.StopAndWait(); }
+        }
+
+        [Test]
+        public void AI선수캐시는매경기새서비스와같은기록과피로를낸다()
+        {
+            CreateRuntime(out var expected, out var provider);
+            CreateRuntime(out var actual, out _);
+            var balance = BalanceTable.CreateDefault();
+            var cached = new ManagerModeMatchService(provider, balance);
+            for (int index = 0; index < 4; index++)
+            {
+                new ManagerModeMatchService(provider, balance).PlayNextGame(expected);
+                cached.PlayNextGame(actual);
+            }
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial(), balance: balance);
+            AssertSaveFieldsEqual(adapter.CreateSaveData(expected), adapter.CreateSaveData(actual), "cached");
+        }
+
+        [Test]
+        public void 진행률누적은다른조경기와중간재개에서도일정집계와같다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var service = new ManagerModeMatchService(provider, BalanceTable.CreateDefault());
+            var session = new ManagerRegularSeasonSimulationSession(runtime, service);
+            for (int index = 0; index < 7; index++) session.AdvanceNextStep();
+            session.StopByUser();
+            int completedBefore = runtime.ManagerMode.LiveSeason.Schedule.Games.Count(game => game.IsCompleted);
+            session = new ManagerRegularSeasonSimulationSession(runtime, service);
+            while (!session.IsCompleted)
+            {
+                var progress = session.AdvanceNextStep().Progress;
+                Assert.That(progress.PlayerLeagueGamesSimulated, Is.EqualTo(
+                    runtime.ManagerMode.LiveSeason.Schedule.Games.Count(game => game.IsCompleted) - completedBefore));
+            }
+        }
+
+        [Test]
+        public void 시뮬레이션복사본은가이드반복상태까지분리한다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            runtime.SetGuideRepeatState(new Baseball.Game.Guide.GuideRepeatStateData
+            {
+                entries = new[] { new Baseball.Game.Guide.GuideRepeatStateEntryData { dedupeKey = "검증", displays = 1 } }
+            });
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            var copy = adapter.CreateSimulationCopy(runtime);
+            copy.GuideRepeatState.entries[0].displays = 2;
+            Assert.That(runtime.GuideRepeatState.entries[0].displays, Is.EqualTo(1));
+        }
+
+        private static void AssertSaveFieldsEqual(object expected, object actual, string path)
+        {
+            if (expected == null || actual == null)
+            {
+                Assert.That(actual, Is.EqualTo(expected), path);
+                return;
+            }
+            Type type = expected.GetType();
+            Assert.That(actual.GetType(), Is.EqualTo(type), path);
+            if (type.IsValueType || expected is string)
+            {
+                Assert.That(actual, Is.EqualTo(expected), path);
+                return;
+            }
+            if (expected is Array expectedArray)
+            {
+                var actualArray = (Array)actual;
+                Assert.That(actualArray.Length, Is.EqualTo(expectedArray.Length), path);
+                for (int index = 0; index < expectedArray.Length; index++)
+                    AssertSaveFieldsEqual(expectedArray.GetValue(index), actualArray.GetValue(index), path + "[" + index + "]");
+                return;
+            }
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                AssertSaveFieldsEqual(field.GetValue(expected), field.GetValue(actual), path + "." + field.Name);
+        }
+
+        [Test]
         public void 포스트시즌관전은한경기씩중단저장해도일괄진행과같은결과를낸다()
         {
             CreateRuntime(out var runtime, out var provider);

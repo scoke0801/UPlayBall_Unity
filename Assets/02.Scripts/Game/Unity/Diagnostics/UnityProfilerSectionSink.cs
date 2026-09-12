@@ -15,6 +15,7 @@ namespace Baseball.Game.Diagnostics
     {
         private readonly Dictionary<string, ProfilerMarker> _markers = new();
         private readonly HashSet<string> _unavailable = new();
+        private readonly object _markerLock = new();
 
         public void Begin(string sectionName)
         {
@@ -29,6 +30,12 @@ namespace Baseball.Game.Diagnostics
         }
 
         private bool TryGetMarker(string sectionName, out ProfilerMarker marker)
+        {
+            // 시즌 Worker와 메인 스레드가 서로 다른 구간을 처음 열어도 캐시를 손상시키지 않는다.
+            lock (_markerLock) return TryGetMarkerLocked(sectionName, out marker);
+        }
+
+        private bool TryGetMarkerLocked(string sectionName, out ProfilerMarker marker)
         {
             if (_markers.TryGetValue(sectionName, out marker))
                 return true;

@@ -31,6 +31,8 @@ namespace Baseball.Presentation.Owner
         private const double SeasonSimulationFrameBudgetMilliseconds = 8d;
         // 간이 경기가 빨라져도 프레임당 8경기 제한에 묶이지 않도록 시간 예산을 주 제한으로 쓴다.
         private const int MaximumSeasonSimulationStepsPerFrame = 256;
+        private const float SeasonProgressRefreshIntervalSeconds = 0.1f;
+        private float _nextSeasonProgressRefreshTime;
         public const string HomeRouteId = "Owner.Home";
         public const string MatchRouteId = "Owner.Match";
 
@@ -88,6 +90,7 @@ namespace Baseball.Presentation.Owner
 
         public void Refresh()
         {
+            if (_manager != null && _manager.IsRegularSeasonSimulationRunning) return;
             _boundSnapshotRoutes.Clear();
             bool isVisible = _manager != null &&
                 _manager.HasActiveRuntime &&
@@ -235,6 +238,10 @@ namespace Baseball.Presentation.Owner
             if (Time.frameCount <= _seasonSimulationStartedFrame)
                 return;
 
+            if (!_isPostseasonSimulationVisible && Time.unscaledTime < _nextSeasonProgressRefreshTime)
+                return;
+            _nextSeasonProgressRefreshTime = Time.unscaledTime + SeasonProgressRefreshIntervalSeconds;
+
             bool succeeded = AdvanceSeasonSimulationWithinFrameBudget();
             if (succeeded && _isPostseasonSimulationVisible && _manager.IsNextPostseasonGamePlayerMatch)
             {
@@ -258,6 +265,8 @@ namespace Baseball.Presentation.Owner
 
         private bool AdvanceSeasonSimulationWithinFrameBudget()
         {
+            if (!_isPostseasonSimulationVisible)
+                return _manager.AdvanceRegularSeasonSimulationFrame();
             long frameStart = System.Diagnostics.Stopwatch.GetTimestamp();
             bool succeeded;
             int completedSteps = 0;
@@ -692,7 +701,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_isSeasonSimulationVisible)
                 return;
-            if (!_manager.BeginRegularSeasonSimulation())
+            if (!_manager.BeginRegularSeasonSimulationInBackground())
             {
                 ReportSeasonProgressError("시즌 진행을 시작하지 못했습니다. 선수 배치와 남은 일정을 확인해 주세요.");
                 return;
@@ -723,13 +732,17 @@ namespace Baseball.Presentation.Owner
                 ShowFeedback($"포스트시즌 {postseasonProgress.CompletedGames}경기까지 완료하고 중단했습니다.", false);
                 return;
             }
+            if (!_manager.StopRegularSeasonSimulation())
+            {
+                FinishSeasonSimulation();
+                return;
+            }
             ManagerRegularSeasonSimulationProgress progress = _manager.RegularSeasonSimulationProgress;
             _isSeasonSimulationVisible = false;
             _seasonSimulationPopup?.Hide();
-            _manager.StopRegularSeasonSimulation();
             Refresh();
             ShowFeedback(
-                $"{progress.LastCompletedRound}라운드까지 완료하고 시즌 진행을 중단했습니다. " +
+                "완료된 경기까지 유지하고 시즌 진행을 중단했습니다. " +
                 $"내 구단 {progress.PlayerGamesSimulated}경기가 반영됐습니다.",
                 false);
         }

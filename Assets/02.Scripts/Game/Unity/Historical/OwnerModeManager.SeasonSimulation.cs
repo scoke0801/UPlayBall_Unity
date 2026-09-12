@@ -5,6 +5,8 @@ namespace Baseball.Game.Historical
     public sealed partial class OwnerModeManager
     {
         private ManagerRegularSeasonSimulationSession _regularSeasonSimulationSession;
+        private ManagerRegularSeasonSimulationWorker _regularSeasonSimulationWorker;
+        private ManagerHistoricalRuntimeState _regularSeasonSimulationCopy;
         private ManagerRegularSeasonSimulationProgress _regularSeasonSimulationProgress;
         private ManagerRegularSeasonCompletionResult _lastRegularSeasonCompletion;
         private OwnerPostseasonSimulationSession _postseasonSimulationSession;
@@ -15,6 +17,33 @@ namespace Baseball.Game.Historical
             _regularSeasonSimulationProgress;
         public ManagerRegularSeasonCompletionResult LastRegularSeasonCompletion =>
             _lastRegularSeasonCompletion;
+
+        /// <summary>독립된 Runtime 복사본을 단일 Worker에서 계산하고 기존 UI 상태는 유지한다.</summary>
+        public bool BeginRegularSeasonSimulationInBackground()
+        {
+            if (!BeginRegularSeasonSimulation()) return false;
+            try
+            {
+                // 저장 DTO 복원으로 가변 상태를 분리한다. Unity 공급자 호출과 복원은 메인 스레드에서 끝낸다.
+                var copy = _saveAdapter.CreateSimulationCopy(Runtime);
+                var service = new ManagerModeMatchService(_contentProvider.Load(), _balance,
+                    teamColors: _teamColors, tacticCards: _tacticCards);
+                _regularSeasonSimulationCopy = copy;
+                _regularSeasonSimulationSession = new ManagerRegularSeasonSimulationSession(copy, service);
+                _regularSeasonSimulationWorker = new ManagerRegularSeasonSimulationWorker(
+                    _regularSeasonSimulationSession,
+                    _ => OwnerMatchAchievementResolver.TryUnlockLosingStreakSignature(copy));
+                return true;
+            }
+            catch (Exception exception)
+            {
+                _regularSeasonSimulationCopy = null;
+                _regularSeasonSimulationSession = null;
+                LastError = exception.Message;
+                UnityEngine.Debug.LogException(exception);
+                return false;
+            }
+        }
         public bool IsPostseasonSimulationRunning => _postseasonSimulationSession != null;
         public OwnerPostseasonSimulationProgress PostseasonSimulationProgress => _postseasonSimulationProgress;
         public bool IsNextPostseasonGamePlayerMatch => _postseasonSimulationSession?.IsNextGamePlayerMatch == true;
@@ -118,7 +147,7 @@ namespace Baseball.Game.Historical
                 LastError = "진행 중인 구단주 시즌이 없습니다.";
                 return false;
             }
-            if (_regularSeasonSimulationSession != null)
+            if (_regularSeasonSimulationSession != null || _postseasonSimulationSession != null)
             {
                 LastError = "이미 정규시즌 시뮬레이션이 진행 중입니다.";
                 return false;
@@ -151,9 +180,11 @@ namespace Baseball.Game.Historical
             }
         }
 
-        /// <summary>메인 스레드가 양보할 수 있도록 정규시즌 Detailed 경기를 최대 한 건 진행한다.</summary>
+        /// <summary>백그라운드 결과를 수신하거나 동기 세션의 경기 한 건을 진행한다.</summary>
         public bool AdvanceRegularSeasonSimulationFrame()
         {
+            if (_regularSeasonSimulationWorker != null)
+                return PollRegularSeasonSimulationWorker();
             if (_regularSeasonSimulationSession == null)
             {
                 LastError = "진행 중인 정규시즌 시뮬레이션이 없습니다.";
@@ -197,11 +228,16 @@ namespace Baseball.Game.Historical
             }
         }
 
-        /// <summary>완료한 라운드까지 유지하고 다음 경기 시뮬레이션을 시작하지 않는다.</summary>
+        /// <summary>완료한 경기까지 유지하고 다음 경기 시뮬레이션을 시작하지 않는다.</summary>
         public bool StopRegularSeasonSimulation()
         {
             if (_regularSeasonSimulationSession == null)
                 return false;
+            if (_regularSeasonSimulationWorker != null)
+            {
+                _regularSeasonSimulationWorker.StopAndWait();
+                return PollRegularSeasonSimulationWorker();
+            }
             _regularSeasonSimulationProgress = _regularSeasonSimulationSession.StopByUser();
             _regularSeasonSimulationSession = null;
             CurrentPregame = null;
@@ -211,9 +247,14 @@ namespace Baseball.Game.Historical
             return true;
         }
 
-        /// <summary>화면 종료 시 완료한 라운드까지만 유지하고 세션 참조를 정리한다.</summary>
+        /// <summary>화면 종료 시 완료한 경기까지 유지하고 작업과 세션 참조를 정리한다.</summary>
         public void AbortRegularSeasonSimulationForSceneUnload()
         {
+            if (_regularSeasonSimulationWorker != null)
+            {
+                _regularSeasonSimulationWorker.AbortAndWait();
+                PollRegularSeasonSimulationWorker(notify: false);
+            }
             if (_regularSeasonSimulationSession != null)
             {
                 _regularSeasonSimulationProgress = _regularSeasonSimulationSession.AbortBySceneUnload();
@@ -222,6 +263,35 @@ namespace Baseball.Game.Historical
                 RefreshAvailableTacticCards();
             }
             _postseasonSimulationSession = null;
+        }
+
+        private bool PollRegularSeasonSimulationWorker(bool notify = true)
+        {
+            var worker = _regularSeasonSimulationWorker;
+            _regularSeasonSimulationProgress = worker.ReadProgress();
+            if (!worker.IsCompleted) return true;
+            // 완료된 Task와 동기화한 후에만 복사본을 공개한다. 중단도 완료된 경기까지 반영한다.
+            bool hadSignature = Runtime.TacticCollection.Contains(LosingStreakSignatureCardId);
+            Runtime = _regularSeasonSimulationCopy;
+            // 이전 Runtime을 참조하는 경기 준비 캐시를 소유권 전환 시 함께 해제한다.
+            _matchService = new ManagerModeMatchService(_contentProvider.Load(), _balance,
+                teamColors: _teamColors, tacticCards: _tacticCards);
+            _regularSeasonSimulationCopy = null;
+            _regularSeasonSimulationProgress = worker.ReadProgress();
+            if (worker.LastMatch != null) LastMatch = worker.LastMatch;
+            if (!hadSignature && Runtime.TacticCollection.Contains(LosingStreakSignatureCardId))
+                LastUnlockedSignatureCardId = LosingStreakSignatureCardId;
+            _lastRegularSeasonCompletion = _regularSeasonSimulationSession.IsCompleted
+                ? _regularSeasonSimulationSession.CreateCompletionResult() : null;
+            Exception fault = worker.Fault;
+            _regularSeasonSimulationWorker = null;
+            _regularSeasonSimulationSession = null;
+            CurrentPregame = null;
+            RefreshAvailableTacticCards();
+            LastError = fault == null ? string.Empty : $"정규시즌 시뮬레이션 중 오류가 발생했습니다. {fault.Message}";
+            if (fault != null) UnityEngine.Debug.LogException(fault);
+            if (notify) NotifyRuntimeChanged();
+            return fault == null;
         }
 
         private void EnsureRegularSeasonSimulationIsNotRunning()

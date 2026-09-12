@@ -101,6 +101,7 @@ namespace Baseball.Game.Historical
         private ManagerRegularSeasonSimulationStatus _status;
         private int _playerGamesSimulated;
         private int _leagueGamesSimulated;
+        private int _playerLeagueGamesSimulated;
         private int _lastCompletedRound;
         private Exception _fault;
         private int _seasonWins;
@@ -156,11 +157,13 @@ namespace Baseball.Game.Historical
                 bool didAdvanceGame = false;
                 int aiThroughRound = nextGame == null ? int.MaxValue : nextGame.Round - 1;
                 if (_matchService.TrySimulateNextAiGameThrough(
-                    _runtime, _playerIds, _aiScheduleCursor, aiThroughRound, out int completedAiRound))
+                    _runtime, _playerIds, _aiScheduleCursor, aiThroughRound, out int completedAiRound,
+                    out bool isPlayerLeagueGame))
                 {
                     _lastCompletedRound = completedAiRound;
                     didAdvanceGame = true;
                     _leagueGamesSimulated++;
+                    if (isPlayerLeagueGame) _playerLeagueGamesSimulated++;
                 }
                 else if (nextGame != null)
                 {
@@ -171,6 +174,7 @@ namespace Baseball.Game.Historical
                     _nextPlayerGame = _season.NextPlayerGame;
                     _lastCompletedRound = completedRound;
                     _playerGamesSimulated++;
+                    _playerLeagueGamesSimulated++;
                     didAdvanceGame = true;
                     _leagueGamesSimulated++;
                 }
@@ -178,11 +182,13 @@ namespace Baseball.Game.Historical
                 if (_nextPlayerGame == null && !didAdvanceGame)
                 {
                     bool hasRemainingAiGame = _matchService.TrySimulateNextAiGameThrough(
-                        _runtime, _playerIds, _aiScheduleCursor, int.MaxValue, out int remainingAiRound);
+                        _runtime, _playerIds, _aiScheduleCursor, int.MaxValue, out int remainingAiRound,
+                        out bool isRemainingPlayerLeagueGame);
                     if (hasRemainingAiGame)
                     {
                         _lastCompletedRound = remainingAiRound;
                         _leagueGamesSimulated++;
+                        if (isRemainingPlayerLeagueGame) _playerLeagueGamesSimulated++;
                     }
                     else if (!_season.IsCompleted ||
                              _runtime.LeagueWorld != null && !_runtime.LeagueWorld.IsRegularSeasonCompleted)
@@ -221,7 +227,7 @@ namespace Baseball.Game.Historical
                 _seasonWins,
                 _seasonLosses,
                 _seasonDraws,
-                CountCompletedGames(_season.Schedule.Games) - _completedPlayerLeagueGamesBefore,
+                _playerLeagueGamesSimulated,
                 _totalPlayerLeagueGames);
         }
 

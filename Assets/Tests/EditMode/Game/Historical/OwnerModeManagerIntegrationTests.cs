@@ -17,6 +17,64 @@ namespace Baseball.Tests.EditMode.Game.Historical
 {
     public sealed class OwnerModeManagerIntegrationTests
     {
+        [Test]
+        public void 백그라운드시즌은원본을보호하고중단완료장면종료를반영한다()
+        {
+            GameBootstrap.EnsureRuntimeManagers();
+            GameManager.Instance.TryGetManager(out OwnerModeManager manager);
+            Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
+            var original = manager.Runtime;
+            int completedBefore = CountCompletedWorldGames(original);
+            try
+            {
+                Assert.That(manager.BeginRegularSeasonSimulationInBackground(), Is.True, manager.LastError);
+                Assert.That(manager.Runtime, Is.SameAs(original));
+                Assert.Throws<InvalidOperationException>(() => manager.Save());
+                Assert.Throws<InvalidOperationException>(() => manager.Load());
+                Assert.Throws<InvalidOperationException>(() => manager.StartNewGame());
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                while (manager.RegularSeasonSimulationProgress.LeagueGamesSimulated < 10 && timer.Elapsed.TotalSeconds < 30)
+                {
+                    Assert.That(manager.AdvanceRegularSeasonSimulationFrame(), Is.True, manager.LastError);
+                    System.Threading.Thread.Sleep(1);
+                }
+                Assert.That(manager.RegularSeasonSimulationProgress.LeagueGamesSimulated, Is.GreaterThanOrEqualTo(10));
+                Assert.That(CountCompletedWorldGames(original), Is.EqualTo(completedBefore));
+                Assert.That(manager.StopRegularSeasonSimulation(), Is.True);
+                Assert.That(manager.IsRegularSeasonSimulationRunning, Is.False);
+                Assert.That(manager.Runtime, Is.Not.SameAs(original));
+                Assert.That(CountCompletedWorldGames(manager.Runtime), Is.GreaterThan(completedBefore));
+
+                Assert.That(manager.BeginRegularSeasonSimulationInBackground(), Is.True, manager.LastError);
+                manager.AbortRegularSeasonSimulationForSceneUnload();
+                Assert.That(manager.IsRegularSeasonSimulationRunning, Is.False);
+                Assert.That(manager.RegularSeasonSimulationProgress.Status,
+                    Is.EqualTo(ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload));
+
+                Assert.That(manager.BeginRegularSeasonSimulationInBackground(), Is.True, manager.LastError);
+                timer.Restart();
+                while (manager.IsRegularSeasonSimulationRunning && timer.Elapsed.TotalSeconds < 180)
+                {
+                    Assert.That(manager.AdvanceRegularSeasonSimulationFrame(), Is.True, manager.LastError);
+                    System.Threading.Thread.Sleep(1);
+                }
+                Assert.That(manager.IsRegularSeasonSimulationRunning, Is.False);
+                Assert.That(manager.LastRegularSeasonCompletion.IsCompleted, Is.True);
+                Assert.That(manager.Runtime.LeagueWorld.IsRegularSeasonCompleted, Is.True);
+                TestContext.WriteLine($"Unity Worker 시즌 완료: {timer.Elapsed.TotalSeconds:F3}초, 완료 {CountCompletedWorldGames(manager.Runtime)}경기");
+            }
+            finally { manager.AbortRegularSeasonSimulationForSceneUnload(); }
+        }
+
+        private static int CountCompletedWorldGames(ManagerHistoricalRuntimeState runtime)
+        {
+            int completed = 0;
+            foreach (var group in runtime.LeagueWorld.Groups)
+                foreach (var game in group.Season.Schedule.Games)
+                    if (game.IsCompleted) completed++;
+            return completed;
+        }
+
         [TearDown]
         public void TearDown()
         {

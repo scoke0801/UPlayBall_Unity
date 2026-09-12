@@ -146,6 +146,7 @@ namespace Baseball.Game.Historical
 
         protected override void OnShutdown()
         {
+            AbortRegularSeasonSimulationForSceneUnload();
             RuntimeChanged = null;
             Runtime = null;
             NewGameFlow = null;
@@ -156,6 +157,7 @@ namespace Baseball.Game.Historical
         /// <summary>직렬화된 기본 Seed와 첫 유효 정규구단으로 새 구단주 Runtime을 만든다.</summary>
         public bool StartNewGame()
         {
+            EnsureRegularSeasonSimulationIsNotRunning();
             try
             {
                 HistoricalBakedContent content = _contentProvider.Load()
@@ -869,6 +871,7 @@ namespace Baseball.Game.Historical
         /// <summary>화면에서 확인한 Draft만 사용해 Runtime을 만들고 첫 배정 튜토리얼을 연다.</summary>
         public bool CompleteNewGameFlow()
         {
+            EnsureRegularSeasonSimulationIsNotRunning();
             try
             {
                 OwnerNewGameFlow flow = NewGameFlow
@@ -1500,6 +1503,7 @@ namespace Baseball.Game.Historical
 
         private ManagerHistoricalRuntimeState RequireRuntime()
         {
+            EnsureRegularSeasonSimulationIsNotRunning();
             return Runtime ?? throw new InvalidOperationException("활성 구단주 Runtime이 없습니다.");
         }
 
