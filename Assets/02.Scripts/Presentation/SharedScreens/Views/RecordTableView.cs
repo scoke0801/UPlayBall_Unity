@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,7 +12,8 @@ namespace Baseball.Presentation.SharedScreens
     public enum RecordTableVisualStyle
     {
         Default,
-        ReferenceLight
+        ReferenceLight,
+        OwnerFrontOffice
     }
 
     /// <summary>
@@ -88,6 +90,18 @@ namespace Baseball.Presentation.SharedScreens
 
         /// <summary>현재 기록표에 적용된 Skin이다.</summary>
         public RecordTableVisualStyle VisualStyle => _visualStyle;
+        /// <summary>목록의 소유 상태를 선택과 분리해 표시한다.</summary>
+        public string HighlightBadge { get; set; } = "내 구단";
+        /// <summary>상세를 열 수 있는 표에서만 행 입력 반응을 활성화한다.</summary>
+        public bool AllowRowActivation { get; set; } = true;
+        /// <summary>상세에서 돌아오면 가시 풀의 선택 행으로 포커스를 복원한다.</summary>
+        public bool FocusSelectedRow()
+        {
+            foreach (var row in _rowPool)
+                if (row.RowId == _selectedRowId && row.Root.gameObject.activeInHierarchy)
+                { row.Root.GetComponent<Button>().Select(); return true; }
+            return false;
+        }
 
         /// <summary>부모 전체를 채우는 대량 기록표를 런타임 생성한다.</summary>
         public static RecordTableView CreateRuntime(
@@ -352,9 +366,9 @@ namespace Baseball.Presentation.SharedScreens
             float viewportHeight = ResolveViewportHeight();
             float totalWeight = 0f;
             for (int i = 0; i < _model.Columns.Count; i++)
-                totalWeight += _model.Columns[i].WidthWeight;
+                totalWeight += ColumnWidthWeight(_model.Columns[i]);
 
-            _contentWidth = Mathf.Max(viewportWidth, totalWeight * MinimumColumnWidthPerWeight);
+            _contentWidth = Mathf.Max(viewportWidth, totalWeight * (IsOwnerFrontOffice ? 120f : MinimumColumnWidthPerWeight));
             float contentHeight = Mathf.Max(viewportHeight, _model.Rows.Count * DefaultRowHeight);
             _content.sizeDelta = new Vector2(_contentWidth, contentHeight);
             _headerContent.sizeDelta = new Vector2(_contentWidth, DefaultHeaderHeight);
@@ -375,7 +389,7 @@ namespace Baseball.Presentation.SharedScreens
             for (int i = 0; i < _model.Columns.Count; i++)
             {
                 RecordTableColumnModel column = _model.Columns[i];
-                float width = _contentWidth * column.WidthWeight / totalWeight;
+                float width = _contentWidth * ColumnWidthWeight(column) / totalWeight;
                 RectTransform rect = CreateTopLeftRect(column.ColumnId, _headerContent);
                 SetTopLeftRect(rect, left, 0f, width, DefaultHeaderHeight);
                 left += width;
@@ -397,6 +411,13 @@ namespace Baseball.Presentation.SharedScreens
                     FontStyle.Bold,
                     TextAnchor.MiddleCenter,
                     isSorted ? SortedTextColor : SecondaryTextColor);
+                if (IsOwnerFrontOffice)
+                {
+                    OwnerDashboardStyle.SetDataSurface(image, image.color, column.IsSortable);
+                    OwnerDashboardStyle.SetDataText(label, isSorted);
+                    OwnerDashboardStyle.ConfigureDataControl(button);
+                    label.alignment = GetTextAnchor(column.Alignment);
+                }
                 label.text = column.DisplayName + marker;
                 Stretch(label.rectTransform);
                 label.rectTransform.offsetMin = new Vector2(6f, 0f);
@@ -486,6 +507,7 @@ namespace Baseball.Presentation.SharedScreens
             _model = _model.SortBy(columnId, direction);
             RebuildHeaders();
             RefreshVisibleRows();
+            if (IsOwnerFrontOffice) _headerContent.Find(columnId)?.GetComponent<Button>()?.Select();
             SortChanged?.Invoke(columnId, direction);
         }
 
@@ -553,11 +575,20 @@ namespace Baseball.Presentation.SharedScreens
             return null;
         }
 
+        private float ColumnWidthWeight(RecordTableColumnModel column)
+        {
+            if (IsOwnerFrontOffice && column.Alignment == RecordCellAlignment.Left)
+                foreach (var candidate in _model.Columns)
+                    if (candidate.Alignment == RecordCellAlignment.Left)
+                        return candidate.ColumnId == column.ColumnId ? Mathf.Max(2.1f, column.WidthWeight + .7f) : column.WidthWeight;
+            return column.WidthWeight;
+        }
+
         private float CalculateTotalColumnWeight()
         {
             float total = 0f;
             for (int i = 0; i < _model.Columns.Count; i++)
-                total += _model.Columns[i].WidthWeight;
+                total += ColumnWidthWeight(_model.Columns[i]);
             return Mathf.Max(total, 1f);
         }
 
@@ -699,6 +730,16 @@ namespace Baseball.Presentation.SharedScreens
             if (_backgroundImage == null)
                 return;
 
+            if (IsOwnerFrontOffice)
+            {
+                OwnerDashboardStyle.SetDataSurface(_backgroundImage, TableBackgroundColor);
+                OwnerDashboardStyle.SetDataSurface(_headerViewportImage, HeaderColor, true);
+                OwnerDashboardStyle.SetDataSurface(_bodyViewportImage, BodyColor, true);
+                OwnerDashboardStyle.SetDataSurface(_stateSurfaceImage, BodyColor);
+                OwnerDashboardStyle.SetDataText(_stateTitle, true);
+                OwnerDashboardStyle.SetDataText(_stateMessage);
+                OwnerUiButtonSkin.Apply(_stateActionButton);
+            }
             _backgroundImage.color = TableBackgroundColor;
             Outline outline = _backgroundImage.GetComponent<Outline>();
             if (outline != null)
@@ -727,9 +768,11 @@ namespace Baseball.Presentation.SharedScreens
                 return;
             Image track = scrollbar.GetComponent<Image>();
             if (track != null)
-                track.color = ScrollbarTrackColor;
+{ track.color = ScrollbarTrackColor;
+                if (IsOwnerFrontOffice) OwnerDashboardStyle.SetDataSurface(track, ScrollbarTrackColor, true); }
             if (scrollbar.targetGraphic is Image handle)
-                handle.color = AccentColor;
+{ handle.color = AccentColor;
+                if (IsOwnerFrontOffice) OwnerDashboardStyle.SetDataSurface(handle, AccentColor, true); }
         }
 
         private void CreateColumnRule(Transform parent)
@@ -741,22 +784,23 @@ namespace Baseball.Presentation.SharedScreens
             image.raycastTarget = false;
         }
 
+        private bool IsOwnerFrontOffice => _visualStyle == RecordTableVisualStyle.OwnerFrontOffice;
         private bool IsReferenceLight => _visualStyle == RecordTableVisualStyle.ReferenceLight;
-        private Color TableBackgroundColor => IsReferenceLight ? CareerUiTheme.ReferenceDataCanvas : CareerUiTheme.PanelDark;
-        private Color HeaderColor => IsReferenceLight ? CareerUiTheme.ReferenceDataHeader : CareerUiTheme.Panel;
-        private Color BodyColor => IsReferenceLight ? Color.white : CareerUiTheme.PanelDark;
-        private Color BorderColor => IsReferenceLight ? CareerUiTheme.ReferenceDataGrid : CareerUiTheme.Border;
-        private Color AccentColor => IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.Primary;
-        private Color SelectedColor => IsReferenceLight ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.SurfaceSelected;
-        private Color HighlightedColor => IsReferenceLight ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.CurrentRow;
-        private Color EvenRowColor => IsReferenceLight ? new Color32(248, 248, 248, 255) : CareerUiTheme.Surface;
-        private Color OddRowColor => IsReferenceLight ? Color.white : CareerUiTheme.SurfaceSubtle;
-        private Color PrimaryTextColor => IsReferenceLight ? CareerUiTheme.ReferenceDataInk : CareerUiTheme.TextPrimary;
-        private Color SecondaryTextColor => IsReferenceLight ? CareerUiTheme.ReferenceDataInkSecondary : CareerUiTheme.TextSecondary;
-        private Color SortedTextColor => IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.PrimaryBright;
-        private Color StateActionColor => IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.PrimaryAction;
-        private Color StateActionTextColor => IsReferenceLight ? Color.white : CareerUiTheme.TextPrimary;
-        private Color ScrollbarTrackColor => IsReferenceLight ? CareerUiTheme.ReferenceDataScrollbar : CareerUiTheme.Panel;
+        private Color TableBackgroundColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSurface : IsReferenceLight ? CareerUiTheme.ReferenceDataCanvas : CareerUiTheme.PanelDark;
+        private Color HeaderColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableHeader : IsReferenceLight ? CareerUiTheme.ReferenceDataHeader : CareerUiTheme.Panel;
+        private Color BodyColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSurface : IsReferenceLight ? Color.white : CareerUiTheme.PanelDark;
+        private Color BorderColor => IsOwnerFrontOffice ? OwnerDashboardStyle.Line : IsReferenceLight ? CareerUiTheme.ReferenceDataGrid : CareerUiTheme.Border;
+        private Color AccentColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSecondary : IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.Primary;
+        private Color SelectedColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSelected : IsReferenceLight ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.SurfaceSelected;
+        private Color HighlightedColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSurface : IsReferenceLight ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.CurrentRow;
+        private Color EvenRowColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableAlternate : IsReferenceLight ? new Color32(248, 248, 248, 255) : CareerUiTheme.Surface;
+        private Color OddRowColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSurface : IsReferenceLight ? Color.white : CareerUiTheme.SurfaceSubtle;
+        private Color PrimaryTextColor => IsOwnerFrontOffice ? OwnerDashboardStyle.Ivory : IsReferenceLight ? CareerUiTheme.ReferenceDataInk : CareerUiTheme.TextPrimary;
+        private Color SecondaryTextColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableSecondary : IsReferenceLight ? CareerUiTheme.ReferenceDataInkSecondary : CareerUiTheme.TextSecondary;
+        private Color SortedTextColor => IsOwnerFrontOffice ? OwnerDashboardStyle.Gold : IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.PrimaryBright;
+        private Color StateActionColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableHeader : IsReferenceLight ? CareerUiTheme.ReferenceDataAccent : CareerUiTheme.PrimaryAction;
+        private Color StateActionTextColor => IsOwnerFrontOffice ? OwnerDashboardStyle.Ivory : IsReferenceLight ? Color.white : CareerUiTheme.TextPrimary;
+        private Color ScrollbarTrackColor => IsOwnerFrontOffice ? OwnerDashboardStyle.TableHeader : IsReferenceLight ? CareerUiTheme.ReferenceDataScrollbar : CareerUiTheme.Panel;
 
         private static void SetAnchors(
             RectTransform rect,
@@ -811,6 +855,9 @@ namespace Baseball.Presentation.SharedScreens
             private readonly RecordTableView _owner;
             private readonly Image _background;
             private readonly Text[] _values;
+            private readonly Button _button;
+            private Text _badge;
+            private int _badgeColumn = -1;
 
             public PooledRow(
                 RecordTableView owner,
@@ -821,13 +868,17 @@ namespace Baseball.Presentation.SharedScreens
                 Root = CreateTopLeftRect("PooledRow", parent);
                 _background = Root.gameObject.AddComponent<Image>();
                 Button button = Root.gameObject.AddComponent<Button>();
+                _button = button;
                 button.targetGraphic = _background;
                 button.onClick.AddListener(() => _owner.HandleRowSelected(this));
 
+                if (owner.IsOwnerFrontOffice)
+                    OwnerDashboardStyle.Rule(Root, "RowRule", Vector2.zero, Vector2.right,
+                        Vector2.zero, new Vector2(0, 1), OwnerDashboardStyle.Line);
                 _values = new Text[columns.Count];
                 float totalWeight = 0f;
                 for (int i = 0; i < columns.Count; i++)
-                    totalWeight += columns[i].WidthWeight;
+                    totalWeight += owner.ColumnWidthWeight(columns[i]);
 
                 float leftWeight = 0f;
                 for (int i = 0; i < columns.Count; i++)
@@ -835,13 +886,13 @@ namespace Baseball.Presentation.SharedScreens
                     RecordTableColumnModel column = columns[i];
                     RectTransform cell = CreateTopLeftRect(column.ColumnId, Root);
                     float leftRatio = leftWeight / totalWeight;
-                    float rightRatio = (leftWeight + column.WidthWeight) / totalWeight;
+                    float rightRatio = (leftWeight + owner.ColumnWidthWeight(column)) / totalWeight;
                     cell.anchorMin = new Vector2(leftRatio, 0f);
                     cell.anchorMax = new Vector2(rightRatio, 1f);
                     cell.pivot = new Vector2(0.5f, 0.5f);
                     cell.offsetMin = new Vector2(1f, 0f);
                     cell.offsetMax = new Vector2(-1f, 0f);
-                    leftWeight += column.WidthWeight;
+                    leftWeight += owner.ColumnWidthWeight(column);
 
                     Text value = CreateText(
                         "Value",
@@ -853,7 +904,19 @@ namespace Baseball.Presentation.SharedScreens
                     Stretch(value.rectTransform);
                     value.rectTransform.offsetMin = new Vector2(7f, 0f);
                     value.rectTransform.offsetMax = new Vector2(-7f, 0f);
+                    if (owner.IsOwnerFrontOffice) OwnerDashboardStyle.SetDataText(value);
                     _values[i] = value;
+                    if (owner.IsOwnerFrontOffice && _badgeColumn < 0 && column.Alignment == RecordCellAlignment.Left)
+                    {
+                        _badgeColumn = i;
+                        _badge = CreateText("OwnershipBadge", cell, 12, FontStyle.Normal, TextAnchor.MiddleRight, OwnerDashboardStyle.Gold);
+                        _badge.rectTransform.anchorMin = Vector2.right;
+                        _badge.rectTransform.anchorMax = Vector2.one;
+                        _badge.rectTransform.offsetMin = new Vector2(-72, 0);
+                        _badge.rectTransform.offsetMax = new Vector2(-8, 0);
+                        OwnerDashboardStyle.SetDataText(_badge);
+                        _badge.color = OwnerDashboardStyle.Gold;
+                    }
 
                     if (owner.IsReferenceLight && i > 0)
                         owner.CreateColumnRule(cell);
@@ -869,6 +932,9 @@ namespace Baseball.Presentation.SharedScreens
                 float contentWidth,
                 bool isSelected)
             {
+                if (_owner.IsOwnerFrontOffice && RowId != row.RowId &&
+                    UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject == Root.gameObject)
+                    UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
                 RowId = row.RowId;
                 Root.gameObject.name = "Row_" + row.RowId;
                 SetTopLeftRect(
@@ -886,6 +952,19 @@ namespace Baseball.Presentation.SharedScreens
                         : rowIndex % 2 == 0
                             ? _owner.EvenRowColor
                             : _owner.OddRowColor;
+                if (_owner.IsOwnerFrontOffice)
+                {
+                    bool hasAction = _owner.RowSelected != null && _owner.AllowRowActivation;
+                    _button.interactable = hasAction;
+                    OwnerDashboardStyle.SetDataRow(_button, isSelected && hasAction,
+                        rowIndex % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.TableSurface);
+                    _button.navigation = new Navigation { mode = hasAction ? Navigation.Mode.Automatic : Navigation.Mode.None };
+                    if (!hasAction)
+                    {
+                        _button.transition = Selectable.Transition.None;
+                        _background.canvasRenderer.SetColor(Color.white);
+                    }
+                }
                 Color textColor = isSelected || row.IsHighlighted
                     ? _owner.PrimaryTextColor
                     : _owner.SecondaryTextColor;
@@ -899,6 +978,15 @@ namespace Baseball.Presentation.SharedScreens
                     _values[i].text = cell.DisplayValue;
                     _values[i].color = textColor;
                     _values[i].fontStyle = fontStyle;
+                    if (_owner.IsOwnerFrontOffice)
+                    {
+                        OwnerDashboardStyle.SetDataText(_values[i], column.Alignment == RecordCellAlignment.Left);
+                        if (i == _badgeColumn)
+                        {
+                            _badge.text = row.IsHighlighted ? _owner.HighlightBadge : string.Empty;
+                            _values[i].rectTransform.offsetMax = new Vector2(row.IsHighlighted ? -80 : -7, 0);
+                        }
+                    }
                 }
             }
 

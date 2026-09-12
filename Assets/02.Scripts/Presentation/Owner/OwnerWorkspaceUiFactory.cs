@@ -98,7 +98,16 @@ namespace Baseball.Presentation.Owner
             // 기존 Outline은 면 전체가 불투명해지는 스킨 충돌이 있어 전용 메시 테두리로 대체한다.
             borderImage.enabled = false;
             border.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
-            UIOwnerPanelFrame.Attach(root, isHero);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                // 범용 패널의 기존 44px 제목 영역에는 제목선이 없는 상세 프레임을 사용한다.
+                UIOwnerFrontOfficePanel.Apply(root, "ManagerReport");
+                headerImage.enabled = false;
+                accentImage.enabled = false;
+                header.color = OwnerDashboardStyle.Ivory;
+                header.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            }
+            else UIOwnerPanelFrame.Attach(root, isHero);
             return new Panel(root, content);
         }
 
@@ -118,10 +127,13 @@ namespace Baseball.Presentation.Owner
             text.fontSize = fontSize;
             text.fontStyle = style;
             text.alignment = alignment;
-            text.color = ResolveTextColor(color ?? CareerUiTheme.TextPrimary);
+            Color requested = color ?? CareerUiTheme.TextPrimary;
+            text.color = UIOwnerFrontOfficeSkin.IsOwnerContext && UIOwnerFrontOfficePanel.HasDarkSurface(parent)
+                ? UIOwnerFrontOfficePanel.ResolveTextColor(requested) : ResolveTextColor(requested);
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.raycastTarget = false;
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.SetTypography(text, style == FontStyle.Bold);
             return text;
         }
 

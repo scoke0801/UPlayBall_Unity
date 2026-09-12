@@ -43,7 +43,7 @@ namespace Baseball.Presentation.SharedUI
                     Vector2.zero, Vector2.zero);
                 _modeNameText.alignment = TextAnchor.MiddleLeft;
             }
-            _modeNameText.color = isOwner ? CareerUiTheme.ReferenceAccent : AccentLight;
+            _modeNameText.color = isOwner ? TextPrimary : AccentLight;
             SetAnchors((RectTransform)_globalTopBar.Find("TeamStatus"), new Vector2(isOwner ? .14f : 0f, 0f),
                 new Vector2(isOwner ? .40f : 0f, 1f),
                 new Vector2(isOwner ? 0f : 270f, 0f),
@@ -63,7 +63,7 @@ namespace Baseball.Presentation.SharedUI
                 _globalSave = OwnerWorkspaceUiFactory.CreateButton(_globalTopBar, "GlobalSave", "저장", () => SaveRequested?.Invoke());
                 SetAnchors((RectTransform)_globalSave.transform, new Vector2(1, 0), Vector2.one,
                     new Vector2(-130, 4), new Vector2(-70, -4));
-                OwnerUiButtonSkin.Apply(_globalSave, OwnerButtonRole.Quiet);
+                OwnerUiButtonSkin.Apply(_globalSave, OwnerButtonRole.Utility);
             }
             _globalSave.gameObject.SetActive(isOwner);
             if (isOwner)
@@ -76,7 +76,7 @@ namespace Baseball.Presentation.SharedUI
             settings.Find("Label").GetComponent<Text>().color = isOwner ? DarkText : TextSecondary;
             if (isOwner)
             {
-                OwnerUiButtonSkin.Apply(settings.GetComponent<Button>(), OwnerButtonRole.Quiet);
+                OwnerUiButtonSkin.Apply(settings.GetComponent<Button>(), OwnerButtonRole.Utility);
                 OwnerUiButtonSkin.Apply(_backButton, OwnerButtonRole.Detail);
             }
             else
@@ -98,6 +98,9 @@ namespace Baseball.Presentation.SharedUI
                 SetAnchors(_navigationEntryHost, Vector2.zero, Vector2.one, new Vector2(18, 5), new Vector2(-18, -5));
             SetAnchors(_contextHeader, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -(chromeHeight + ContextHeaderHeight)), new Vector2(0f, -chromeHeight));
+            _contextHeader.GetComponent<Image>().color = isOwner ? OwnerDashboardStyle.TableSurface : ContextSurface;
+            _contextTitleText.color = isOwner ? OwnerDashboardStyle.Ivory : DarkText;
+            _contextSummaryText.color = isOwner ? OwnerDashboardStyle.TableSecondary : Color.Lerp(DarkText, ContextSurface, .22f);
             return chromeHeight;
         }
 
@@ -136,6 +139,9 @@ namespace Baseball.Presentation.SharedUI
 
         private static void AddOwnerNavigationIcon(RectTransform parent, string routeId, Text label)
         {
+            label.fontSize = 22;
+            label.font = UIProjectFonts.Default;
+            label.fontStyle = FontStyle.Normal;
             if (string.Equals(routeId, OwnerNavigationRoutes.Shop, System.StringComparison.Ordinal))
             {
                 Texture2D shopIcon = Resources.Load<Texture2D>("UI/Shop/shop_navigation_icon_v2");
@@ -149,9 +155,6 @@ namespace Baseball.Presentation.SharedUI
                 shopImage.raycastTarget = false;
                 SetAnchors(label.rectTransform, Vector2.zero, Vector2.one,
                     new Vector2(46f, 2f), new Vector2(-8f, -2f));
-                label.fontSize = 22;
-                label.font = Baseball.Presentation.UI.UIProjectFonts.Default;
-                label.fontStyle = FontStyle.Normal;
                 return;
             }
 
@@ -180,9 +183,6 @@ namespace Baseball.Presentation.SharedUI
             // 24px 텍스트 영역과 28px 아이콘을 분리해 버튼 안에서 두 요소를 보존한다.
             SetAnchors(label.rectTransform, Vector2.zero, Vector2.one,
                     new Vector2(46f, 2f), new Vector2(-8f, -2f));
-            label.fontSize = 22;
-            label.font = UIProjectFonts.Default;
-            label.fontStyle = FontStyle.Normal;
         }
     }
 }

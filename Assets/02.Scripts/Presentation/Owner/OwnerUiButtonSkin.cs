@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>구단주 버튼의 정보 위계에 맞는 프레임 종류다.</summary>
-    public enum OwnerButtonRole { Secondary, Primary, Navigation, Tab, Detail, Quiet }
+    public enum OwnerButtonRole { Secondary, Primary, Navigation, Tab, Detail, Quiet, ListItem, Utility }
 
     /// <summary>구단주 전용 ImageGen 프레임과 입력 상태를 기존 버튼의 의미 색상에서 분리한다.</summary>
     [DisallowMultipleComponent]
@@ -26,6 +26,13 @@ namespace Baseball.Presentation.Owner
         private bool _hasRendered;
         private bool _usesBoardStyle;
         private bool _usesDashboardStyle;
+        private bool _usesFrontOffice;
+
+        /// <summary>검수 스킨도 행동 위계와 지속 선택 상태를 공유한다.</summary>
+        public OwnerButtonRole Role => _role;
+        public bool IsSelected => _isSelected ?? (_source != null &&
+            (_source.color.b > _source.color.r + .12f ||
+             (_source.color.r > _source.color.b + .15f && _source.color.r > _source.color.g + .15f)));
 
         /// <summary>홈의 행동 위계를 골드 기본 행동·네이비 추천·투명 탐색으로 표현한다.</summary>
         public static void SetDashboardStyle(Button button)
@@ -46,7 +53,7 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>문자 버튼에만 전용 프레임을 연결한다. 카드와 투명 클릭 영역은 유지한다.</summary>
-        public static void Apply(Button button, OwnerButtonRole role = OwnerButtonRole.Secondary)
+        public static void Apply(Button button, OwnerButtonRole role = OwnerButtonRole.Secondary, bool useFrontOffice = true)
         {
             if (button == null) return;
             var visual = button.GetComponent<CareerUiVisualElement>();
@@ -56,6 +63,7 @@ namespace Baseball.Presentation.Owner
             if (label == null || string.IsNullOrEmpty(label.text) || source == null) return;
             var skin = button.GetComponent<OwnerUiButtonSkin>() ?? button.gameObject.AddComponent<OwnerUiButtonSkin>();
             skin._role = role;
+            skin._usesFrontOffice = useFrontOffice && UIOwnerFrontOfficeSkin.IsOwnerContext;
             skin.enabled = true;
             if (skin._frame == null) skin.Initialize(button, source, label);
             skin._frame.gameObject.SetActive(true);
@@ -67,10 +75,15 @@ namespace Baseball.Presentation.Owner
         {
             var skin = button != null ? button.GetComponent<OwnerUiButtonSkin>() : null;
             if (skin == null || skin._frame == null) return;
+            var frontOffice = button.GetComponent<UIOwnerFrontOfficeButton>();
+            if (frontOffice != null) frontOffice.enabled = false;
             skin.enabled = false;
             skin._frame.gameObject.SetActive(false);
             skin._source.enabled = true;
             button.targetGraphic = skin._source;
+            button.transition = Selectable.Transition.ColorTint;
+            skin._source.canvasRenderer.SetColor(Color.white);
+            skin._source.overrideSprite = null;
             button.colors = ColorBlock.defaultColorBlock;
         }
 
@@ -116,6 +129,22 @@ namespace Baseball.Presentation.Owner
         public void Refresh()
         {
             if (_frame == null || !enabled) return;
+            if (_usesFrontOffice)
+            {
+                _source.enabled = true;
+                // 원본 Graphic은 기존 선택 색상을 소유하되 투명하게 클릭 영역만 유지한다.
+                _source.canvasRenderer.SetAlpha(0f);
+                var frontOfficeOutline = _source.GetComponent<Outline>();
+                if (frontOfficeOutline != null) frontOfficeOutline.enabled = false;
+                UIOwnerFrontOfficeSkin.ApplyButton(_button, _role);
+                _lastSource = _source.color;
+                _lastLabel = _label.color;
+                _lastInteractable = _button.IsInteractable();
+                _hasRendered = true;
+                return;
+            }
+            var frontOffice = GetComponent<UIOwnerFrontOfficeButton>();
+            if (frontOffice != null) frontOffice.enabled = false;
             if (_usesDashboardStyle)
             {
                 RefreshDashboard();

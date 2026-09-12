@@ -19,6 +19,7 @@ namespace Baseball.Presentation.SharedUI
         private Image _support;
         private Image _board;
         private Text _supportCount;
+        private Text _boardRank;
         private RectTransform _tooltip;
         private float _cardTop = 1;
         private bool _isDetail;
@@ -56,7 +57,8 @@ namespace Baseball.Presentation.SharedUI
             view.SetIcon(ref view._support, "SupportBadge", view._model.HasSupport,
                 view._model.HasSupport ? Resources.Load<Sprite>("UI/PlayerGrowthBadges/Support_v1") : null);
             view.SetIcon(ref view._board, "SkillBoardRankBadge", view._model.HasBoard,
-                view._model.HasBoard ? GetTraitSprite((PlayerTraitBadgeRank)view._model.BoardRank) : null);
+                view._model.HasBoard ? Resources.Load<Sprite>("UI/OwnerPowerUp/skill_stud_tile_v1") : null);
+            view.RefreshBoardRank();
             if (view._model.HasSupport)
             {
                 if (view._supportCount == null)
@@ -80,6 +82,24 @@ namespace Baseball.Presentation.SharedUI
             if (TraitSprites[index] == null)
                 TraitSprites[index] = Resources.Load<Sprite>("UI/PlayerGrowthBadges/TraitRank_" + rank);
             return TraitSprites[index];
+        }
+
+        private void RefreshBoardRank()
+        {
+            if (!_model.HasBoard) return;
+            // 특성 방패는 확정 특성에만 쓴다. 성장판은 기존 블록 타일과 문자로 구분한다.
+            if (_boardRank == null)
+            {
+                _boardRank = Baseball.Presentation.Owner.OwnerWorkspaceUiFactory.CreateText(_board.transform,
+                    "BoardRank", "", 16, FontStyle.Normal, TextAnchor.MiddleCenter,
+                    Baseball.Presentation.Owner.OwnerDashboardStyle.Ivory);
+                Baseball.Presentation.Owner.OwnerWorkspaceUiFactory.Stretch(_boardRank.rectTransform);
+                Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataText(_boardRank, true);
+                var shadow = _boardRank.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = Baseball.Presentation.Owner.OwnerDashboardStyle.Ink;
+                shadow.effectDistance = new Vector2(1, -1);
+            }
+            _boardRank.text = _model.BoardRank.ToString();
         }
 
         public static Sprite GetStudySprite()

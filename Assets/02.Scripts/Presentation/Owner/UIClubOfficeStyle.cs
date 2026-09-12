@@ -7,10 +7,10 @@ namespace Baseball.Presentation.Owner
     /// <summary>구단 업무 화면의 불투명 작업면, 이미지와 선택 상태를 공통으로 구성한다.</summary>
     internal static class UIClubOfficeStyle
     {
-        internal static readonly Color Paper = new Color32(246, 247, 248, 255);
-        internal static readonly Color Ink = new Color32(35, 39, 45, 255);
-        internal static readonly Color Muted = new Color32(93, 101, 113, 255);
-        internal static readonly Color Blue = new Color32(28, 83, 148, 255);
+        internal static readonly Color Paper = OwnerDashboardStyle.TableSurface;
+        internal static readonly Color Ink = OwnerDashboardStyle.Ivory;
+        internal static readonly Color Muted = OwnerDashboardStyle.TableSecondary;
+        internal static readonly Color Blue = OwnerDashboardStyle.Gold;
         private static readonly Sprite[] Artwork = new Sprite[9];
 
         /// <summary>ImageGen 아틀라스의 독립된 장면을 읽기 순서대로 재사용한다.</summary>
@@ -46,7 +46,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerRuntimeUiFactory.CreateText(name, parent, value, size,
                 bold ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft, bold ? Ink : Muted);
-            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            OwnerDashboardStyle.SetDataText(text, bold);
             return text;
         }
 
@@ -74,6 +74,13 @@ namespace Baseball.Presentation.Owner
             rule.rectTransform.offsetMax = new Vector2(0f, 2f);
             RectTransform content = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", panel.transform);
             OwnerRuntimeUiFactory.Stretch(content, new Vector2(12f, 12f), new Vector2(-12f, -54f));
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                UIOwnerFrontOfficePanel.Apply(panel.rectTransform, "ManagerReport");
+                header.enabled = false;
+                rule.enabled = false;
+                label.color = OwnerDashboardStyle.Ivory;
+            }
             return new OwnerWorkspaceUiFactory.Panel(panel.rectTransform, content);
         }
 
@@ -84,25 +91,11 @@ namespace Baseball.Presentation.Owner
         /// <summary>색과 좌측 표시선으로 현재 선택을 드러낸다.</summary>
         internal static void Select(Button button, bool selected)
         {
-            Image surface = button.GetComponent<Image>();
-            surface.color = selected ? new Color32(225, 237, 249, 255) : Paper;
+            OwnerDashboardStyle.SetDataRow(button, selected, Paper);
             Text label = button.GetComponentInChildren<Text>();
-            if (label.GetComponent<CareerUiPreserveTextColor>() == null)
-                label.gameObject.AddComponent<CareerUiPreserveTextColor>();
-            label.color = selected ? Blue : Ink;
+            OwnerDashboardStyle.SetDataText(label, true);
             label.rectTransform.offsetMin = new Vector2(16f, 5f);
             label.rectTransform.offsetMax = new Vector2(-12f, -5f);
-            Transform marker = button.transform.Find("SelectionMark");
-            if (marker == null)
-            {
-                Image line = Surface("SelectionMark", button.transform, Blue);
-                line.rectTransform.anchorMax = new Vector2(0f, 1f);
-                line.rectTransform.offsetMin = Vector2.zero;
-                line.rectTransform.offsetMax = new Vector2(4f, 0f);
-                marker = line.transform;
-            }
-            marker.gameObject.SetActive(selected);
-            OwnerUiButtonSkin.SetSelected(button, selected);
         }
 
         /// <summary>가변 너비 안내문 옆에서도 실행 버튼의 클릭 영역을 확보한다.</summary>

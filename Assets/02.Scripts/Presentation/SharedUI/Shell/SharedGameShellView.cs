@@ -332,6 +332,9 @@ namespace Baseball.Presentation.SharedUI
 
         private void ConfigureSubTabStrip(bool usesDenseTabStrip)
         {
+            bool isOwner = _profile != null && _profile.Mode == UiGameMode.OwnerCareer;
+            _contextHeader.GetComponent<Image>().color = isOwner
+                ? Baseball.Presentation.Owner.OwnerDashboardStyle.TableSurface : ContextSurface;
             _contextTitleText.gameObject.SetActive(!usesDenseTabStrip);
             _contextSummaryText.gameObject.SetActive(!usesDenseTabStrip);
             SetAnchors(
@@ -402,8 +405,11 @@ namespace Baseball.Presentation.SharedUI
             string routeId = entry.RouteId;
             button.onClick.AddListener(() => NavigationRequested?.Invoke(routeId));
             if (_profile.Mode == UiGameMode.OwnerCareer)
+            {
                 Baseball.Presentation.Owner.OwnerUiButtonSkin.Apply(button, isSubTab
                     ? Baseball.Presentation.Owner.OwnerButtonRole.Tab : Baseball.Presentation.Owner.OwnerButtonRole.Navigation);
+                selectionAccent.GetComponent<Image>().enabled = false;
+            }
             return new NavigationButtonBinding(
                 entry,
                 background,

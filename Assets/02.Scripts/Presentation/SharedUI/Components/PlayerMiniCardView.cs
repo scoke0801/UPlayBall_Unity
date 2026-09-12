@@ -534,9 +534,9 @@ namespace Baseball.Presentation.SharedUI
         }
 
         /// <summary>초상을 가리지 않는 상단 배지로 현재 배치 역할을 구분한다.</summary>
-        public void SetAssignmentBadge(string assignmentLabel)
+        public void SetAssignmentBadge(string assignmentLabel, bool hasOtherCardAssignment = false)
         {
-            bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel);
+            bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel) || hasOtherCardAssignment;
             if (_positionText != null) _positionText.gameObject.SetActive(!isAssigned || !_usesLineupSlotLayout);
             if (_assignmentBadge == null && !isAssigned) return;
             if (_assignmentBadge == null)
@@ -554,7 +554,9 @@ namespace Baseball.Presentation.SharedUI
             _assignmentBadge.color = CareerUiTheme.ReferenceAccent;
             SetAnchors(_assignmentBadge.rectTransform, new Vector2(0.03f, _usesLineupSlotLayout ? 0.89f : 0.88f),
                 new Vector2(0.97f, 1f), Vector2.zero, Vector2.zero);
-            _assignmentText.text = isAssigned ? "배치 중 · " + assignmentLabel : string.Empty;
+            _assignmentText.text = hasOtherCardAssignment
+                ? "동일 선수 배치 중"
+                : isAssigned ? "배치 중 · " + assignmentLabel : string.Empty;
             _assignmentBadge.transform.SetAsLastSibling();
             if (_selectionOverlay != null) _selectionOverlay.SetAsLastSibling();
         }

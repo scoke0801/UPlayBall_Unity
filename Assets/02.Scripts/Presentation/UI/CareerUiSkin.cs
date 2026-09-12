@@ -291,6 +291,8 @@ namespace Baseball.Presentation.UI
         /// <summary>정보 패널에 범용 또는 핵심 CTA용 9-slice 프레임을 적용한다.</summary>
         public static void ApplyPanel(Image image, bool isHero)
         {
+            var ownerPanel = image != null ? image.GetComponent<Baseball.Presentation.Owner.UIOwnerFrontOfficePanel>() : null;
+            if (ownerPanel != null && ownerPanel.enabled) { ownerPanel.Refresh(); return; }
             if (image == null || !EnsureLoaded())
                 return;
 
@@ -401,6 +403,9 @@ namespace Baseball.Presentation.UI
         {
             if (image == null)
                 return false;
+
+            var ownerPanel = image.GetComponent<Baseball.Presentation.Owner.UIOwnerFrontOfficePanel>();
+            if (ownerPanel != null && ownerPanel.enabled) { ownerPanel.Refresh(); return true; }
 
             var ownerSkin = image.GetComponent<Baseball.Presentation.Owner.OwnerUiButtonSkin>();
             if (ownerSkin != null && ownerSkin.enabled)
@@ -659,6 +664,7 @@ namespace Baseball.Presentation.UI
             Transform current = target.parent;
             while (current != null)
             {
+                if (current.GetComponent<Baseball.Presentation.Owner.UIOwnerFrontOfficePanel>() != null) return false;
                 Image image = current.GetComponent<Image>();
                 if (image != null && image.color.a > 0.15f)
                 {

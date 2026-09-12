@@ -10,12 +10,15 @@ namespace Baseball.Presentation.UI
         private readonly UIVertex[] _quad = new UIVertex[4];
         private float _lastRasterDensity;
 
+        /// <summary>부모 패널 확대에 맞춰 글자 생성 밀도를 높일지 지정한다.</summary>
+        public bool UsePanelRasterDensity { get; set; } = true;
+
         /// <summary>Canvas 배율과 부모 패널 확대를 함께 반영한 글자 생성 밀도다.</summary>
         public float RasterPixelsPerUnit
         {
             get
             {
-                if (canvas == null || font == null || !font.dynamic)
+                if (!UsePanelRasterDensity || canvas == null || font == null || !font.dynamic)
                     return pixelsPerUnit;
                 Vector3 canvasScale = canvas.transform.lossyScale;
                 Vector3 textScale = transform.lossyScale;

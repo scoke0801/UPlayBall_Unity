@@ -27,7 +27,7 @@ namespace Baseball.Presentation.Owner
             float rowHeight = rect.height / Mathf.Max(11, _model.Standings.Count + 1);
             Vector2 Point(int column, int rank) => new Vector2(rect.xMin + (column + .5f) * rect.width / 6,
                 rect.yMax - (rank + .5f) * rowHeight);
-            Color grid = new Color32(211, 214, 218, 255);
+            Color grid = OwnerDashboardStyle.Line;
             for (int rank = 1; rank <= _model.Standings.Count; rank++)
                 Line(mesh, Point(0, rank), Point(5, rank), 1, grid);
             for (int column = 0; column < 6; column++)
@@ -38,13 +38,13 @@ namespace Baseball.Presentation.Owner
             {
                 bool focus = team.Id == _model.FocusTeamId;
                 if (focus != (pass == 1)) continue;
-                Color color = focus ? new Color32(246, 57, 69, 255) : new Color32(162, 167, 173, 255);
+                Color color = focus ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.TableSecondary;
                 int count = Mathf.Clamp(team.RankHistory.Count - _start, 0, 6);
                 for (int i = 0; i < count; i++)
                 {
                     Vector2 point = Point(i, team.RankHistory[_start + i]);
                     if (i > 0) Line(mesh, Point(i - 1, team.RankHistory[_start + i - 1]), point, focus ? 3 : 1, color);
-                    Dot(mesh, point, focus ? 4 : 3, focus ? new Color32(56, 190, 250, 255) : color);
+                    Dot(mesh, point, focus ? 4 : 3, color);
                 }
             }
         }
