@@ -1,0 +1,19 @@
+{
+  "Managers": [
+    { "Id": "MGR-BALANCED", "Profile": [50,50,55,50,50,55,52,55,50,50], "Effect": "균형 잡힌 공격 · 안정적인 불펜 역할\n주전에게 기회를 주며 경기 흐름에 대응합니다." },
+    { "Id": "MGR-ATTACK", "Profile": [62,55,42,35,72,45,40,42,72,65], "Effect": "장타 승부 · 적극적인 도루 · 빠른 대타\n번트와 수비 교체보다 공격 기회를 우선합니다." },
+    { "Id": "MGR-SMALLBALL", "Profile": [42,48,58,75,65,55,62,52,35,46], "Effect": "컨택 타격 · 번트 진루 · 기동력\n큰 한 방보다 한 베이스와 후반 수비를 중시합니다." },
+    { "Id": "MGR-PITCHING", "Profile": [48,72,75,44,40,62,72,68,47,58], "Effect": "불펜 역할 유지 · 적극적인 수비 교체\n주전을 믿되 불펜 투입으로 실점을 억제합니다." },
+    { "Id": "MGR-ANALYTIC", "Profile": [54,60,35,35,52,78,70,32,56,72], "Effect": "상대 맞춤 · 유연한 역할 · 적극적인 대타\n주전 신뢰보다 현재 상황의 유리함을 따집니다." },
+    { "Id": "MGR-FLEXIBLE", "Profile": [55,55,40,45,55,65,65,40,50,65], "Effect": "균형 타격 · 벤치 활용 · 유연한 불펜\n고정된 주전보다 상황에 맞는 역할을 찾습니다." }
+  ],
+  "Coaches": [
+    { "Id": "HC-CONTACT", "Matchup": 8, "Defense": 0, "Role": 0, "Trust": 5, "Effect": "컨택 타격 · 상대 맞춤 강화\n주전에게 기회를 주면서 유리한 대타를 찾습니다." },
+    { "Id": "HC-RUNNING", "Matchup": 0, "Defense": 8, "Role": 0, "Trust": -5, "Effect": "도루 시도 · 수비 교체 강화\n주전 유지보다 빠른 발과 후반 수비를 활용합니다." },
+    { "Id": "HC-SMALLBALL", "Matchup": 5, "Defense": 8, "Role": 0, "Trust": 0, "Effect": "번트 진루 · 주루 · 수비 교체 강화\n한 점을 만들고 지키는 운영을 돕습니다." },
+    { "Id": "HC-BENCH", "Matchup": 8, "Defense": 5, "Role": 0, "Trust": -8, "Effect": "적극적인 대타 · 상대 맞춤 강화\n주전 고정보다 벤치와 경기 컨디션을 활용합니다." },
+    { "Id": "HC-STARTER", "Matchup": 0, "Defense": 5, "Role": 8, "Trust": 8, "Effect": "선발 이닝 유지 · 불펜 역할 고정\n주전과 수비를 믿고 투수 교체를 늦춥니다." },
+    { "Id": "HC-BULLPEN", "Matchup": 10, "Defense": 5, "Role": -10, "Trust": -5, "Effect": "빠른 투수 교체 · 상대 맞춤 강화\n고정 보직보다 상황에 맞는 불펜을 활용합니다." },
+    { "Id": "HC-DEFENSE", "Matchup": 8, "Defense": 15, "Role": -5, "Trust": -5, "Effect": "수비 교체 특화 · 상대 맞춤 강화\n공격 방침을 유지하면서 후반 수비를 보강합니다." }
+  ]
+}

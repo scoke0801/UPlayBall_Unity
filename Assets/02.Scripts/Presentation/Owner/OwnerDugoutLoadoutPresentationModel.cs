@@ -350,7 +350,8 @@ namespace Baseball.Presentation.Owner
                         portraitAssetKey: season.PlayerSeasonId,
                         isInteractable: true,
                         frameEdition: card.Edition,
-                        cost: season.Cost);
+                        cost: season.Cost,
+                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, card.CardId, manager.Balance.Growth));
                     eligiblePlayers.Add(new OwnerTeamColorEligiblePlayerSnapshot(
                         miniCard,
                         season.PlayerPersonId,

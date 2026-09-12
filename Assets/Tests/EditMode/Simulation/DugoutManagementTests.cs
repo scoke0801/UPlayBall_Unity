@@ -1,4 +1,8 @@
 using Baseball.Core.Historical;
+using Baseball.Core.Balance;
+using Baseball.Core.Players;
+using Baseball.Core.Teams;
+using Baseball.Simulation.Match;
 using Baseball.Simulation.Historical;
 using NUnit.Framework;
 
@@ -8,6 +12,75 @@ namespace Baseball.Tests.EditMode.Simulation
     [TestFixture]
     public sealed class DugoutManagementTests
     {
+        [TestCase(0, 0)]
+        [TestCase(100, 1)]
+        public void 대타선택은감독의상대맞춤성향과실제상대투수손을사용한다(int preference, int expected)
+        {
+            var balance = BalanceTable.CreateDefault();
+            var source = SimulationTestFactory.CreateDetailedRoster(SimulationTestFactory.CreateTeam(1, 50, 50));
+            var position = source.StartingLineup[0].FieldingPosition;
+            Player Candidate(int id, Handedness hand) => new Player(id, "검증 타자", position, hand, Handedness.Right,
+                new BatterAttributes(70,70,50,50,50,70), new PitcherAttributes(20,20,20,20,20,20));
+            var bench = new[] { Candidate(9991, Handedness.Right), Candidate(9992, Handedness.Left) };
+            var roster = new MatchRosterSnapshot(1, "검증팀", source.StartingLineup, source.StartingPitcher,
+                source.Bullpen, bench, new ManagerTacticalProfile(50,50,50,50,50,preference,50,50), RunningApproach.Balanced);
+            var state = new DetailedTeamGameState(roster, new PitcherFatigueResolver(balance.Match), null);
+            Assert.That(state.TryFindPinchHitter(0, 8, LeverageTier.High, Handedness.Right,
+                balance.PlateDiscipline, out int selected, out _, out _), Is.True);
+            Assert.That(selected, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void 코치의고유운영보정은실제경기성향에합성된다()
+        {
+            var defaults = DugoutStaffCatalog.CreateDefault();
+            var coach = new HeadCoachDefinition("TEST", "검증 코치", "수비 운영", "검증용",
+                DugoutPolicyAxis.RunningAggression, 0, DugoutPolicyAxis.HookSpeed, 0,
+                matchupModifier: 8, defenseModifier: 15, roleModifier: -10, trustModifier: -5);
+            var catalog = new DugoutStaffCatalog(defaults.Managers, new[] { coach });
+            var profile = new DugoutTacticalProfileResolver().Resolve(
+                new DugoutManagementState("MGR-BALANCED", "TEST", DugoutPolicySettings.Neutral), catalog);
+            Assert.That(profile.MatchupPreference, Is.EqualTo(63));
+            Assert.That(profile.DefensiveAggression, Is.EqualTo(67));
+            Assert.That(profile.BullpenRoleRigidity, Is.EqualTo(45));
+            Assert.That(profile.StarTrust, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void 상대맞춤은실제좌우타석계수를재사용하고스위치타자를인식한다()
+        {
+            var tuning = Baseball.Core.Balance.BalanceTable.CreateDefault().PlateDiscipline;
+            var left = Baseball.Core.Players.Handedness.Left;
+            var right = Baseball.Core.Players.Handedness.Right;
+            var both = Baseball.Core.Players.Handedness.Switch;
+            Assert.That(Baseball.Simulation.Match.ManagerMatchupAi.EvaluateContactAdjustment(left, right, 100, tuning),
+                Is.EqualTo(tuning.OppositeHandedContactBonus));
+            Assert.That(Baseball.Simulation.Match.ManagerMatchupAi.EvaluateContactAdjustment(right, right, 100, tuning),
+                Is.EqualTo(-tuning.SameHandedContactPenalty));
+            Assert.That(Baseball.Simulation.Match.ManagerMatchupAi.EvaluateContactAdjustment(both, left, 50, tuning),
+                Is.EqualTo(tuning.OppositeHandedContactBonus * .5));
+            Assert.That(Baseball.Simulation.Match.ManagerMatchupAi.EvaluateContactAdjustment(right, right, 0, tuning), Is.Zero);
+        }
+
+        [Test]
+        public void 추가인선도저장설정과결정론적AI배정에포함된다()
+        {
+            var catalog = DugoutStaffCatalog.CreateDefault();
+            var state = DugoutManagementState.CreateDefault();
+            state.Configure("MGR-FLEXIBLE", "HC-DEFENSE", DugoutPolicySettings.Neutral, catalog);
+            Assert.That(state.ManagerId, Is.EqualTo("MGR-FLEXIBLE"));
+            Assert.That(state.HeadCoachId, Is.EqualTo("HC-DEFENSE"));
+            var managers = new System.Collections.Generic.HashSet<string>();
+            var coaches = new System.Collections.Generic.HashSet<string>();
+            for (int team = 1; team <= 42; team++)
+            {
+                var ai = new DugoutTacticalProfileResolver().CreateAiState(team, catalog);
+                managers.Add(ai.ManagerId); coaches.Add(ai.HeadCoachId);
+            }
+            Assert.That(managers.Count, Is.EqualTo(catalog.Managers.Count));
+            Assert.That(coaches.Count, Is.EqualTo(catalog.HeadCoaches.Count));
+        }
+
         [Test]
         public void Resolve_AppliesManagerPolicyAndHeadCoachInOrder()
         {

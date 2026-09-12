@@ -114,7 +114,8 @@ namespace Baseball.Core.Historical
             int primaryModifier,
             DugoutPolicyAxis secondaryAxis,
             int secondaryModifier,
-            bool hasConditionSupport = false)
+            bool hasConditionSupport = false,
+            int matchupModifier = 0, int defenseModifier = 0, int roleModifier = 0, int trustModifier = 0)
         {
             if (string.IsNullOrWhiteSpace(headCoachId))
                 throw new ArgumentException("HeadCoachId가 필요합니다.", nameof(headCoachId));
@@ -132,6 +133,10 @@ namespace Baseball.Core.Historical
             SecondaryAxis = secondaryAxis;
             SecondaryModifier = secondaryModifier;
             HasConditionSupport = hasConditionSupport;
+            MatchupModifier = ValidateModifier(matchupModifier);
+            DefenseModifier = ValidateModifier(defenseModifier);
+            RoleModifier = ValidateModifier(roleModifier);
+            TrustModifier = ValidateModifier(trustModifier);
         }
 
         public string HeadCoachId { get; }
@@ -143,6 +148,16 @@ namespace Baseball.Core.Historical
         public DugoutPolicyAxis SecondaryAxis { get; }
         public int SecondaryModifier { get; }
         public bool HasConditionSupport { get; }
+        public int MatchupModifier { get; }
+        public int DefenseModifier { get; }
+        public int RoleModifier { get; }
+        public int TrustModifier { get; }
+
+        private static int ValidateModifier(int value)
+        {
+            if (value < -20 || value > 20) throw new ArgumentOutOfRangeException(nameof(value));
+            return value;
+        }
 
         public int GetModifier(DugoutPolicyAxis axis)
         {
@@ -196,7 +211,9 @@ namespace Baseball.Core.Historical
                 Manager("MGR-PITCHING", "문재혁", "투수 중심", "선발의 상태와 불펜 역할을 엄격하게 관리합니다.",
                     "투수의 피로와 역할 적합도를 교체 판단에 강하게 반영합니다.", 48, 67, 72, 44, 43, 62, 58, 63, 47, 68),
                 Manager("MGR-ANALYTIC", "한지성", "상대 맞춤", "상대와 상황의 작은 차이를 적극 활용합니다.",
-                    "플래툰과 수비 가치를 동일 능력의 동률 해소 기준으로 사용합니다.", 54, 60, 40, 38, 52, 75, 70, 38, 56, 61)
+                    "플래툰과 수비 가치를 동일 능력의 동률 해소 기준으로 사용합니다.", 54, 60, 40, 38, 52, 75, 70, 38, 56, 61),
+                Manager("MGR-FLEXIBLE", "이서윤", "유연한 승부", "선수의 이름보다 지금 필요한 역할을 봅니다.",
+                    "상대 맞춤과 벤치 활용으로 수비와 공격의 균형을 조정합니다.", 55, 55, 40, 45, 55, 65, 65, 40, 50, 65)
             };
             var coaches = new[]
             {
@@ -205,7 +222,8 @@ namespace Baseball.Core.Historical
                 Coach("HC-SMALLBALL", "노경민", "스몰볼 코디네이터", "후반 한 점 승부에서 희생번트 선택을 보강합니다.", DugoutPolicyAxis.SmallBallPreference, 10, DugoutPolicyAxis.RunningAggression, 3),
                 Coach("HC-BENCH", "임수현", "선수단 컨디션 관리", "선수단 전체의 경기 컨디션을 높이고 대타 후보의 우위를 더 일찍 포착합니다.", DugoutPolicyAxis.PinchHitAggression, 10, DugoutPolicyAxis.BattingApproach, -3, hasConditionSupport: true),
                 Coach("HC-STARTER", "최도윤", "선발 코디네이터", "선발에게 위기를 넘길 여지를 주되 한계는 명확히 합니다.", DugoutPolicyAxis.HookSpeed, -10, DugoutPolicyAxis.BullpenAggression, -3),
-                Coach("HC-BULLPEN", "정해원", "불펜 코디네이터", "고레버리지에서 불펜 가동 시점을 앞당깁니다.", DugoutPolicyAxis.BullpenAggression, 10, DugoutPolicyAxis.HookSpeed, 5)
+                Coach("HC-BULLPEN", "정해원", "불펜 코디네이터", "고레버리지에서 불펜 가동 시점을 앞당깁니다.", DugoutPolicyAxis.BullpenAggression, 10, DugoutPolicyAxis.HookSpeed, 5),
+                Coach("HC-DEFENSE", "김하린", "수비 설계", "후반 수비와 상대 맞춤으로 한 점을 지키는 운영을 돕습니다.", DugoutPolicyAxis.PinchHitAggression, 0, DugoutPolicyAxis.RunningAggression, 0)
             };
             return new DugoutStaffCatalog(managers, coaches);
         }

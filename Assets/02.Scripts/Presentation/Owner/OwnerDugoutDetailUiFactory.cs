@@ -23,7 +23,7 @@ namespace Baseball.Presentation.Owner
         private int _maximum = MaximumLevel;
         private int _value = DugoutPolicySettings.NeutralLevel;
 
-        public OwnerPolicyStepSelector(RectTransform root, Color accent)
+        public OwnerPolicyStepSelector(RectTransform root, Color accent, int fontSize = 12)
         {
             if (root == null) throw new ArgumentNullException(nameof(root));
 
@@ -70,7 +70,7 @@ namespace Baseball.Presentation.Owner
                     0f,
                     1f,
                     1f,
-                    12,
+                    fontSize,
                     FontStyle.Bold,
                     TextAnchor.MiddleCenter);
                 label.raycastTarget = false;

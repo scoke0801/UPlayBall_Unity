@@ -12,13 +12,14 @@ namespace Baseball.Presentation.Owner
             string displayName,
             string specialty,
             string description,
-            string effectDescription)
+            string effectDescription, string portraitResourcePath = null)
         {
             Id = id ?? throw new ArgumentNullException(nameof(id));
             DisplayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
             Specialty = specialty ?? throw new ArgumentNullException(nameof(specialty));
             Description = description ?? throw new ArgumentNullException(nameof(description));
             EffectDescription = effectDescription ?? throw new ArgumentNullException(nameof(effectDescription));
+            PortraitResourcePath = portraitResourcePath;
         }
 
         public string Id { get; }
@@ -26,6 +27,7 @@ namespace Baseball.Presentation.Owner
         public string Specialty { get; }
         public string Description { get; }
         public string EffectDescription { get; }
+        public string PortraitResourcePath { get; }
     }
 
     /// <summary>현재 덕아웃 원본과 합성된 경기 판단값을 UI에 전달하는 불변 Snapshot이다.</summary>
@@ -39,7 +41,7 @@ namespace Baseball.Presentation.Owner
             DugoutPolicySettings policy,
             int managerTrust,
             int allowedPolicyOffset,
-            ManagerTacticalProfile effectiveProfile)
+            ManagerTacticalProfile effectiveProfile, DugoutStaffCatalog catalog = null)
         {
             Managers = managers ?? throw new ArgumentNullException(nameof(managers));
             HeadCoaches = headCoaches ?? throw new ArgumentNullException(nameof(headCoaches));
@@ -49,6 +51,7 @@ namespace Baseball.Presentation.Owner
             ManagerTrust = managerTrust;
             AllowedPolicyOffset = allowedPolicyOffset;
             EffectiveProfile = effectiveProfile;
+            Catalog = catalog;
         }
 
         public OwnerDugoutStaffCandidate[] Managers { get; }
@@ -59,6 +62,16 @@ namespace Baseball.Presentation.Owner
         public int ManagerTrust { get; }
         public int AllowedPolicyOffset { get; }
         public ManagerTacticalProfile EffectiveProfile { get; }
+        public DugoutStaffCatalog Catalog { get; }
+
+        /// <summary>확정 시 사용하는 동일 Resolver로 임시 인선과 방침의 결과를 계산한다.</summary>
+        public ManagerTacticalProfile Preview(string managerId, string coachId, DugoutPolicySettings policy)
+        {
+            if (Catalog == null)
+                return Baseball.Simulation.Historical.DugoutTacticalProfileResolver.PreviewPolicyChange(EffectiveProfile, Policy, policy);
+            return new Baseball.Simulation.Historical.DugoutTacticalProfileResolver().Resolve(
+                new DugoutManagementState(managerId, coachId, policy, ManagerTrust), Catalog);
+        }
 
         public OwnerDugoutStaffCandidate GetManager(string id) => Find(Managers, id);
         public OwnerDugoutStaffCandidate GetHeadCoach(string id) => Find(HeadCoaches, id);
@@ -106,7 +119,7 @@ namespace Baseball.Presentation.Owner
                     item.DisplayName,
                     item.StyleName,
                     item.Description,
-                    item.TraitDescription);
+                    item.TraitDescription, "UI/OwnerDugout/Individuals/" + item.ManagerId);
             }
             var coaches = new OwnerDugoutStaffCandidate[catalog.HeadCoaches.Count];
             for (int index = 0; index < coaches.Length; index++)
@@ -117,8 +130,9 @@ namespace Baseball.Presentation.Owner
                     item.DisplayName,
                     item.SpecialtyName,
                     item.Description,
-                    DescribeCoachEffect(item) + (item.HasConditionSupport
-                        ? $" · 선수단 경기 컨디션 +{ownerManager.Balance.ConditionChemistry.HeadCoachConditionBonus}" : string.Empty));
+                    item.Description + (item.HasConditionSupport
+                        ? $"\n선수단 경기 컨디션 +{ownerManager.Balance.ConditionChemistry.HeadCoachConditionBonus}" : string.Empty),
+                    "UI/OwnerDugout/Individuals/" + item.HeadCoachId);
             }
             return new OwnerDugoutSnapshot(
                 managers,
@@ -128,7 +142,7 @@ namespace Baseball.Presentation.Owner
                 state.Policy,
                 state.ManagerTrust,
                 state.AllowedPolicyOffset,
-                ownerManager.GetEffectiveManagerProfile());
+                ownerManager.GetEffectiveManagerProfile(), catalog);
         }
 
         private static string DescribeCoachEffect(HeadCoachDefinition coach)

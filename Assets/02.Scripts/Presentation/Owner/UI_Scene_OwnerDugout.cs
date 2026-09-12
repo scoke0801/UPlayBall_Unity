@@ -7,16 +7,12 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>덕아웃 참조의 작전 방침, 감독·코치, 카드 네 칸을 표시하는 UI 전용 화면이다.</summary>
+    /// <summary>코칭스태프 카드와 작전 조정, 다음 경기 운영 미리보기를 제공한다.</summary>
     [DisallowMultipleComponent]
     public sealed class UI_Scene_OwnerDugout : MonoBehaviour, IUiCancelHandler
     {
-        private const string ManagerPortraitPath = "UI/OwnerDugout/OwnerManager_Silhouette_V1";
-        private const string HeadCoachPortraitPath = "UI/OwnerDugout/OwnerHeadCoach_Silhouette_V1";
-        private static readonly Color Canvas = CareerUiTheme.ReferenceCanvas;
-        private static readonly Color Paper = CareerUiTheme.ReferencePanel;
-        private static readonly Color PaperSubtle = CareerUiTheme.ReferencePanelHeader;
-        private static readonly Color Border = CareerUiTheme.ReferenceBorder;
+        private const string ManagerPortraitPath = "UI/OwnerDugout/manager-male";
+        private const string HeadCoachPortraitPath = "UI/OwnerDugout/coach-male";
         private static readonly Color Ink = CareerUiTheme.ReferenceText;
         private static readonly Color MutedInk = CareerUiTheme.ReferenceTextSecondary;
         private static readonly Color Blue = CareerUiTheme.ReferenceAccent;
@@ -33,8 +29,12 @@ namespace Baseball.Presentation.Owner
         private Text _managerEffect;
         private Text _headCoachName;
         private Text _headCoachEffect;
-        private readonly Text[,] _summaryValues = new Text[4, 3];
-        private readonly Image[,] _summaryFills = new Image[4, 3];
+        private readonly Text[,] _summaryValues = new Text[3, 3];
+        private RawImage _managerPortrait, _coachPortrait, _selectionPortrait;
+        private GameObject _previousFocus;
+        private CanvasGroup _workspaceInput;
+        private Text _trustHint;
+        private readonly System.Collections.Generic.List<Button> _candidateButtons = new System.Collections.Generic.List<Button>();
         private Button _confirmButton;
         private Button _selectionConfirmButton;
         private OwnerDugoutSnapshot _snapshot;
@@ -57,7 +57,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>화면을 닫을 때 선택 창도 함께 닫는다.</summary>
         public void SetVisible(bool visible)
         {
-            if (!visible) _selectionOverlay.gameObject.SetActive(false);
+            if (!visible) CloseSelection();
             _root.gameObject.SetActive(visible);
         }
 
@@ -66,8 +66,7 @@ namespace Baseball.Presentation.Owner
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             RestoreSnapshot();
-            _confirmButton.interactable = true;
-            _status.text = $"경기 적용 준비 · 감독 신뢰도 {snapshot.ManagerTrust}/100";
+            RefreshDraftStatus();
         }
 
         /// <summary>Game Command의 성공·실패를 덕아웃 상태 줄에 표시한다.</summary>
@@ -108,187 +107,136 @@ namespace Baseball.Presentation.Owner
         private void Build(RectTransform host)
         {
             _root = OwnerWorkspaceUiFactory.CreateRoot(host, "OwnerDugoutWorkspace", false);
-            _root.offsetMin = new Vector2(16f, 16f);
-            _root.offsetMax = new Vector2(-16f, -16f);
-            Surface(_root, Canvas);
+            _root.offsetMin = Vector2.one * CareerUiTheme.Space4;
+            _root.offsetMax = -Vector2.one * CareerUiTheme.Space4;
             _root.gameObject.AddComponent<CareerUiPreserveTextColor>();
-
-            // 전체 참조의 40:15:45 열 비율을 유지하고 상세 참조의 여섯 방침 행을 넣는다.
-            RectTransform board = Box(_root, "DugoutBoard", 0.015f, 0.10f, 0.985f, 0.975f, Canvas);
-            RectTransform policy = Box(board, "PolicyPanel", 0f, 0f, 0.40f, 1f, Paper);
-            RectTransform policyHeader = Box(policy, "HeaderSurface", 0f, 0.93f, 1f, 1f, PaperSubtle);
-            RectTransform policyAccent = Rect(policyHeader, "HeaderAccent", 0f, 0f, 1f, 0.045f);
-            Surface(policyAccent, Blue);
-            Label(policyHeader, "PolicyTitle", "작전 방침", 0.04f, 0f, 0.96f, 1f, 20, Ink,
-                TextAnchor.MiddleLeft);
-            CreatePolicy(policy, 0, "타격방침", "단타", "장타", "정확한 타격을 중시합니다.", "큰 것 한방을 적극적으로 노립니다.");
-            CreatePolicy(policy, 1, "도루시도", "소극적", "적극적", "안정적인 주루를 중시합니다.", "기동력을 중시하는 야구를 펼칩니다.");
-            CreatePolicy(policy, 2, "번트시도", "소극적", "적극적", "번트보다는 타격을 선호합니다.", "번트로 진루 기회를 만듭니다.");
-            CreatePolicy(policy, 3, "대타기용", "소극적", "적극적", "선발 타자의 타격을 믿습니다.", "상황에 맞춰 대타를 적극 기용합니다.");
-            CreatePolicy(policy, 4, "선발교체", "느리게", "빠르게", "선발을 믿고 긴 이닝을 책임지게 합니다.", "선발 투수를 일찍 교체합니다.");
-            CreatePolicy(policy, 5, "중간교체", "느리게", "빠르게", "중계 투수에게 충분한 기회를 줍니다.", "중계 투수를 평소보다 일찍 교체합니다.");
-            ActionButton(policy, "ResetPolicy", "모두 중립", 0.02f, 0.075f, 0.98f, 0.16f, ResetPolicy);
-            Label(policy, "PolicyHint", "원하는 단계를 눌러 설명을 확인하세요.", 0.03f, 0.005f, 0.97f, 0.07f, 14, MutedInk);
-
-            RectTransform staff = Box(board, "StaffColumn", 0.41f, 0f, 0.55f, 1f, Canvas);
-            CreateStaff(staff, "Manager", "감독", ManagerPortraitPath,
-                0.515f, 0.98f);
-            CreateStaff(staff, "HeadCoach", "수석코치", HeadCoachPortraitPath,
-                0.02f, 0.485f);
-            RectTransform cards = Box(board, "CardSlots", 0.56f, 0f, 1f, 1f, Canvas);
-            CreateSummaryCard(cards, 0, "공격 운영", new[] { "타격 접근", "도루 시도", "번트 시도" },
-                "수치가 높을수록 강공과 기동력을 선호합니다.", Blue);
-            CreateSummaryCard(cards, 1, "교체 운영", new[] { "대타 기용", "선발 훅", "불펜 투입" },
-                "수치가 높을수록 빠르고 적극적으로 교체합니다.", Blue);
-            CreateSummaryCard(cards, 2, "감독 고유 성향", new[] { "역할 고정", "상대 맞춤", "수비 교체" },
-                "인선에 따라 달라지며 선수 능력치를 직접 올리지 않습니다.", Red);
-            CreateSummaryCard(cards, 3, "신뢰와 지시 범위", new[] { "신뢰도", "조정 자유도", "선택 단계" },
-                "신뢰도와 관계없이 -2부터 +2까지 선택할 수 있습니다.", Red);
-
-            _status = Label(_root, "PreviewStatus", "덕아웃 데이터를 불러오는 중입니다.",
-                0.02f, 0.01f, 0.65f, 0.08f, 16, Ink);
-            _confirmButton = ActionButton(_root, "Confirm", "결정", 0.68f, 0.015f, 0.82f, 0.075f, ConfirmConfiguration);
+            var body = Rect(_root, "DugoutBody", 0f, 0f, 1f, 1f);
+            _workspaceInput = body.gameObject.AddComponent<CanvasGroup>();
+            Label(body, "Title", "우리 팀의 승부를 설계하세요", .01f, .91f, .60f, 1f, 27, Ink, TextAnchor.MiddleLeft);
+            Label(body, "Subtitle", "코칭스태프 선택  →  작전 조정  →  다음 경기 적용", .60f, .91f, .99f, 1f, 17, MutedInk, TextAnchor.MiddleRight);
+            var board = Rect(body, "DugoutBoard", 0f, .12f, 1f, .90f);
+            var staff = Rect(board, "StaffColumn", 0f, 0f, .35f, 1f);
+            CreateStaff(staff, "Manager", "감독", ManagerPortraitPath, 0f, 1f);
+            CreateStaff(staff, "HeadCoach", "수석코치", HeadCoachPortraitPath, 0f, 1f);
+            var panel = CreateDugoutPanel(board, "PolicyPanel", "작전 방침 · 감독의 기본 운영에 더할 지시");
+            Place(panel.Root, .367f, 0f, .752f, 1f);
+            var policy = panel.Content;
+            CreatePolicy(policy, 0, "타격", "컨택", "장타", "인플레이 타구를 우선합니다.", "장타를 노리는 스윙을 늘립니다.");
+            CreatePolicy(policy, 1, "도루", "신중하게", "적극적으로", "아웃 위험을 줄이는 주루입니다.", "추가 진루를 위해 위험을 감수합니다.");
+            CreatePolicy(policy, 2, "번트", "타격 우선", "진루 우선", "아웃을 주기보다 타격을 택합니다.", "아웃 하나와 주자 진루를 교환합니다.");
+            CreatePolicy(policy, 3, "대타", "선발 신뢰", "벤치 활용", "선발 타자에게 기회를 줍니다.", "유리한 타격 기회에 벤치를 씁니다.");
+            CreatePolicy(policy, 4, "선발 교체", "긴 이닝", "빠른 교체", "선발의 이닝 소화를 중시합니다.", "불펜 부담을 감수하고 일찍 바꿉니다.");
+            CreatePolicy(policy, 5, "불펜 교체", "길게 맡김", "빠른 교체", "구원 투수에게 더 맡깁니다.", "짧은 이닝으로 불펜을 운용합니다.");
+            ActionButton(policy, "ResetPolicy", "방침을 모두 중립으로", .02f, .015f, .98f, .095f, ResetPolicy);
+            var summary = CreateDugoutPanel(board, "PreviewPanel", "다음 경기 운영");
+            Place(summary.Root, .769f, 0f, 1f, 1f);
+            CreateSummaryCard(summary.Content, 0, "공격", new[] { "타격 접근", "도루", "번트" }, "", Blue);
+            CreateSummaryCard(summary.Content, 1, "교체", new[] { "대타", "선발 투수", "불펜" }, "", Blue);
+            CreateSummaryCard(summary.Content, 2, "코칭스태프 조합", new[] { "불펜 역할", "상대 맞춤", "수비 교체" }, "", Blue);
+            _trustHint = Label(summary.Content, "TrustHint", "", .04f, .015f, .96f, .14f, 15, MutedInk, TextAnchor.UpperLeft);
+            _status = Label(body, "PreviewStatus", "덕아웃 데이터를 불러오는 중입니다.", .01f, .015f, .65f, .095f, 17, Ink, TextAnchor.MiddleLeft);
+            _confirmButton = ActionButton(body, "Confirm", "다음 경기 적용", .79f, .02f, .99f, .095f, ConfirmConfiguration);
             OwnerUiButtonSkin.Apply(_confirmButton, OwnerButtonRole.Primary);
-            ActionButton(_root, "Cancel", "취소", 0.84f, 0.015f, 0.98f, 0.075f, RestoreSnapshot);
+            ActionButton(body, "Cancel", "변경 취소", .66f, .02f, .78f, .095f, RestoreSnapshot);
             _confirmButton.interactable = false;
             BuildSelectionOverlay();
             CareerUiSkin.Apply(_root);
-            for (int index = 0; index < _policySelectors.Length; index++)
-                _policySelectors[index].RefreshVisuals();
+            foreach (var selector in _policySelectors) selector.RefreshVisuals();
         }
 
         private void CreatePolicy(RectTransform parent, int index, string title, string low, string high,
             string lowDescription, string highDescription)
         {
-            float top = 0.925f - index * 0.125f;
-            RectTransform row = Box(parent, "PolicyRow" + index, 0.02f, top - 0.12f, 0.98f, top,
-                index % 2 == 0 ? Paper : PaperSubtle);
-            Color accent = index < 4 ? Blue : Red;
-            Label(row, "Name", title, 0f, 0f, 0.22f, 1f, 20, accent);
-            Label(row, "Low", low, 0.25f, 0.69f, 0.49f, 0.98f, 13, Ink, TextAnchor.MiddleLeft);
-            Label(row, "High", high, 0.70f, 0.69f, 0.97f, 0.98f, 13, Ink, TextAnchor.MiddleRight);
-            Text description = Label(row, "Description", "균형 잡힌 방침을 사용합니다.",
-                0.24f, 0.03f, 0.98f, 0.39f, 16, accent);
-            RectTransform control = Rect(row, "PolicySteps", 0.27f, 0.42f, 0.94f, 0.72f);
-            var selector = new OwnerPolicyStepSelector(control, accent);
+            float top = .99f - index * .145f;
+            var row = Rect(parent, "PolicyRow" + index, .02f, top - .138f, .98f, top);
+            Label(row, "Name", title, 0f, .66f, .29f, 1f, 19, Ink, TextAnchor.MiddleLeft);
+            Label(row, "Low", low, .32f, .66f, .65f, 1f, 14, MutedInk, TextAnchor.MiddleLeft);
+            Label(row, "High", high, .66f, .66f, 1f, 1f, 14, MutedInk, TextAnchor.MiddleRight);
+            var description = Label(row, "Description", "감독과 코치의 기본 운영을 따릅니다.", 0f, 0f, 1f, .28f, 14, MutedInk, TextAnchor.MiddleLeft);
+            var selector = new OwnerPolicyStepSelector(Rect(row, "PolicySteps", 0f, .29f, 1f, .64f), Blue, 18);
             selector.ValueChanged += value =>
             {
-                description.text = value < 2f ? lowDescription : value > 2f ? highDescription : "균형 잡힌 방침을 사용합니다.";
-                if (_snapshot != null) _status.text = "변경 사항이 있습니다. 결정하면 다음 경기부터 적용됩니다.";
+                description.text = value < 2 ? lowDescription : value > 2 ? highDescription : "감독과 코치의 기본 운영을 따릅니다.";
+                if (_snapshot != null) { RefreshSummary(); RefreshDraftStatus(); }
             };
             _policySelectors[index] = selector;
         }
 
-        private void CreateStaff(
-            RectTransform parent,
-            string name,
-            string title,
-            string portraitPath,
-            float bottom,
-            float top)
+        private void CreateStaff(RectTransform parent, string name, string title, string portraitPath, float bottom, float top)
         {
-            RectTransform panel = Box(parent, name, 0.06f, bottom, 0.94f, top, Paper);
-            RectTransform header = Box(panel, "HeaderSurface", 0f, 0.85f, 1f, 1f, PaperSubtle);
-            RectTransform accent = Rect(header, "HeaderAccent", 0f, 0f, 1f, 0.045f);
-            Surface(accent, Blue);
-            Label(header, "Title", title, 0.08f, 0f, 0.92f, 1f, 18, Ink, TextAnchor.MiddleLeft);
-            RectTransform card = Box(panel, "StaffCard", 0.17f, 0.27f, 0.83f, 0.81f,
-                CareerUiTheme.PortraitBackdrop);
-            if (!TryCreateStaffPortrait(card, portraitPath)) CardBack(card);
-            Text currentName = Label(panel, "CurrentName", "미배정", 0.04f, 0.20f, 0.96f, 0.30f, 17, Ink);
-            Text currentEffect = Label(panel, "CurrentEffect", "정보 없음", 0.04f, 0.135f, 0.96f, 0.22f, 12, Ink);
-            if (name == "Manager")
-            {
-                _managerName = currentName;
-                _managerEffect = currentEffect;
-            }
-            else
-            {
-                _headCoachName = currentName;
-                _headCoachEffect = currentEffect;
-            }
-            ActionButton(panel, "Select", title == "감독" ? "감독 선택" : "코치 선택",
-                0.10f, 0.02f, 0.90f, 0.13f, () => OpenSelection(title == "감독"));
+            bool manager = name == "Manager";
+            var button = ActionButton(parent, name, title, manager ? 0f : .515f, bottom, manager ? .485f : 1f, top,
+                () => OpenSelection(manager));
+            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Primary);
+            var safe = Rect(button.transform, "ContentSafeRect", .065f, .035f, .935f, .965f);
+            var role = button.transform.Find("Label").GetComponent<Text>();
+            role.transform.SetParent(safe, false);
+            Place(role.rectTransform, 0f, .92f, 1f, 1f);
+            role.fontSize = 21;
+            var portrait = CreatePortrait(safe, portraitPath, .0f, .48f, 1f, .91f);
+            var nameLabel = Label(safe, "CurrentName", "미배정", 0f, .35f, 1f, .47f, 22, CareerUiTheme.RosterText);
+            Label(safe, "EffectTitle", "운영 특색", 0f, .285f, 1f, .345f, 15, CareerUiTheme.Number, TextAnchor.MiddleLeft);
+            var effect = Label(safe, "CurrentEffect", "정보 없음", 0f, .10f, 1f, .28f, 17, CareerUiTheme.RosterTextSecondary, TextAnchor.UpperLeft);
+            Label(safe, "SelectHint", manager ? "감독 선택  ›" : "수석코치 선택  ›", 0f, 0f, 1f, .075f, 18, CareerUiTheme.Number);
+            if (manager) { _managerName = nameLabel; _managerEffect = effect; _managerPortrait = portrait; }
+            else { _headCoachName = nameLabel; _headCoachEffect = effect; _coachPortrait = portrait; }
         }
 
-        private void CreateSummaryCard(
-            RectTransform parent,
-            int index,
-            string title,
-            string[] metricNames,
-            string note,
-            Color accent)
+        private static RawImage CreatePortrait(Transform parent, string path, float left, float bottom, float right, float top)
         {
-            int column = index % 2;
-            int row = index / 2;
-            RectTransform card = Box(parent, "SummaryCard" + index,
-                0.025f + column * 0.495f, 0.515f - row * 0.495f,
-                0.48f + column * 0.495f, 0.98f - row * 0.495f,
-                Paper);
+            var host = Rect(parent, "PortraitSlot", left, bottom, right, top);
+            var rect = Rect(host, "Portrait", 0f, 0f, 1f, 1f);
+            var art = rect.gameObject.AddComponent<RawImage>();
+            art.texture = Resources.Load<Texture2D>(path);
+            art.raycastTarget = false;
+            var aspect = rect.gameObject.AddComponent<AspectRatioFitter>();
+            aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            aspect.aspectRatio = 1f;
+            return art;
+        }
 
-            RectTransform header = Box(card, "Header", 0.025f, 0.82f, 0.975f, 0.975f,
-                PaperSubtle);
-            RectTransform headerAccent = Rect(header, "Accent", 0f, 0f, 0.018f, 1f);
-            Surface(headerAccent, accent);
-            Label(header, "Title", title, 0.07f, 0.05f, 0.96f, 0.95f, 17, Ink, TextAnchor.MiddleLeft);
-
-            for (int metricIndex = 0; metricIndex < 3; metricIndex++)
+        private void CreateSummaryCard(RectTransform parent, int index, string title, string[] metricNames, string note, Color accent)
+        {
+            float top = .99f - index * .28f;
+            var card = Rect(parent, "SummaryCard" + index, .04f, top - .26f, .96f, top);
+            Label(card, "Title", title, 0f, .76f, 1f, 1f, 18, accent, TextAnchor.MiddleLeft);
+            for (int i = 0; i < 3; i++)
             {
-                float top = 0.77f - metricIndex * 0.19f;
-                Label(card, "MetricName" + metricIndex, metricNames[metricIndex],
-                    0.06f, top - 0.11f, 0.36f, top, 14, Ink, TextAnchor.MiddleLeft);
-                RectTransform track = Rect(card, "MetricTrack" + metricIndex, 0.38f, top - 0.078f, 0.75f, top - 0.035f);
-                Surface(track, CareerUiTheme.ReferenceButton);
-                RectTransform fill = Rect(track, "Fill", 0f, 0f, 0.5f, 1f);
-                Surface(fill, accent);
-                _summaryFills[index, metricIndex] = fill.GetComponent<Image>();
-                _summaryValues[index, metricIndex] = Label(card, "MetricValue" + metricIndex, "--",
-                    0.77f, top - 0.11f, 0.95f, top, 14, accent, TextAnchor.MiddleRight);
+                float y = .75f - i * .24f;
+                Label(card, "MetricName" + i, metricNames[i], 0f, y - .23f, .47f, y, 16, MutedInk, TextAnchor.MiddleLeft);
+                _summaryValues[index, i] = Label(card, "MetricValue" + i, "—", .48f, y - .23f, 1f, y, 16, Ink, TextAnchor.MiddleRight);
             }
-
-            Label(card, "Note", note, 0.06f, 0.035f, 0.94f, 0.18f, 12, MutedInk,
-                TextAnchor.MiddleLeft);
         }
 
-        private static bool TryCreateStaffPortrait(Transform parent, string resourcePath)
-        {
-            Sprite sprite = Resources.Load<Sprite>(resourcePath);
-            if (sprite == null) return false;
 
-            RectTransform portrait = Rect(parent, "Portrait", 0f, 0f, 1f, 1f);
-            Image image = portrait.gameObject.AddComponent<Image>();
-            image.sprite = sprite;
-            image.color = Color.white;
-            image.preserveAspect = true;
-            image.raycastTarget = false;
-            return true;
-        }
 
         private void BuildSelectionOverlay()
         {
             _selectionOverlay = Rect(_root, "StaffSelectionOverlay", 0f, 0f, 1f, 1f);
             Surface(_selectionOverlay, CareerUiTheme.InputBlocker);
             SetSkinRole(_selectionOverlay, CareerUiVisualRole.InputBlocker);
-            RectTransform dialog = Box(_selectionOverlay, "StaffSelectionDialog", 0.17f, 0.08f, 0.83f, 0.92f, Paper);
-            RectTransform dialogHeader = Box(dialog, "HeaderSurface", 0f, 0.92f, 1f, 1f, PaperSubtle);
-            RectTransform dialogAccent = Rect(dialogHeader, "HeaderAccent", 0f, 0f, 1f, 0.035f);
-            Surface(dialogAccent, Blue);
-            _selectionTitle = Label(dialogHeader, "Title", "감독 선택", 0.04f, 0f, 0.85f, 1f, 20, Ink,
-                TextAnchor.MiddleLeft);
-            ActionButton(dialog, "Close", "×", 0.92f, 0.935f, 0.98f, 0.99f, CloseSelection);
-            RectTransform preview = Box(dialog, "SelectedCard", 0.025f, 0.17f, 0.40f, 0.91f, PaperSubtle);
-            _selectionDetail = Label(preview, "Detail", "후보를 선택하세요.", 0.08f, 0.08f, 0.92f, 0.92f, 17, Ink);
-            _selectionInventory = Box(dialog, "StaffInventory", 0.425f, 0.17f, 0.975f, 0.91f, Paper);
-            _selectionEmpty = Label(_selectionInventory, "EmptyState", string.Empty, 0.08f, 0.12f, 0.92f, 0.88f, 22, Ink);
-            _selectionConfirmButton = ActionButton(dialog, "Confirm", "결정", 0.28f, 0.035f, 0.49f, 0.12f, ApplySelectedCandidate);
+            _selectionOverlay.GetComponent<Image>().raycastTarget = true;
+            var panel = CreateDugoutPanel(_selectionOverlay, "StaffSelectionDialog", "코칭스태프 선택");
+            Place(panel.Root, .10f, .06f, .90f, .94f);
+            _selectionTitle = panel.Root.Find("HeaderSlot").GetComponent<Text>();
+            var dialog = panel.Content;
+            _selectionPortrait = CreatePortrait(dialog, ManagerPortraitPath, .08f, .50f, .34f, .98f);
+            _selectionDetail = Label(dialog, "Detail", "후보를 선택하세요.", .025f, .17f, .385f, .49f, 18, Ink, TextAnchor.UpperLeft);
+            _selectionInventory = Rect(dialog, "StaffInventory", .42f, .16f, .98f, .98f);
+            _selectionEmpty = Label(_selectionInventory, "EmptyState", "", .05f, .1f, .95f, .9f, 20, Ink);
+            _selectionConfirmButton = ActionButton(dialog, "Confirm", "이 인선으로 선택", .55f, .015f, .78f, .115f, ApplySelectedCandidate);
             OwnerUiButtonSkin.Apply(_selectionConfirmButton, OwnerButtonRole.Primary);
             _selectionConfirmButton.interactable = false;
-            ActionButton(dialog, "Exit", "나가기", 0.51f, 0.035f, 0.72f, 0.12f, CloseSelection);
+            ActionButton(dialog, "Exit", "선택 취소", .80f, .015f, .98f, .115f, CloseSelection);
             _selectionOverlay.gameObject.SetActive(false);
         }
 
         private void OpenSelection(bool isManager)
         {
+            if (_snapshot == null) return;
+            _previousFocus = UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject;
+            _workspaceInput.interactable = false;
+            _workspaceInput.blocksRaycasts = false;
             _isSelectingManager = isManager;
             _candidateId = string.Empty;
             string title = isManager ? "감독" : "수석코치";
@@ -298,9 +246,18 @@ namespace Baseball.Presentation.Owner
             RebuildCandidateButtons();
             _selectionOverlay.gameObject.SetActive(true);
             _selectionOverlay.SetAsLastSibling();
+            SelectCandidate(isManager ? _snapshot.GetManager(_draftManagerId) : _snapshot.GetHeadCoach(_draftHeadCoachId));
+            _selectionConfirmButton.Select();
         }
 
-        private void CloseSelection() => _selectionOverlay.gameObject.SetActive(false);
+        private void CloseSelection()
+        {
+            _selectionOverlay.gameObject.SetActive(false);
+            _workspaceInput.interactable = true;
+            _workspaceInput.blocksRaycasts = true;
+            if (_previousFocus != null && _previousFocus.activeInHierarchy)
+                UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(_previousFocus);
+        }
 
         private void ResetPolicy()
         {
@@ -330,7 +287,7 @@ namespace Baseball.Presentation.Owner
             RefreshStaffLabels();
             RefreshSummary();
             _status.color = Ink;
-            _status.text = $"저장된 방침 · 감독 신뢰도 {_snapshot.ManagerTrust}/100";
+            RefreshDraftStatus();
         }
 
         private void ConfirmConfiguration()
@@ -351,57 +308,47 @@ namespace Baseball.Presentation.Owner
 
         private void RebuildCandidateButtons()
         {
-            for (int index = _selectionInventory.childCount - 1; index >= 0; index--)
+            var source = _isSelectingManager ? _snapshot.Managers : _snapshot.HeadCoaches;
+            _selectionEmpty.gameObject.SetActive(source.Length == 0);
+            _selectionEmpty.text = "선택할 수 있는 코칭스태프가 없습니다.";
+            for (int i = 0; i < Math.Max(source.Length, _candidateButtons.Count); i++)
             {
-                Transform child = _selectionInventory.GetChild(index);
-                if (child == _selectionEmpty.transform) continue;
-                if (Application.isPlaying) Destroy(child.gameObject);
-                else DestroyImmediate(child.gameObject);
-            }
-            if (_snapshot == null)
-            {
-                _selectionEmpty.text = "덕아웃 데이터를 불러오지 못했습니다.";
-                _selectionEmpty.gameObject.SetActive(true);
-                return;
-            }
-            _selectionEmpty.gameObject.SetActive(false);
-            OwnerDugoutStaffCandidate[] source = _isSelectingManager ? _snapshot.Managers : _snapshot.HeadCoaches;
-            for (int index = 0; index < source.Length; index++)
-            {
-                OwnerDugoutStaffCandidate candidate = source[index];
-                float top = 0.96f - index * 0.15f;
-                ActionButton(_selectionInventory, "Candidate" + index,
-                    candidate.DisplayName + " · " + candidate.Specialty,
-                    0.05f, top - 0.115f, 0.95f, top,
-                    () => SelectCandidate(candidate));
+                if (i >= source.Length) { _candidateButtons[i].gameObject.SetActive(false); continue; }
+                var candidate = source[i];
+                if (i == _candidateButtons.Count)
+                    _candidateButtons.Add(ActionButton(_selectionInventory, "Candidate" + i, "후보", 0f, 0f, 1f, 1f, () => { }));
+                var button = _candidateButtons[i];
+                button.gameObject.SetActive(true);
+                float top = .975f - i * (.95f / source.Length);
+                Place((RectTransform)button.transform, .04f, top - .85f / source.Length, .96f, top);
+                button.transform.Find("Label").GetComponent<Text>().text = candidate.DisplayName + "  ·  " + candidate.Specialty;
+                button.onClick.RemoveAllListeners();
+                button.onClick.AddListener(() => SelectCandidate(candidate));
             }
         }
 
         private void SelectCandidate(OwnerDugoutStaffCandidate candidate)
         {
             _candidateId = candidate.Id;
-            _selectionDetail.text = candidate.DisplayName + "\n" + candidate.Specialty + "\n\n" +
-                                    candidate.Description + "\n\n" + candidate.EffectDescription;
+            string detail = candidate.EffectDescription.StartsWith(candidate.Description, StringComparison.Ordinal)
+                ? candidate.EffectDescription : candidate.Description + "\n\n" + candidate.EffectDescription;
+            _selectionDetail.text = candidate.DisplayName + "\n" + candidate.Specialty + "\n\n" + detail;
             _selectionConfirmButton.interactable = true;
+            _selectionPortrait.texture = Resources.Load<Texture2D>(candidate.PortraitResourcePath ??
+                (_isSelectingManager ? ManagerPortraitPath : HeadCoachPortraitPath));
+            var candidates = _isSelectingManager ? _snapshot.Managers : _snapshot.HeadCoaches;
+            for (int i = 0; i < candidates.Length; i++)
+                OwnerUiButtonSkin.SetSelected(_candidateButtons[i], candidates[i].Id == candidate.Id);
         }
 
         private void ApplySelectedCandidate()
         {
             if (string.IsNullOrEmpty(_candidateId)) return;
-            if (_isSelectingManager)
-            {
-                _draftManagerId = _candidateId;
-                if (!string.Equals(_draftManagerId, _snapshot.SelectedManagerId, StringComparison.Ordinal))
-                {
-                    for (int index = 0; index < _policySelectors.Length; index++)
-                    {
-                        _policySelectors[index].SetRange(1, 3);
-                    }
-                }
-            }
+            if (_isSelectingManager) _draftManagerId = _candidateId;
             else _draftHeadCoachId = _candidateId;
             RefreshStaffLabels();
-            _status.text = "인선 변경 사항이 있습니다. 결정하면 다음 경기부터 적용됩니다.";
+            RefreshSummary();
+            RefreshDraftStatus();
             CloseSelection();
         }
 
@@ -410,46 +357,54 @@ namespace Baseball.Presentation.Owner
             if (_snapshot == null) return;
             OwnerDugoutStaffCandidate manager = _snapshot.GetManager(_draftManagerId);
             OwnerDugoutStaffCandidate coach = _snapshot.GetHeadCoach(_draftHeadCoachId);
-            _managerName.text = manager.DisplayName + " · " + manager.Specialty;
+            _managerName.text = manager.DisplayName + "\n" + manager.Specialty;
             _managerEffect.text = manager.EffectDescription;
-            _headCoachName.text = coach.DisplayName + " · " + coach.Specialty;
+            _headCoachName.text = coach.DisplayName + "\n" + coach.Specialty;
             _headCoachEffect.text = coach.EffectDescription;
+            _managerPortrait.texture = Resources.Load<Texture2D>(manager.PortraitResourcePath ?? ManagerPortraitPath);
+            _coachPortrait.texture = Resources.Load<Texture2D>(coach.PortraitResourcePath ?? HeadCoachPortraitPath);
+        }
+
+        private DugoutPolicySettings ReadDraftPolicy() => new DugoutPolicySettings(
+            _policySelectors[0].Value, _policySelectors[1].Value, _policySelectors[2].Value,
+            _policySelectors[3].Value, _policySelectors[4].Value, _policySelectors[5].Value);
+
+        private void RefreshDraftStatus()
+        {
+            bool changed = HasDraftChanges();
+            _confirmButton.interactable = _snapshot != null && changed;
+            _status.color = Ink;
+            _status.text = changed ? "변경 미적용 · 다음 경기 적용을 눌러 확정하세요." : "저장된 작전입니다. 인선이나 방침을 선택해 조정하세요.";
         }
 
         private void RefreshSummary()
         {
             if (_snapshot == null) return;
-            ManagerTacticalProfile profile = _snapshot.EffectiveProfile;
-            SetSummaryMetric(0, 0, profile.BattingApproach, 100, profile.BattingApproach.ToString());
-            SetSummaryMetric(0, 1, profile.RunningAggression, 100, profile.RunningAggression.ToString());
-            SetSummaryMetric(0, 2, profile.SmallBallPreference, 100, profile.SmallBallPreference.ToString());
-            SetSummaryMetric(1, 0, profile.PinchHitAggression, 100, profile.PinchHitAggression.ToString());
-            SetSummaryMetric(1, 1, profile.HookSpeed, 100, profile.HookSpeed.ToString());
-            SetSummaryMetric(1, 2, profile.BullpenAggression, 100, profile.BullpenAggression.ToString());
-            SetSummaryMetric(2, 0, profile.BullpenRoleRigidity, 100, profile.BullpenRoleRigidity.ToString());
-            SetSummaryMetric(2, 1, profile.MatchupPreference, 100, profile.MatchupPreference.ToString());
-            SetSummaryMetric(2, 2, profile.DefensiveAggression, 100, profile.DefensiveAggression.ToString());
-            SetSummaryMetric(3, 0, _snapshot.ManagerTrust, 100, _snapshot.ManagerTrust + " / 100");
-            SetSummaryMetric(3, 1, _snapshot.AllowedPolicyOffset, 2, "±" + _snapshot.AllowedPolicyOffset);
-            SetSummaryMetric(3, 2, 5, 5, "5단계 모두 가능");
+            var p = _snapshot.Preview(_draftManagerId, _draftHeadCoachId, ReadDraftPolicy());
+            _summaryValues[0, 0].text = Grade(p.BattingApproach, "컨택 중심", "균형", "장타 중심");
+            _summaryValues[0, 1].text = Grade(p.RunningAggression, "신중", "상황에 따라", "적극적");
+            _summaryValues[0, 2].text = Grade(p.SmallBallPreference, "타격 우선", "상황에 따라", "진루 우선");
+            _summaryValues[1, 0].text = Grade(p.PinchHitAggression, "선발 신뢰", "상황에 따라", "벤치 활용");
+            _summaryValues[1, 1].text = Grade(p.HookSpeed, "긴 이닝", "균형", "빠른 교체");
+            _summaryValues[1, 2].text = Grade(p.BullpenAggression, "길게 맡김", "균형", "빠른 교체");
+            _summaryValues[2, 0].text = Grade(p.BullpenRoleRigidity, "유연한 역할", "균형", "보직 유지");
+            _summaryValues[2, 1].text = Grade(p.MatchupPreference, "기본 운영", "상황에 따라", "맞춤 중시");
+            _summaryValues[2, 2].text = Grade(p.DefensiveAggression, "기존 수비", "상황에 따라", "적극 교체");
+            _trustHint.text = "선발 투수 · " + Grade(p.StarTrust, "상황 우선", "균형", "신뢰 중시") +
+                "\n작전은 언제나 5단계 조정 가능";
         }
 
-        private void SetSummaryMetric(int cardIndex, int metricIndex, int value, int maximum, string displayValue)
-        {
-            float ratio = maximum <= 0 ? 0f : Mathf.Clamp01(value / (float)maximum);
-            RectTransform fill = _summaryFills[cardIndex, metricIndex].rectTransform;
-            fill.anchorMin = Vector2.zero;
-            fill.anchorMax = new Vector2(ratio, 1f);
-            fill.offsetMin = Vector2.zero;
-            fill.offsetMax = Vector2.zero;
-            _summaryValues[cardIndex, metricIndex].text = displayValue;
-        }
+        private static string Grade(int value, string low, string middle, string high) =>
+            value < 45 ? low : value > 55 ? high : middle;
 
-        private static void CardBack(RectTransform parent)
+        private static OwnerWorkspaceUiFactory.Panel CreateDugoutPanel(Transform parent, string name, string title)
         {
-            RectTransform inset = Box(parent, "CardBackInset", 0.06f, 0.04f, 0.94f, 0.96f,
-                PaperSubtle);
-            Label(inset, "CardBackLabel", "UPlayBall", 0.05f, 0.40f, 0.95f, 0.60f, 25, Blue);
+            var panel = OwnerWorkspaceUiFactory.CreatePanel(parent, name, title);
+            // 알파를 무시하는 기존 보조 Outline이 본문 전체를 덮지 않도록 공용 패널 자체의 테두리를 사용한다.
+            panel.Root.Find("ThinBorder").gameObject.SetActive(false);
+            panel.Root.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DecorativeFrame);
+            CareerUiSkin.ApplyPanel(panel.Root.GetComponent<Image>(), false);
+            return panel;
         }
 
         private static RectTransform Rect(Transform parent, string name, float left, float bottom, float right, float top)
@@ -470,7 +425,9 @@ namespace Baseball.Presentation.Owner
 
         private static void Surface(RectTransform rect, Color color)
         {
-            rect.gameObject.AddComponent<Image>().color = color;
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
             SetSkinRole(rect, CareerUiVisualRole.DataImage);
         }
 
@@ -483,24 +440,14 @@ namespace Baseball.Presentation.Owner
             if (outline != null) outline.enabled = false;
         }
 
-        private static RectTransform Box(Transform parent, string name, float left, float bottom, float right, float top, Color color)
-        {
-            RectTransform rect = Rect(parent, name, left, bottom, right, top);
-            Surface(rect, color);
-            var outline = rect.gameObject.AddComponent<Outline>();
-            outline.effectColor = Border;
-            outline.effectDistance = new Vector2(1f, -1f);
-            return rect;
-        }
-
         private static Text Label(Transform parent, string name, string text, float left, float bottom, float right, float top,
             int size, Color color, TextAnchor alignment = TextAnchor.MiddleCenter)
         {
-            Text label = OwnerWorkspaceUiFactory.CreateText(parent, name, text, size, FontStyle.Bold, alignment, color);
+            Text label = OwnerWorkspaceUiFactory.CreateText(parent, name, text, size, size >= 19 ? FontStyle.Bold : FontStyle.Normal, alignment, color);
             label.color = color;
             Place(label.rectTransform, left, bottom, right, top);
             label.resizeTextForBestFit = true;
-            label.resizeTextMinSize = 10;
+            label.resizeTextMinSize = size;
             label.resizeTextMaxSize = size;
             return label;
         }

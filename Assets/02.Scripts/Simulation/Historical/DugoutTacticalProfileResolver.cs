@@ -21,12 +21,12 @@ namespace Baseball.Simulation.Historical
             return new ManagerTacticalProfile(
                 ResolveAxis(source.HookSpeed, DugoutPolicyAxis.HookSpeed, policy, coach),
                 ResolveAxis(source.BullpenAggression, DugoutPolicyAxis.BullpenAggression, policy, coach),
-                source.BullpenRoleRigidity,
+                Clamp(source.BullpenRoleRigidity + coach.RoleModifier),
                 ResolveAxis(source.SmallBallPreference, DugoutPolicyAxis.SmallBallPreference, policy, coach),
                 ResolveAxis(source.RunningAggression, DugoutPolicyAxis.RunningAggression, policy, coach),
-                source.MatchupPreference,
-                source.DefensiveAggression,
-                source.StarTrust,
+                Clamp(source.MatchupPreference + coach.MatchupModifier),
+                Clamp(source.DefensiveAggression + coach.DefenseModifier),
+                Clamp(source.StarTrust + coach.TrustModifier),
                 ResolveAxis(source.BattingApproach, DugoutPolicyAxis.BattingApproach, policy, coach),
                 ResolveAxis(source.PinchHitAggression, DugoutPolicyAxis.PinchHitAggression, policy, coach));
         }
