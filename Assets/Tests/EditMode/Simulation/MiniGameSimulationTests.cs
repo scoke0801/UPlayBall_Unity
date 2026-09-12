@@ -13,6 +13,26 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MiniGameSimulationTests
     {
         [Test]
+        public void 상위제구도목표점오차를계속줄이고같은난수에서품질을높인다()
+        {
+            var balance = BalanceTable.CreateDefault();
+            double previousRadius = double.MaxValue;
+            double previousQuality = double.MinValue;
+            foreach (int control in new[] { 80, 100, 120, 160 })
+            {
+                var resolver = new PitchExecutionResolver(balance, new Pcg32Random(20260912UL));
+                var matchup = CreateMatchup(50, control);
+                var ellipse = resolver.CalculateCommandEllipse(matchup, PitchType.FourSeamFastball);
+                var command = new PitchSelectionCommand(0, PitchType.FourSeamFastball, new PlatePoint(0d, 0d));
+                var flight = resolver.Resolve(matchup, command);
+                Assert.That(ellipse.RadiusX, Is.LessThan(previousRadius));
+                Assert.That(flight.Quality, Is.GreaterThan(previousQuality));
+                previousRadius = ellipse.RadiusX;
+                previousQuality = flight.Quality;
+            }
+        }
+
+        [Test]
         public void 같은스윙에서도고구위는타구속도를억제한다()
         {
             var balance = BalanceTable.CreateDefault();

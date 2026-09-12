@@ -36,6 +36,7 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && args[0] == "trait-comparison") return RunTraitComparison(args);
             if (args.Length > 0 && args[0] == "dugout-comparison") return RunDugoutComparison(args);
             if (args.Length > 0 && args[0] == "study-comparison") return RunStudyComparison(args);
             if (args.Length > 0 && args[0] == "rating-cap")
@@ -104,7 +105,10 @@ namespace Baseball.Tools.SimulationDiagnostics
 
             DiagnosticRunMetadata.Write("balance-match", gameCount, "FullResultWithNullEventSink");
             Console.WriteLine();
-            BalanceTable balance = BalanceTable.CreateDefault();
+            BalanceTable balance = args.Length > countArgumentIndex + 1
+                ? Baseball.Tools.CommonMatchBalanceInput.Load(args[countArgumentIndex + 1])
+                : BalanceTable.CreateDefault();
+            Console.WriteLine("EffectiveBalanceHash=" + balance.ContentHash);
             CareerCreationStatistics creationStatistics = MeasureCareerCreation(balance, gameCount);
             MatchRosterSnapshot away = CreateRoster(1, 50, 50, 50);
             MatchRosterSnapshot home = CreateRoster(2, 50, 50, 50);
@@ -127,10 +131,10 @@ namespace Baseball.Tools.SimulationDiagnostics
             VerifyDeterminism(balance, away, home);
             VerifyCoreRules(balance, away, home);
             creationStatistics.Validate(balance);
-            statistics.Validate(gameCount);
             Console.WriteLine(creationStatistics.Format(gameCount));
             Console.WriteLine();
             Console.WriteLine(statistics.Format(gameCount));
+            statistics.Validate(gameCount);
             return 0;
         }
 

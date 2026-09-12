@@ -284,7 +284,7 @@ namespace Baseball.Simulation.Match
                                      (request.Pitch.VelocityMph - 88d) * 0.006d;
             double contactAbility = request.DefaultIntent == BattingApproach.Bunt ? matchup.BuntAbility : matchup.EffectiveContact;
             double recognition = (contactAbility - 50d) * 0.0060d +
-                                 (batter.Mental - 50d) * 0.0035d;
+                                 (batter.Mental - 50d) * _balance.MiniGame.AiMentalLocationWeight;
             double locationScale = Clamp(
                 _balance.MiniGame.AiLocationErrorScale + pitchDifficulty - recognition,
                 0.38d,
@@ -297,7 +297,7 @@ namespace Baseball.Simulation.Match
                                      (matchup.EffectiveVelocity - 50d) * 0.24d +
                                      (matchup.EffectiveStuff - 50d) * 0.16d -
                                      (contactAbility - 50d) * 0.30d -
-                                     (batter.Mental - 50d) * 0.22d;
+                                     (batter.Mental - 50d) * _balance.MiniGame.AiMentalTimingWeight;
             timingDeviation *= 1d -
                                repeatRecognition * _balance.MiniGame.RepeatExecutionErrorReduction;
             double timingError = NextGaussian() * Clamp(timingDeviation, 28d, 94d);

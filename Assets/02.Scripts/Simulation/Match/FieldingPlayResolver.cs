@@ -171,7 +171,7 @@ namespace Baseball.Simulation.Match
             FieldingProfile profile = FieldingProfile.Derive(
                 fielder,
                 position,
-                traitBonus + defenseAbilityBonus);
+                traitBonus + defenseAbilityBonus + (int)Math.Round(fielder.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Defense)));
             double reachChance = CalculateReachChance(ball, profile, alignment);
             bool routine = reachChance >= 0.68d && ball.Quality <= 62d;
             if (_random.NextDouble() >= reachChance)

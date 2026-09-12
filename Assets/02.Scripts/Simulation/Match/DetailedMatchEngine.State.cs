@@ -273,16 +273,20 @@ namespace Baseball.Simulation.Match
                 PitcherGameState pitcher = _pitchers[index];
                 if (pitcher.HasEntered || pitcher.HasBeenRemoved)
                     continue;
-                double recentLoad = pitcher.RosterEntry.RecentWorkload.PreviousDayPitches +
-                                    pitcher.RosterEntry.RecentWorkload.TwoDaysAgoPitches *
-                                    balance.RecentLoadDayTwoWeight +
-                                    pitcher.RosterEntry.RecentWorkload.ThreeDaysAgoPitches *
-                                    balance.RecentLoadDayThreeWeight;
-                recentLoad /= pitcher.RosterEntry.RecoveryMultiplier;
-                if (allowEmergency || recentLoad < balance.UnavailableRecentLoad)
+                if (allowEmergency || CanUseRestedReliever(pitcher, balance))
                     count++;
             }
             return count;
+        }
+
+        private bool CanUseRestedReliever(PitcherGameState pitcher, BullpenManagementBalance balance)
+        {
+            // 같은 30구도 짧은 불펜과 다이닝 투수에게 다른 부담이다. 회복된 대안이 있으면
+            // 최근 부담이 투구 용량 대비 큰 투수는 쉬게 하고, 전원 소진 시에만 비상 등판을 허용한다.
+            double recentLoad = _fatigueResolver.CalculateRecentLoad(pitcher.RosterEntry.RecentWorkload) /
+                pitcher.RosterEntry.RecoveryMultiplier;
+            return recentLoad < balance.UnavailableRecentLoad &&
+                _fatigueResolver.GetBand(recentLoad / pitcher.EffectiveCapacity) == PitcherFatigueBand.Normal;
         }
 
         public double CalculateBullpenFreshness(BullpenManagementBalance balance)
@@ -338,13 +342,7 @@ namespace Baseball.Simulation.Match
                 PitcherGameState candidate = _pitchers[index];
                 if (candidate.HasEntered || candidate.HasBeenRemoved)
                     continue;
-                double recentLoad = candidate.RosterEntry.RecentWorkload.PreviousDayPitches +
-                                    candidate.RosterEntry.RecentWorkload.TwoDaysAgoPitches *
-                                    balance.RecentLoadDayTwoWeight +
-                                    candidate.RosterEntry.RecentWorkload.ThreeDaysAgoPitches *
-                                    balance.RecentLoadDayThreeWeight;
-                recentLoad /= candidate.RosterEntry.RecoveryMultiplier;
-                if (hasNormallyAvailable && recentLoad >= balance.UnavailableRecentLoad)
+                if (hasNormallyAvailable && !CanUseRestedReliever(candidate, balance))
                     continue;
                 double score = ai.ScoreReliever(candidate, leverage, remainingInnings, Roster.ManagerProfile);
                 if (score > bestScore || Math.Abs(score - bestScore) < 0.0001d &&
@@ -439,12 +437,8 @@ namespace Baseball.Simulation.Match
                     continue;
                 }
 
-                double recentLoad = entry.RecentWorkload.PreviousDayPitches +
-                                    entry.RecentWorkload.TwoDaysAgoPitches * balance.RecentLoadDayTwoWeight +
-                                    entry.RecentWorkload.ThreeDaysAgoPitches * balance.RecentLoadDayThreeWeight;
-                recentLoad /= entry.RecoveryMultiplier;
                 bool isAvailable = !pitcher.HasEntered && !pitcher.HasBeenRemoved &&
-                                   (!hasNormallyAvailable || recentLoad < balance.UnavailableRecentLoad);
+                                   (!hasNormallyAvailable || CanUseRestedReliever(pitcher, balance));
                 candidates[candidateCount++] = new BullpenCandidateState(
                     entry.PlayerSeasonId,
                     entry.ActiveRosterRole.Value,

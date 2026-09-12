@@ -16,7 +16,7 @@ namespace Baseball.Core.Rules
     /// </summary>
     public readonly struct SimulationVersionStamp : IEquatable<SimulationVersionStamp>
     {
-        public const int CurrentEngineVersion = 12;
+        public const int CurrentEngineVersion = 14;
         public const int CurrentRngAlgorithmVersion = 1;
 
         public SimulationVersionStamp(

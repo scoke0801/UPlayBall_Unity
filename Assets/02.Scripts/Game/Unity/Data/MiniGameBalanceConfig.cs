@@ -98,7 +98,13 @@ namespace Baseball.Game.Data
                 highStuffStart: data.highStuffStart,
                 highStuffLocationWeight: data.highStuffLocationWeight,
                 highStuffExitVelocityWeight: data.highStuffExitVelocityWeight,
-                highQualityChallengeWeight: data.highQualityChallengeWeight);
+                highQualityChallengeWeight: data.highQualityChallengeWeight,
+                aiMentalLocationWeight: data.aiMentalLocationWeight,
+                aiMentalTimingWeight: data.aiMentalTimingWeight,
+                mentalTimingToleranceWeight: data.mentalTimingToleranceWeight,
+                useSmoothCommandDeviation: data.useSmoothCommandDeviation,
+                commandErrorQualityPenalty: data.commandErrorQualityPenalty,
+                commandQualityBonus: data.commandQualityBonus);
         }
     }
 
@@ -110,6 +116,12 @@ namespace Baseball.Game.Data
         public double hitByPitchMaximumHeight = 1.05d;
         public double hitByPitchContactProbability = .18d;
         public double aiMentalChaseWeight = .0045d;
+        public double aiMentalLocationWeight = .0025d;
+        public double aiMentalTimingWeight = .15d;
+        public double mentalTimingToleranceWeight = .35d;
+        public bool useSmoothCommandDeviation = true;
+        public double commandErrorQualityPenalty = 48d;
+        public double commandQualityBonus = 4.32d;
         public double stealAttemptUtilityScale;
         public double relieverQualityWeight = 2d;
         public double aiPitchQualityDifficultyWeight = .005d;

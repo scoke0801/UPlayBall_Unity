@@ -54,6 +54,46 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(durable, Is.GreaterThan(baseline * 2d));
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Bullpen_상세와간이모두연투한에이스보다회복된불펜을먼저기용한다(bool aggregate)
+        {
+            MatchRosterSnapshot source = CreateRoster(1);
+            Player ace = new Player(19001, "연투 투수", PlayerPosition.ReliefPitcher,
+                Handedness.Right, Handedness.Right, new BatterAttributes(20, 20, 20, 20, 20, 20),
+                new PitcherAttributes(50, 95, 95, 95, 95, 70));
+            Player rested = CreatePitcher(19002, 50);
+            var bullpen = new[] {
+                new PitcherRosterEntry(ace, PitcherRole.MiddleRelief,
+                    recentWorkload: new RecentPitchingWorkload(50, 0, 0)),
+                new PitcherRosterEntry(rested, PitcherRole.MiddleRelief, capacityMultiplier: 2.5d)
+            };
+            var roster = new MatchRosterSnapshot(source.TeamId, source.TeamName, source.StartingLineup,
+                new PitcherRosterEntry(source.StartingPitcher.Player, PitcherRole.Starter, pitchLimit: 1),
+                bullpen, source.Bench, source.ManagerProfile, source.RunningApproach);
+            const ulong seed = 20260912;
+            var input = new MatchInput(1, 1, seed, roster, CreateRoster(2),
+                new MatchRules(1, 0, ExtraInningPolicy.DrawAtLimit, 10, true, 0));
+            MatchExecutionProfile profile = aggregate ? MatchExecutionProfile.AggregateBackground : MatchExecutionProfile.DetailedInteractive;
+            var events = new MatchEventBuffer();
+            MatchResult result = new MatchSimulator(BalanceTable.CreateDefault(), MatchRandomStreams.Create(seed))
+                .Simulate(input, events, profile);
+            int restedPitches = 0, acePitches = 0;
+            foreach (PlayerPitchingLine line in result.AwayBoxScore.PitchingLines)
+            {
+                if (line.PlayerId == rested.PlayerId) restedPitches = line.PitchesThrown;
+                if (line.PlayerId == ace.PlayerId) acePitches = line.PitchesThrown;
+            }
+            Assert.That(restedPitches, Is.GreaterThan(0));
+            Assert.That(acePitches, Is.Zero);
+            var repeatEvents = new MatchEventBuffer();
+            MatchResult repeat = new MatchSimulator(BalanceTable.CreateDefault(), MatchRandomStreams.Create(seed))
+                .Simulate(input, repeatEvents, profile);
+            Assert.That(repeat.AwayBoxScore.Runs, Is.EqualTo(result.AwayBoxScore.Runs));
+            Assert.That(repeat.HomeBoxScore.Runs, Is.EqualTo(result.HomeBoxScore.Runs));
+            CollectionAssert.AreEqual(events.ToArray(), repeatEvents.ToArray());
+        }
+
         [Test]
         public void Fatigue_55퍼센트이하는하락없고한계에서는제구가더크게하락한다()
         {

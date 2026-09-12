@@ -92,6 +92,7 @@ namespace Baseball.Core.Balance
     /// </summary>
     public sealed class BalanceTable
     {
+        public Baseball.Core.Historical.OwnerTraitTrainingBalance TraitTraining { get; set; } = new Baseball.Core.Historical.OwnerTraitTrainingBalance();
         /// <summary>
         /// Game 레이어에서 변환한 경기·새 게임 밸런스 데이터를 묶는다.
         /// </summary>

@@ -95,8 +95,9 @@ namespace Baseball.Simulation.Match
             double verticalBreak = profile.VerticalBreak * breakingScale;
             double arrivalMilliseconds = 41250d / velocity;
             double quality = Clamp(PitchEffectivenessResolver.ResolvePlayerQuality(entry, matchup.Pitcher,
-                matchup.EffectiveStuff, matchup.EffectiveBreaking, matchup.EffectiveControl, _arsenal) -
-                Math.Sqrt(errorX * errorX + errorY * errorY) * 24d, 0d, AttributeRating.Maximum);
+                matchup.EffectiveStuff, matchup.EffectiveBreaking, matchup.EffectiveControl, _arsenal) +
+                _balance.CommandQualityBonus - Math.Sqrt(errorX * errorX + errorY * errorY) *
+                _balance.CommandErrorQualityPenalty, 0d, AttributeRating.Maximum);
             double releaseX = matchup.Pitcher.ThrowingHand == Handedness.Left ? -0.42d : 0.42d;
             bool isHitByPitch = IsHitByPitch(matchup.Batter, matchup.Pitcher.ThrowingHand, actual);
             return new PitchFlightDescriptor(
@@ -171,10 +172,16 @@ namespace Baseball.Simulation.Match
             int proficiency,
             PitchType pitchType)
         {
-            double deviation = _balance.BaseCommandDeviation -
-                               (matchup.EffectiveControl - 50d) * _balance.ControlDeviationWeight -
-                               (proficiency - 50d) * 0.0008d +
-                               _arsenal.Get(pitchType).ControlDifficulty;
+            double center = _balance.BaseCommandDeviation - (proficiency - 50d) * 0.0008d +
+                            _arsenal.Get(pitchType).ControlDifficulty;
+            double improvement = (matchup.EffectiveControl - 50d) * _balance.ControlDeviationWeight;
+            double deviation = center - improvement;
+            if (_balance.UseSmoothCommandDeviation && deviation < 2d * _balance.MinimumCommandDeviation)
+            {
+                // 하한의 두 배에서 선형식과 값·기울기를 맞춘 뒤 점근한다. 중간 제구의 정확도는 유지한다.
+                double minimum = _balance.MinimumCommandDeviation;
+                deviation = minimum + minimum * Math.Exp((deviation - 2d * minimum) / minimum);
+            }
             deviation = Clamp(
                 deviation,
                 _balance.MinimumCommandDeviation,

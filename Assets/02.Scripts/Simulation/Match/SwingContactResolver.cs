@@ -56,7 +56,7 @@ namespace Baseball.Simulation.Match
             double timingError = (command.SwingInputTime01 - idealTime) *
                                  pitch.PlateArrivalMilliseconds;
             double timingRating = (contactAbility - 50d) * _balance.ContactTimingWeight +
-                                  (batter.Mental - 50d) * _balance.ContactTimingWeight * 0.55d;
+                                  (batter.Mental - 50d) * _balance.ContactTimingWeight * _balance.MentalTimingToleranceWeight;
             double validTiming = Math.Max(42d, _balance.ValidTimingMilliseconds + timingRating);
             double foulTiming = Math.Max(validTiming + 25d, _balance.FoulTimingMilliseconds + timingRating * 0.75d);
             double absoluteTiming = Math.Abs(timingError);

@@ -60,8 +60,27 @@ namespace Baseball.Core.Balance
             double highStuffStart = 80d,
             double highStuffLocationWeight = .004d,
             double highStuffExitVelocityWeight = .25d,
-            double highQualityChallengeWeight = .02d)
+            double highQualityChallengeWeight = .02d,
+            // 역사 44년 대조와 능력치별 8만 4천 경기 근거: pitching-valuation-20260912 보고서.
+            double aiMentalLocationWeight = .0025d,
+            double aiMentalTimingWeight = .15d,
+            double mentalTimingToleranceWeight = .35d,
+            bool useSmoothCommandDeviation = true,
+            double commandErrorQualityPenalty = 48d,
+            double commandQualityBonus = 4.32d)
         {
+            if (!(commandErrorQualityPenalty >= 0d) || double.IsInfinity(commandErrorQualityPenalty) ||
+                double.IsNaN(commandQualityBonus) || double.IsInfinity(commandQualityBonus))
+                throw new System.ArgumentOutOfRangeException(nameof(commandErrorQualityPenalty));
+            CommandErrorQualityPenalty = commandErrorQualityPenalty;
+            CommandQualityBonus = commandQualityBonus;
+            ValidateProbability(aiMentalLocationWeight, nameof(aiMentalLocationWeight));
+            ValidateProbability(aiMentalTimingWeight, nameof(aiMentalTimingWeight));
+            ValidateProbability(mentalTimingToleranceWeight, nameof(mentalTimingToleranceWeight));
+            AiMentalLocationWeight = aiMentalLocationWeight;
+            AiMentalTimingWeight = aiMentalTimingWeight;
+            MentalTimingToleranceWeight = mentalTimingToleranceWeight;
+            UseSmoothCommandDeviation = useSmoothCommandDeviation;
             if (!(highStuffStart >= 50d) || highStuffStart >= Baseball.Core.Players.AttributeRating.Maximum ||
                 !(highStuffLocationWeight >= 0d) || highStuffLocationWeight > .05d ||
                 !(highStuffExitVelocityWeight >= 0d) || highStuffExitVelocityWeight > 1d)
@@ -203,6 +222,16 @@ namespace Baseball.Core.Balance
         /// <summary>Mental 1점당 AI 타자가 존 밖 공을 쫓는 확률의 감소량이다.</summary>
         // 기본값 .0045는 역사 개인 기록의 팀당 볼넷 3.372를 목표로 검증했다. 팀 승률은 입력하지 않는다.
         public double AiMentalChaseWeight { get; }
+        /// <summary>선구안과 분리해 저작하는 멘탈의 스윙 실행 보조 계수다.</summary>
+        public double AiMentalLocationWeight { get; }
+        public double AiMentalTimingWeight { get; }
+        public double MentalTimingToleranceWeight { get; }
+        /// <summary>상위 제구가 하한에 붙어 사라지지 않도록 오차를 점근적으로 줄인다.</summary>
+        public bool UseSmoothCommandDeviation { get; }
+        /// <summary>구종 자체의 등급과 별도로 목표점을 놓친 투구의 실전 품질을 감점한다.</summary>
+        public double CommandErrorQualityPenalty { get; }
+        /// <summary>오차 감점 강화가 일괄 투수 하향이 되지 않도록 기준 오차 .18에서 품질을 맞춘다.</summary>
+        public double CommandQualityBonus { get; }
 
         private static void ValidateProbability(double value, string name)
         {
@@ -220,7 +249,7 @@ namespace Baseball.Core.Balance
                 targetVerticalLimit: 1.25d,
                 baseCommandDeviation: 0.16d,
                 controlDeviationWeight: 0.0021d,
-                minimumCommandDeviation: 0.055d,
+                minimumCommandDeviation: 0.035d,
                 maximumCommandDeviation: 0.30d,
                 baseBatRadiusX: 0.28d,
                 baseBatRadiusY: 0.19d,
@@ -242,8 +271,8 @@ namespace Baseball.Core.Balance
                 aiThreeBallChallengeProbability: 0.70d,
                 aiWastePitchDistance: 1.14d,
                 aiInsideWasteProbability: 0.40d,
+                // 정신력의 중복 보조는 별도로 조정하고 중립 로스터의 타격 오차는 유지한다.
                 aiLocationErrorScale: 0.82d,
-                // 중립 합성 로스터의 과다 안타·삼진 부족을 보정한 만 경기 검증값이다.
                 aiTimingErrorMilliseconds: 61d,
                 contactQualityBase: 18d,
                 launchAngleBaseDegrees: 10d,

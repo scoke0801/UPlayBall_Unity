@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Baseball.Core.Balance;
 using Baseball.Core.Growth;
+using Baseball.Core.Historical;
 using Baseball.Simulation.Growth;
 using Baseball.Simulation.Random;
 using NUnit.Framework;
@@ -13,6 +14,39 @@ namespace Baseball.Tests.EditMode.Simulation.Growth
     /// </summary>
     public sealed class SkillBoardAndGachaTests
     {
+        [Test]
+        public void OwnerBlocks_공통테트로미노만유지하고인접세트규칙을추가한다()
+        {
+            GrowthBalanceTable source = GrowthBalanceTable.CreateDefault();
+            GrowthBalanceTable owner = OwnerSkillContent.Compose(source, 1);
+            Assert.That(owner.SkillBlocks.Length, Is.EqualTo(source.SkillBlocks.Length));
+            for (int index = 0; index < source.SkillBlocks.Length; index++)
+            {
+                SkillBlockDefinition original = source.SkillBlocks[index];
+                SkillBlockDefinition block = owner.SkillBlocks[index];
+                Assert.That(block.BlockId, Is.EqualTo(original.BlockId));
+                Assert.That(block.ShapeCells.Length, Is.EqualTo(4));
+                Assert.That(HasSameCells(block.ShapeCells, original.ShapeCells), Is.True);
+                Assert.That(block.AbilityBonuses, Is.EqualTo(original.AbilityBonuses));
+                Assert.That(block.SellValue, Is.EqualTo(original.SellValue));
+                Assert.That(block.AdjacencySetBonus, Is.EqualTo(1));
+                Assert.That(original.AdjacencySetBonus, Is.Zero);
+            }
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(5)]
+        public void Definition_네칸이아닌블록을거부한다(int cellCount)
+        {
+            var cells = new BoardCell[cellCount];
+            for (int index = 0; index < cellCount; index++) cells[index] = new BoardCell(index, 0);
+            Assert.Throws<ArgumentException>(() => new SkillBlockDefinition(
+                "invalid", SkillBlockRarity.Normal, SkillBlockCategory.Contact,
+                cells, true, Array.Empty<AbilityChange>(), 0));
+        }
+
         [Test]
         public void DefaultMoneyValues_성장치료수상은계약과같은원단위를사용한다()
         {

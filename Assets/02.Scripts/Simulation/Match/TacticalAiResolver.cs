@@ -144,7 +144,7 @@ namespace Baseball.Simulation.Match
                                  pitcher.PitcherAttributes.Mental * 0.40d;
             double catcherArm = FieldingProfile.Derive(catcher, catcher.PrimaryPosition).Arm;
             return Clamp(
-                _balance.StealBaseSuccess +
+                _balance.StealBaseSuccess + runner.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Running) +
                 (runner.BatterAttributes.Speed - 50d) * _balance.StealSpeedWeight +
                 (runner.BatterAttributes.Mental - 50d) * _balance.StealMentalWeight -
                 (catcherArm - 50d) * _balance.CatcherArmWeight -

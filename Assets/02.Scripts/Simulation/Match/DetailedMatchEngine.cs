@@ -570,15 +570,20 @@ namespace Baseball.Simulation.Match
                     defense.CalculateDefenseRating(),
                     bases.Second.IsOccupied || bases.Third.IsOccupied,
                     effective.Velocity,
-                    effective.Stuff,
+                    effective.Stuff + CardTraitEffectResolver.Stuff(defense.ActivePitcher.CardTrait, strikes),
                     effective.Breaking,
-                    effective.Control,
+                    effective.Control + CardTraitEffectResolver.Control(defense.ActivePitcher.CardTrait, inning,
+                        bases.Second.IsOccupied || bases.Third.IsOccupied, defense.BoxScore.Runs > offense.BoxScore.Runs, defense.ActivePitcherState.Role),
                     effective.Mental,
-                    contactBonus,
-                    hardHitBonus,
+                    contactBonus + CardTraitEffectResolver.Contact(batter.Player.CardTrait,
+                        bases.Second.IsOccupied || bases.Third.IsOccupied,
+                        !bases.First.IsOccupied && !bases.Second.IsOccupied && !bases.Third.IsOccupied),
+                    hardHitBonus + batter.Player.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Power)
+                        - defense.ActivePitcher.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Groundball),
                     pitchingApproach,
                     inning,
-                    historicalModifiers.GetBatter(PlayerAbility.Bunt) + batterConditionRating);
+                    historicalModifiers.GetBatter(PlayerAbility.Bunt) + batterConditionRating
+                        + (int)System.Math.Round(batter.Player.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Bunt)));
                 BattingApproach pitchApproach = GetPitchBattingApproach(
                     selectedApproach,
                     balls,

@@ -187,7 +187,7 @@ namespace Baseball.Simulation.Match
         private BattedBallType ResolveType(in PlateAppearanceMatchup matchup, double quality)
         {
             double groundShare = Clamp(
-                _balance.GroundOutShare +
+                _balance.GroundOutShare + matchup.Pitcher.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Groundball) +
                 (matchup.EffectiveBreaking - 50d) * _balance.BreakingGroundOutWeight -
                 (matchup.Batter.BatterAttributes.Power - 50d) * _balance.PowerGroundOutWeight +
                 (matchup.PitchingApproach == PitchingApproach.GroundBall ? 0.10d : 0d),

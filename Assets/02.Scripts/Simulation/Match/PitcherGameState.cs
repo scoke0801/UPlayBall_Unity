@@ -72,7 +72,8 @@ namespace Baseball.Simulation.Match
         public int InheritedRunnersScored { get; internal set; }
         public bool HasEntered { get; internal set; }
         public bool HasBeenRemoved { get; internal set; }
-        public double FatigueRatio => PitchCount / EffectiveCapacity;
+        public double FatigueRatio => PitchCount / EffectiveCapacity *
+            (1 - Player.CardTrait.Get(Baseball.Core.Historical.CardTraitKind.Endurance));
         public int TimesThroughOrder => BattersFaced / 9 + 1;
 
         public void StartInning()
