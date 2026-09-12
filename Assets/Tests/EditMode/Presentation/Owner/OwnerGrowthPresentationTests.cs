@@ -66,6 +66,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(firstName.text, Is.EqualTo("선수0"));
             Assert.That(firstName.gameObject.activeInHierarchy, Is.True);
             Assert.That(firstName.color.a, Is.GreaterThan(0.9f));
+            Assert.That(firstName.rectTransform.anchorMin.y, Is.GreaterThanOrEqualTo(.89f),
+                "유학 선수 선택에서는 이름이 카드 상단에 표시되어야 합니다.");
             Canvas.ForceUpdateCanvases();
             ScrollRect picker = Find<ScrollRect>("PlayerInventory");
             LayoutRebuilder.ForceRebuildLayoutImmediate(picker.content);
@@ -100,6 +102,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Click("StudyPin_study_contact");
             Assert.That(Find<Text>("StudyDestination").text, Does.Contain("도쿄"));
             Assert.That(FindOrNull<Button>("StartStudy"), Is.Not.Null);
+            Assert.That(Find<Button>("ChooseStudyPlayer").IsActive(), Is.True);
+            Assert.That(Find<Text>("StudyPlayer").text, Is.Not.Empty);
+            Assert.That(Find<CanvasGroup>("StudyPlayerCard").blocksRaycasts, Is.False);
+            RawImage selectedPlane = Find<RawImage>("StudyPin_study_contact");
+            Assert.That(selectedPlane.GetComponent<Outline>(), Is.Null,
+                "비행기 원본을 복제하는 Outline 효과를 사용하면 안 됩니다.");
+            Assert.That(selectedPlane.rectTransform.pivot, Is.EqualTo(new Vector2(.5f, .5f)));
+            Assert.That(FindOrNull<Image>("StudySelection_study_contact"), Is.Not.Null);
 
             Click("StudyPin_study_contact");
             Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
@@ -110,6 +120,31 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Click("StudyWorldMap");
             Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
             Assert.That(FindOrNull<Image>("StudyHomeNode"), Is.Not.Null);
+        }
+
+        [Test]
+        public void Study_모든목적지를선택해도비행기가지도안에있고선수변경을계속할수있다()
+        {
+            _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
+            foreach (OwnerStudyOption study in CreateSnapshot().Cards[0].Studies)
+            {
+                Click("StudyPin_" + study.Program.ProgramId);
+                RectTransform map = Find<RawImage>("StudyWorldMap").rectTransform;
+                RectTransform plane = Find<RawImage>("StudyPin_" + study.Program.ProgramId).rectTransform;
+                var corners = new Vector3[4];
+                plane.GetWorldCorners(corners);
+                foreach (Vector3 corner in corners)
+                {
+                    Vector3 local = map.InverseTransformPoint(corner);
+                    Assert.That(local.x, Is.InRange(map.rect.xMin, map.rect.xMax));
+                    Assert.That(local.y, Is.InRange(map.rect.yMin, map.rect.yMax));
+                }
+                Click("ChooseStudyPlayer");
+                Click("Card_card1");
+                Click("CloseStudyPlayerPicker");
+                Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("이도윤"));
+                Assert.That(Find<Button>("StartStudy").gameObject.activeInHierarchy, Is.True);
+            }
         }
 
         [Test]
@@ -349,9 +384,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = 1;
-                foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy, "StudyPlayerPicker" })
+                foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy, "StudySelected", "StudyPlayerPicker" })
                 {
-                    _view.ShowRoute(route == "StudyPlayerPicker" ? OwnerNavigationRoutes.PowerUpStudy : route);
+                    _view.ShowRoute(route.StartsWith("Study") ? OwnerNavigationRoutes.PowerUpStudy : route);
+                    if (route == "StudySelected") Click("StudyPin_study_defense");
                     if (route == "StudyPlayerPicker") Click("ChooseStudyPlayer");
                     Canvas.ForceUpdateCanvases();
                     typeof(UI_Scene_OwnerGrowth).GetMethod("Resize", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_view, null);

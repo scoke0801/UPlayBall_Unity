@@ -32,7 +32,7 @@ namespace Baseball.Presentation.Owner
                 for (int index = 0; index < card.Studies.Length; index++)
                     RenderStudyDestinationNode(card.Studies[index]);
             }
-            Label(_content, "MapLegend", "비행기  이용 가능    흐린 비행기  잠김    금색 외곽선  선택    ◇ 구단 출발점", 11, 35, 466, 685, 26);
+            Label(_content, "MapLegend", "비행기를 눌러 유학지 선택    ·    흐린 비행기  잠김    ·    금색 밑줄  선택", 11, 35, 466, 685, 26);
             Image informationFrame = Frame(_content, "StudyInformation", 742, 86, 338, 416);
             AddStudyDismissAction(informationFrame);
             Label(_content, "StudyInformationTitle", "유학지 정보", 15, 754, 92, 310, 25);
@@ -58,7 +58,8 @@ namespace Baseball.Presentation.Owner
                 selected.SetPortrait(Baseball.Presentation.UI.PlayerPortraitSprites.GetDefault(card.Card.Position));
                 selected.UsePlayerPickerLayout();
                 FitCompactCardText(selected);
-                CanvasGroup cardCanvas = selected.gameObject.AddComponent<CanvasGroup>();
+                // 공용 카드가 이미 생성한 그룹을 재사용한다. 중복 추가하면 여기서 렌더링이 중단된다.
+                CanvasGroup cardCanvas = selected.GetComponent<CanvasGroup>();
                 cardCanvas.blocksRaycasts = false;
                 Label(_content, "StudyPlayer", card.Card.DisplayName + "\n" +
                     (string.IsNullOrEmpty(card.Card.StudyStatus) ? "유학 대기" : card.Card.StudyStatus),
@@ -69,6 +70,7 @@ namespace Baseball.Presentation.Owner
                 _isChoosingStudyPlayer = true;
                 _pendingStudy = string.Empty;
                 Render();
+                FocusRosterControl("Card_" + _cardId);
             }, false, 850, 374, 205, 30);
             if (option == null)
             {
@@ -129,20 +131,20 @@ namespace Baseball.Presentation.Owner
         private void RenderStudyHomeNode()
         {
             Vector2 point = GetStudyMapPoint(790, 430);
-            Image marker = Surface(
+            Surface(
                 _content,
                 "StudyHomeNode",
-                point.x - 10,
-                point.y - 10,
-                20,
-                20,
-                new Color32(243, 196, 71, 255));
-            marker.rectTransform.localEulerAngles = new Vector3(0, 0, 45);
-            Outline outline = marker.gameObject.AddComponent<Outline>();
-            outline.effectColor = Color.white;
-            outline.effectDistance = new Vector2(1, -1);
-            Label(_content, "StudyHomeLabel", "구단 출발", 10, point.x - 39, point.y + 13, 78, 20)
-                .alignment = TextAnchor.MiddleCenter;
+                point.x - 3,
+                point.y - 3,
+                6,
+                6,
+                Color.white);
+            Text label = Label(_content, "StudyHomeLabel", "출발 · 한국", 11, point.x - 44, point.y + 12, 88, 24);
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            Shadow shadow = label.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color32(4, 17, 35, 240);
+            shadow.effectDistance = new Vector2(1, -1);
         }
 
         private void RenderStudyDestinationNode(OwnerStudyOption study)
@@ -156,6 +158,7 @@ namespace Baseball.Presentation.Owner
                 _programId = isSelected ? string.Empty : study.Program.ProgramId;
                 _pendingStudy = string.Empty;
                 Render();
+                FocusRosterControl("StudyPin_" + study.Program.ProgramId);
             };
 
             var marker = new GameObject(
@@ -164,6 +167,9 @@ namespace Baseball.Presentation.Owner
                 typeof(RawImage)).GetComponent<RawImage>();
             marker.transform.SetParent(_content, false);
             Place(marker.rectTransform, point.x - 30, point.y - 30, 60, 60);
+            // 목적지 중심에서 회전해야 아이콘이 지리 좌표와 클릭 위치를 벗어나지 않는다.
+            marker.rectTransform.pivot = new Vector2(.5f, .5f);
+            marker.rectTransform.anchoredPosition = new Vector2(point.x, -point.y);
             marker.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/study_airplane_icon_v1");
             marker.color = study.IsUnlocked ? Color.white : new Color32(90, 101, 116, 210);
             marker.raycastTarget = true;
@@ -173,13 +179,7 @@ namespace Baseball.Presentation.Owner
                 0,
                 0,
                 Mathf.Atan2(heading.y, heading.x) * Mathf.Rad2Deg - 24f);
-            Outline markerOutline = marker.gameObject.AddComponent<Outline>();
-            markerOutline.effectColor = isSelected
-                ? new Color32(255, 194, 53, 255)
-                : study.IsUnlocked
-                    ? new Color32(58, 163, 230, 210)
-                    : new Color32(37, 47, 61, 210);
-            markerOutline.effectDistance = new Vector2(isSelected ? 3 : 1, isSelected ? -3 : -1);
+            // RawImage Outline은 알파 윤곽선 대신 비행기 전체를 복제하므로 선택은 라벨 아래에 표시한다.
             Button markerButton = marker.gameObject.AddComponent<Button>();
             markerButton.targetGraphic = marker;
             markerButton.transition = Selectable.Transition.None;
@@ -208,6 +208,9 @@ namespace Baseball.Presentation.Owner
             Shadow labelShadow = label.gameObject.AddComponent<Shadow>();
             labelShadow.effectColor = new Color32(4, 17, 35, 240);
             labelShadow.effectDistance = new Vector2(1, -1);
+            if (isSelected)
+                Surface(_content, "StudySelection_" + study.Program.ProgramId,
+                    labelX + 8, labelY + 40, 124, 3, new Color32(255, 211, 98, 255));
         }
 
         private void AddStudyDismissAction(Graphic graphic)
@@ -237,6 +240,7 @@ namespace Baseball.Presentation.Owner
                 _isChoosingStudyPlayer = false;
                 _pendingStudy = string.Empty;
                 Render();
+                FocusRosterControl("ChooseStudyPlayer");
             }, true, 545, 456, 148, 29);
         }
 

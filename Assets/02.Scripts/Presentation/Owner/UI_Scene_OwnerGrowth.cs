@@ -225,6 +225,7 @@ namespace Baseball.Presentation.Owner
                 card.UseRosterPresentation();
                 card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(candidate.Card, candidate.Card.CardId == _cardId));
                 card.SetPortrait(PlayerPortraitSprites.GetDefault(candidate.Card.Position));
+                if (_isStudy) card.UsePlayerPickerLayout();
                 card.Selected += _ =>
                 {
                     _cardId = selected.Card.CardId;
