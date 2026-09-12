@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using Baseball.Game.Career;
 using Baseball.Game.Historical;
 using Baseball.Presentation.SharedUI;
@@ -10,6 +11,27 @@ using Baseball.Simulation.Historical;
 
 namespace Baseball.Presentation.Owner
 {
+    /// <summary>TeamColor 효과 대상 한 명을 공용 Mini Card로 표시하는 데 필요한 불변 정보다.</summary>
+    public sealed class OwnerTeamColorEligiblePlayerSnapshot
+    {
+        public OwnerTeamColorEligiblePlayerSnapshot(
+            PlayerMiniCardModel miniCard,
+            string playerPersonId,
+            PlayerPosition position,
+            string teamDisplayName)
+        {
+            MiniCard = miniCard ?? throw new ArgumentNullException(nameof(miniCard));
+            PlayerPersonId = playerPersonId ?? string.Empty;
+            Position = position;
+            TeamDisplayName = teamDisplayName ?? string.Empty;
+        }
+
+        public PlayerMiniCardModel MiniCard { get; }
+        public string PlayerPersonId { get; }
+        public PlayerPosition Position { get; }
+        public string TeamDisplayName { get; }
+    }
+
     /// <summary>팀컬러 한 단계의 발동 조건, 적용 대상과 장착 충돌 정보를 표시한다.</summary>
     public sealed class OwnerTeamColorCandidateSnapshot
     {
@@ -35,10 +57,28 @@ namespace Baseball.Presentation.Owner
             bool isActive,
             string displayName,
             string description)
+            : this(
+                definition,
+                eligibleCount,
+                CreateFallbackEligiblePlayers(eligiblePlayerNames),
+                isActive,
+                displayName,
+                description)
+        {
+        }
+
+        public OwnerTeamColorCandidateSnapshot(
+            TeamColorDefinition definition,
+            int eligibleCount,
+            IReadOnlyList<OwnerTeamColorEligiblePlayerSnapshot> eligiblePlayers,
+            bool isActive,
+            string displayName,
+            string description)
         {
             Definition = definition ?? throw new ArgumentNullException(nameof(definition));
             EligibleCount = eligibleCount;
-            EligiblePlayerNames = Copy(eligiblePlayerNames);
+            EligiblePlayers = Copy(eligiblePlayers);
+            EligiblePlayerNames = CopyNames(EligiblePlayers);
             IsActive = isActive;
             Name = OwnerTeamColorDisplayFormatter.FormatName(definition, displayName);
             Description = OwnerTeamColorDisplayFormatter.FormatDescription(definition, description);
@@ -52,16 +92,50 @@ namespace Baseball.Presentation.Owner
         public string Grade { get; }
         public int EligibleCount { get; }
         public IReadOnlyList<string> EligiblePlayerNames { get; }
+        public IReadOnlyList<OwnerTeamColorEligiblePlayerSnapshot> EligiblePlayers { get; }
         public bool IsActive { get; }
         public string ProgressText => $"{EligibleCount}/{Definition.RequiredCount}명";
         public string StackGroup => Definition.StackPolicy == TeamColorStackPolicy.HighestOnly
             ? Definition.UpgradeGroupId
             : string.Empty;
 
-        private static string[] Copy(IReadOnlyList<string> source)
+        private static OwnerTeamColorEligiblePlayerSnapshot[] Copy(
+            IReadOnlyList<OwnerTeamColorEligiblePlayerSnapshot> source)
         {
-            var result = new string[source?.Count ?? 0];
-            for (int index = 0; index < result.Length; index++) result[index] = source[index];
+            var result = new OwnerTeamColorEligiblePlayerSnapshot[source?.Count ?? 0];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = source[index] ?? throw new ArgumentException("null 효과 대상 선수가 있습니다.", nameof(source));
+            return result;
+        }
+
+        private static string[] CopyNames(IReadOnlyList<OwnerTeamColorEligiblePlayerSnapshot> source)
+        {
+            var result = new string[source.Count];
+            for (int index = 0; index < result.Length; index++) result[index] = source[index].MiniCard.DisplayName;
+            return result;
+        }
+
+        private static OwnerTeamColorEligiblePlayerSnapshot[] CreateFallbackEligiblePlayers(
+            IReadOnlyList<string> names)
+        {
+            var result = new OwnerTeamColorEligiblePlayerSnapshot[names?.Count ?? 0];
+            for (int index = 0; index < result.Length; index++)
+            {
+                string name = names[index] ?? string.Empty;
+                var miniCard = new PlayerMiniCardModel(
+                    "team-color:eligible:" + index,
+                    string.IsNullOrWhiteSpace(name) ? "이름 미확인" : name,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    isInteractable: true);
+                result[index] = new OwnerTeamColorEligiblePlayerSnapshot(
+                    miniCard,
+                    string.Empty,
+                    PlayerPosition.DesignatedHitter,
+                    string.Empty);
+            }
             return result;
         }
     }
@@ -254,16 +328,42 @@ namespace Baseball.Presentation.Owner
             for (int definitionIndex = 0; definitionIndex < definitions.Count; definitionIndex++)
             {
                 TeamColorDefinition definition = definitions[definitionIndex];
-                var names = new List<string>();
+                var eligiblePlayers = new List<OwnerTeamColorEligiblePlayerSnapshot>();
                 for (int rosterIndex = 0; rosterIndex < rosterCards.Count; rosterIndex++)
-                    if (definition.IsEligible(rosterCards[rosterIndex])) names.Add(playersByCard[rosterCards[rosterIndex].CardId]);
+                {
+                    TeamColorRosterCard rosterCard = rosterCards[rosterIndex];
+                    if (!definition.IsEligible(rosterCard)) continue;
+                    if (!runtime.WorldCardCatalog.TryGetCard(rosterCard.CardId, out PlayerCardDefinition card))
+                        throw new InvalidOperationException($"CardId {rosterCard.CardId} 원본이 없습니다.");
+                    PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+                    string playerName = playersByCard[rosterCard.CardId];
+                    var miniCard = new PlayerMiniCardModel(
+                        card.CardId,
+                        playerName,
+                        OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                            season.Position,
+                            season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
+                            season.IsPositionEvidenceMissing),
+                        (season.OriginYear % 100).ToString("00"),
+                        "★ " + season.Cost,
+                        OwnerCollectionPresentationBuilder.FormatEdition(card.Edition),
+                        portraitAssetKey: season.PlayerSeasonId,
+                        isInteractable: true,
+                        frameEdition: card.Edition,
+                        cost: season.Cost);
+                    eligiblePlayers.Add(new OwnerTeamColorEligiblePlayerSnapshot(
+                        miniCard,
+                        season.PlayerPersonId,
+                        season.Position,
+                        manager.GetClubDisplayName(season.OriginTeamSeasonKey)));
+                }
                 bool isActive = false;
                 for (int activeIndex = 0; activeIndex < active.Count; activeIndex++)
                     if (string.Equals(active[activeIndex].Definition.TeamColorId, definition.TeamColorId, StringComparison.Ordinal)) isActive = true;
                 candidates[definitionIndex] = new OwnerTeamColorCandidateSnapshot(
                     definition,
-                    names.Count,
-                    names,
+                    eligiblePlayers.Count,
+                    eligiblePlayers,
                     isActive,
                     OwnerTeamColorDisplayFormatter.FormatWorldName(
                         definition,
@@ -626,7 +726,7 @@ namespace Baseball.Presentation.Owner
             _ => "지속 시간"
         };
 
-        private static string GetAbilityName(PlayerAbility value) => value switch
+        internal static string GetAbilityName(PlayerAbility value) => value switch
         {
             PlayerAbility.Contact => "컨택",
             PlayerAbility.Power => "장타",

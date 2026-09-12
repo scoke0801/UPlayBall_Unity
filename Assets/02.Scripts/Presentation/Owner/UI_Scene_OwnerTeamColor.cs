@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -10,22 +11,26 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>두 장착 슬롯과 전체 발동 진행도를 분리해 보여주는 구단주 TeamColor 화면이다.</summary>
     [DisallowMultipleComponent]
-    public sealed class UI_Scene_OwnerTeamColor : MonoBehaviour, IUiCancelHandler
+    public sealed partial class UI_Scene_OwnerTeamColor : MonoBehaviour, IUiCancelHandler
     {
-        private const float CandidateRowHeight = 112f;
+        private const float CandidateRowHeight = 104f;
         private const float CandidateRowGap = 8f;
-        private const float CardAspectRatio = 5.6f;
 
         private RectTransform _root;
         private RectTransform _backdrop;
         private RectTransform _candidateContent;
+        private RectTransform _playerContent;
+        private RectTransform _playerViewport;
         private readonly OwnerTeamColorCardView[] _slotCards = new OwnerTeamColorCardView[2];
         private readonly List<OwnerTeamColorCardView> _candidateCards = new List<OwnerTeamColorCardView>();
+        private readonly List<float> _candidateHeights = new List<float>();
+        private readonly List<PlayerMiniCardView> _playerCards = new List<PlayerMiniCardView>();
         private readonly List<OwnerTeamColorCandidateSnapshot> _visibleCandidates = new List<OwnerTeamColorCandidateSnapshot>();
         private Text _detailTitle;
         private Text _description;
         private Text _progress;
-        private Text _players;
+        private Text _playersTitle;
+        private Text _playersEmpty;
         private Text _empty;
         private Text _equipReason;
         private Image _progressFill;
@@ -35,6 +40,11 @@ namespace Baseball.Presentation.Owner
         private Text _detail;
         private Text _status;
         private Button _equipButton;
+        private Button _equipSecondButton;
+        private InputField _search;
+        private Dropdown _targetFilter;
+        private Dropdown _sort;
+        private Text _resultCount;
         private Button _allFilterButton;
         private Button _activeFilterButton;
         private Text _preset;
@@ -45,8 +55,11 @@ namespace Baseball.Presentation.Owner
         private int _selectedSlot;
         private bool _showOnlyActive;
         private Vector2 _lastDetailSize;
+        private Vector2 _lastPlayerViewportSize;
         private bool _hasDetailLayoutChanges = true;
         private float _candidateRowHeight = CandidateRowHeight;
+        private float _lastCandidateWidth;
+        private bool? _hasCompactDetail;
 
         public event Action<string[]> SelectionConfirmed;
         public RectTransform GuideTarget => _root != null && _root.gameObject.activeInHierarchy && _snapshot != null ? _root : null;
@@ -128,7 +141,10 @@ namespace Baseball.Presentation.Owner
             RectTransform slots = CreateBoardPanel(_root, "EquippedSlots", .015f, .75f, .985f, .985f);
             CreateBoardLabel(slots, "Title", "팀 컬러", .02f, .70f, .22f, .97f, 24, FontStyle.Bold);
             _preset = CreateBoardLabel(slots, "Preset", string.Empty, .24f, .70f, .77f, .97f, 14);
-            _clearButton = CreateBoardButton(slots, "Clear", "선택 슬롯 비우기", .79f, .72f, .98f, .95f, ClearSelectedSlot);
+            _clearButton = CreateBoardButton(slots, "Clear", "슬롯 1 해제", .79f, .72f, .88f, .95f,
+                () => { _selectedSlot = 0; ClearSelectedSlot(); });
+            CreateBoardButton(slots, "ClearSecond", "슬롯 2 해제", .89f, .72f, .98f, .95f,
+                () => { _selectedSlot = 1; ClearSelectedSlot(); });
             for (int index = 0; index < _slotCards.Length; index++)
             {
                 int slotIndex = index;
@@ -141,8 +157,9 @@ namespace Baseball.Presentation.Owner
             CreateBoardLabel(candidates, "Title", "팀 컬러 컬렉션", .035f, .895f, .55f, .985f, 19, FontStyle.Bold);
             _allFilterButton = CreateBoardButton(candidates, "All", "전체", .59f, .905f, .76f, .98f, () => SetFilter(false));
             _activeFilterButton = CreateBoardButton(candidates, "Active", "장착 가능", .78f, .905f, .965f, .98f, () => SetFilter(true));
+            BuildDiscoveryControls(candidates);
             _candidateContent = CreateBoardScroll(
-                candidates, "Scroll", .025f, .025f, .975f, .875f, out _candidateScroll);
+                candidates, "Scroll", .025f, .025f, .975f, .66f, out _candidateScroll);
             _empty = CreateBoardLabel(candidates, "Empty", "현재 장착 가능한 팀 컬러가 없습니다.\n전체 목록에서 필요한 선수를 확인하세요.",
                 .07f, .35f, .93f, .65f, 16);
 
@@ -158,14 +175,26 @@ namespace Baseball.Presentation.Owner
             _progressFill.raycastTarget = false;
             fill.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             RectTransform effectContent = CreateBoardScroll(
-                detail, "EffectScroll", .04f, .405f, .96f, .625f, out _);
+                detail, "EffectScroll", .04f, .505f, .96f, .625f, out _);
             _detail = CreateBoardLabel(effectContent, "Description", string.Empty, 0f, 0f, 1f, 1f, 18, FontStyle.Bold, TextAnchor.UpperLeft);
-            CreateBoardLabel(detail, "PlayersTitle", "효과를 받는 선수", .04f, .335f, .96f, .39f, 14, FontStyle.Bold);
-            RectTransform playerContent = CreateBoardScroll(
-                detail, "PlayerScroll", .04f, .18f, .96f, .325f, out _);
-            _players = CreateBoardLabel(playerContent, "Players", string.Empty, 0f, 0f, 1f, 1f, 14, FontStyle.Normal, TextAnchor.UpperLeft);
-            _equipReason = CreateBoardLabel(detail, "EquipReason", string.Empty, .04f, .015f, .57f, .16f, 13);
-            _equipButton = CreateBoardButton(detail, "Equip", "슬롯 1에 장착", .60f, .04f, .96f, .145f, EquipSelected);
+            _playersTitle = CreateBoardLabel(
+                detail, "PlayersTitle", "효과를 받는 선수", .04f, .445f, .96f, .495f, 14, FontStyle.Bold);
+            _playerContent = CreateHorizontalBoardScroll(
+                detail, "PlayerScroll", .04f, .16f, .96f, .435f, out _, out _playerViewport);
+            _playersEmpty = CreateBoardLabel(
+                _playerContent, "Empty", string.Empty, .02f, .08f, .98f, .92f, 14, FontStyle.Normal, TextAnchor.MiddleLeft);
+            _equipReason = CreateBoardLabel(detail, "EquipReason", string.Empty, .04f, .14f, .96f, .23f, 13);
+            _equipButton = CreateBoardButton(detail, "Equip", "슬롯 1에 장착", .04f, .025f, .49f, .13f,
+                () => { _selectedSlot = 0; EquipSelected(); });
+            _equipSecondButton = CreateBoardButton(detail, "EquipSecond", "슬롯 2에 장착", .51f, .025f, .96f, .13f,
+                () => { _selectedSlot = 1; EquipSelected(); });
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_playerViewport.parent, .04f, .24f, .96f, .53f);
+            OwnerDugoutDetailUiFactory.Place(_playersTitle.rectTransform, .04f, .535f, .96f, .58f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)effectContent.parent.parent, .04f, .585f, .96f, .705f);
+            OwnerDugoutDetailUiFactory.Place(track, .04f, .72f, .96f, .73f);
+            OwnerDugoutDetailUiFactory.Place(_progress.rectTransform, .04f, .735f, .96f, .79f);
+            OwnerDugoutDetailUiFactory.Place(_description.rectTransform, .04f, .795f, .96f, .855f);
+            OwnerDugoutDetailUiFactory.Place(_detailTitle.rectTransform, .04f, .86f, .96f, .98f);
 
             RectTransform actions = CreateBoardPanel(_root, "Actions", .015f, .012f, .985f, .09f);
             _status = CreateBoardLabel(actions, "Status", string.Empty, .02f, .10f, .61f, .9f, 14);
@@ -202,6 +231,8 @@ namespace Baseball.Presentation.Owner
         {
             Text label = OwnerDugoutDetailUiFactory.CreateLabel(parent, name, value, left, bottom, right, top, size, style, anchor);
             label.color = style == FontStyle.Bold ? CareerUiTheme.RosterText : CareerUiTheme.RosterTextSecondary;
+            // 기본 Medium 폰트는 크기와 색으로 위계를 주고 인위적인 굵기 합성은 피한다.
+            label.fontStyle = FontStyle.Normal;
             label.gameObject.AddComponent<CareerUiPreserveTextColor>();
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
@@ -213,6 +244,7 @@ namespace Baseball.Presentation.Owner
         {
             Button button = OwnerDugoutDetailUiFactory.CreateButton(parent, name, label, left, bottom, right, top, action);
             OwnerUiButtonSkin.SetBoardStyle(button);
+            button.transform.Find("Label").GetComponent<Text>().fontStyle = FontStyle.Normal;
             return button;
         }
 
@@ -229,6 +261,30 @@ namespace Baseball.Presentation.Owner
             return view.Content;
         }
 
+        private static RectTransform CreateHorizontalBoardScroll(
+            Transform parent,
+            string name,
+            float left,
+            float bottom,
+            float right,
+            float top,
+            out ScrollRect scroll,
+            out RectTransform viewport)
+        {
+            UIXScrollView view = UIXScrollView.Create(parent, name, Vector2.zero, Vector2.zero, Vector2.zero,
+                true, false, CareerUiTheme.RosterSurface, CareerUiTheme.RosterBoard, CareerUiTheme.RosterTextSecondary);
+            OwnerDugoutDetailUiFactory.Place(view.Root, left, bottom, right, top);
+            view.Content.anchorMin = new Vector2(0f, 0f);
+            view.Content.anchorMax = new Vector2(0f, 1f);
+            view.Content.pivot = new Vector2(0f, .5f);
+            view.Content.anchoredPosition = Vector2.zero;
+            foreach (Image image in view.Root.GetComponentsInChildren<Image>())
+                image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            scroll = view.ScrollRect;
+            viewport = view.Viewport;
+            return view.Content;
+        }
+
         private void RefreshAll()
         {
             if (_snapshot == null) return;
@@ -236,7 +292,7 @@ namespace Baseball.Presentation.Owner
             SetFilter(false);
             RefreshDetail();
             RebuildCandidates();
-            SetFeedback("장착할 슬롯과 팀 컬러를 선택하세요.", false);
+            SetFeedback("팀 컬러 선택 → 슬롯 1·2에 장착 → 적용", false);
         }
 
         private void RefreshSlots()
@@ -246,14 +302,15 @@ namespace Baseball.Presentation.Owner
                 OwnerTeamColorCandidateSnapshot candidate = Find(_draftIds[index]);
                 bool changed = !string.Equals(_draftIds[index], _snapshot.EquippedIds[index], StringComparison.Ordinal);
                 _slotCards[index].Bind(candidate, "슬롯 " + (index + 1) +
-                    (index == _selectedSlot ? " · 선택 중" : " · 선택하여 변경") +
+                    " · 효과 확인" +
                     (changed ? " · 적용 대기" : " · 저장됨"), index == _selectedSlot, true, !changed);
             }
             bool hasChanges = HasDraftChanges();
             _preset.text = _snapshot.PresetName + (hasChanges ? " · 변경한 구성을 적용해 주세요" : " · 현재 적용 중인 구성");
             _confirmButton.interactable = hasChanges;
             _restoreButton.interactable = hasChanges;
-            _clearButton.interactable = !string.IsNullOrEmpty(_draftIds[_selectedSlot]);
+            _clearButton.interactable = !string.IsNullOrEmpty(_draftIds[0]);
+            _clearButton.transform.parent.Find("ClearSecond").GetComponent<Button>().interactable = !string.IsNullOrEmpty(_draftIds[1]);
             RefreshEquipState();
         }
 
@@ -268,20 +325,12 @@ namespace Baseball.Presentation.Owner
         {
             _visibleCandidates.Clear();
             for (int index = 0; index < _snapshot.Candidates.Count; index++)
-                if (!_showOnlyActive || _snapshot.Candidates[index].IsActive)
+                if ((!_showOnlyActive || _snapshot.Candidates[index].IsActive) && MatchesDiscovery(_snapshot.Candidates[index]))
                     _visibleCandidates.Add(_snapshot.Candidates[index]);
-            // 장착 가능한 컬러와 완성에 가까운 컬러를 먼저 보여주되 동률 순서는 고정한다.
-            _visibleCandidates.Sort((left, right) =>
-            {
-                int active = right.IsActive.CompareTo(left.IsActive);
-                if (active != 0) return active;
-                float leftProgress = (float)left.EligibleCount / left.Definition.RequiredCount;
-                float rightProgress = (float)right.EligibleCount / right.Definition.RequiredCount;
-                int progress = rightProgress.CompareTo(leftProgress);
-                return progress != 0 ? progress : string.CompareOrdinal(left.Id, right.Id);
-            });
-            float height = Mathf.Max(1f, _visibleCandidates.Count * _candidateRowHeight);
-            _candidateContent.sizeDelta = new Vector2(0f, height);
+            _visibleCandidates.Sort(CompareCandidates);
+            _resultCount.text = _visibleCandidates.Count + "개 / 전체 " + _snapshot.Candidates.Count + "개";
+            float height = 0f;
+            _candidateHeights.Clear();
             for (int index = 0; index < _visibleCandidates.Count; index++)
             {
                 if (index >= _candidateCards.Count)
@@ -290,26 +339,45 @@ namespace Baseball.Presentation.Owner
                     Button button = OwnerDugoutDetailUiFactory.CreateButton(_candidateContent, "Candidate" + index, string.Empty,
                         0f, 0f, 1f, 1f, () => SelectCandidate(_visibleCandidates[rowIndex]));
                     _candidateCards.Add(OwnerTeamColorCardView.Attach(button));
+                    _candidateCards[index].UseComparisonLayout();
                 }
                 OwnerTeamColorCandidateSnapshot candidate = _visibleCandidates[index];
                 OwnerTeamColorCardView card = _candidateCards[index];
                 card.gameObject.SetActive(true);
-                OwnerDugoutDetailUiFactory.Place((RectTransform)card.transform, .01f,
-                    1f - (index + 1) * _candidateRowHeight / height + CandidateRowGap / height,
-                    .99f, 1f - index * _candidateRowHeight / height);
+                OwnerDugoutDetailUiFactory.Place((RectTransform)card.transform, .01f, 0f, .99f, 1f);
                 string equipped = string.Equals(_draftIds[0], candidate.Id, StringComparison.Ordinal) ? " · 슬롯 1" :
                     string.Equals(_draftIds[1], candidate.Id, StringComparison.Ordinal) ? " · 슬롯 2" : string.Empty;
                 card.Bind(candidate, candidate.ProgressText + equipped, ReferenceEquals(candidate, _selectedCandidate), true);
+                float rowHeight = Mathf.Max(_candidateRowHeight, card.GetComparisonHeight()) + CandidateRowGap;
+                _candidateHeights.Add(rowHeight);
+                height += rowHeight;
+            }
+            _candidateContent.sizeDelta = new Vector2(0f, Mathf.Max(1f, height));
+            float offset = 0f;
+            for (int index = 0; index < _visibleCandidates.Count; index++)
+            {
+                RectTransform row = (RectTransform)_candidateCards[index].transform;
+                row.anchorMin = new Vector2(.01f, 1f);
+                row.anchorMax = new Vector2(.99f, 1f);
+                row.pivot = new Vector2(.5f, 1f);
+                row.sizeDelta = new Vector2(0f, _candidateHeights[index] - CandidateRowGap);
+                row.anchoredPosition = new Vector2(0f, -offset);
+                offset += _candidateHeights[index];
             }
             for (int index = _visibleCandidates.Count; index < _candidateCards.Count; index++)
                 _candidateCards[index].gameObject.SetActive(false);
             _empty.gameObject.SetActive(_visibleCandidates.Count == 0);
+            _empty.text = _snapshot.Candidates.Count == 0 ? "등록된 팀 컬러가 없습니다." :
+                "조건에 맞는 팀 컬러가 없습니다.\n검색·필터 초기화로 전체 목록을 확인하세요.";
         }
 
         private void SelectSlot(int slotIndex)
         {
             _selectedSlot = slotIndex;
+            _selectedCandidate = Find(_draftIds[slotIndex]);
             RefreshSlots();
+            RefreshDetail();
+            RebuildCandidates();
         }
 
         private void SelectCandidate(OwnerTeamColorCandidateSnapshot candidate)
@@ -331,9 +399,10 @@ namespace Baseball.Presentation.Owner
                 Mathf.Clamp01((float)candidate.EligibleCount / candidate.Definition.RequiredCount), 1f);
             _detail.text = candidate == null ? _snapshot.ActiveEffectSummary :
                 OwnerDugoutLoadoutPresentationBuilder.DescribeTeamColorEffect(candidate.Definition);
-            _players.text = candidate == null ? "컬러를 선택하면 해당 효과를 받는 선수들을 확인할 수 있습니다." :
-                candidate.EligiblePlayerNames.Count == 0 ? "조건에 맞는 선수가 없습니다." :
-                (candidate.IsActive ? string.Empty : "장착 후 적용되는 선수\n") + string.Join("   ·   ", candidate.EligiblePlayerNames);
+            _playersTitle.text = candidate != null && !candidate.IsActive
+                ? "장착 후 효과를 받는 선수"
+                : "효과를 받는 선수";
+            RefreshEligiblePlayers(candidate);
             RefreshEquipState();
             _hasDetailLayoutChanges = true;
             ResizeDetailContent();
@@ -343,15 +412,20 @@ namespace Baseball.Presentation.Owner
         {
             if (_root == null || !_root.gameObject.activeInHierarchy) return;
             ResizeBoard();
-            float rowHeight = Mathf.Max(CandidateRowHeight, _candidateContent.rect.width / CardAspectRatio);
-            if (_snapshot != null && Mathf.Abs(_candidateRowHeight - rowHeight) > .5f)
+            RefreshResponsiveDetail();
+            float rowHeight = CandidateRowHeight;
+            if (_snapshot != null && (Mathf.Abs(_candidateRowHeight - rowHeight) > .5f ||
+                Mathf.Abs(_lastCandidateWidth - _candidateContent.rect.width) > .5f))
             {
                 _candidateRowHeight = rowHeight;
+                _lastCandidateWidth = _candidateContent.rect.width;
                 RebuildCandidates();
             }
             Vector2 size = ((RectTransform)_detail.transform.parent.parent).rect.size;
-            if (!_hasDetailLayoutChanges && size == _lastDetailSize) return;
+            Vector2 playerViewportSize = _playerViewport.rect.size;
+            if (!_hasDetailLayoutChanges && size == _lastDetailSize && playerViewportSize == _lastPlayerViewportSize) return;
             _lastDetailSize = size;
+            _lastPlayerViewportSize = playerViewportSize;
             _hasDetailLayoutChanges = false;
             ResizeDetailContent();
         }
@@ -365,10 +439,99 @@ namespace Baseball.Presentation.Owner
                 _backdrop.sizeDelta = new Vector2(availableWidth, 0f);
         }
 
+        private void RefreshResponsiveDetail()
+        {
+            bool compact = ((RectTransform)_detailTitle.transform.parent).rect.height < 420f;
+            if (_hasCompactDetail == compact) return;
+            _hasCompactDetail = compact;
+            // 낮은 화면에서는 보조 설명을 접어 선수 카드와 교체 행동의 가독성을 먼저 보존한다.
+            _description.gameObject.SetActive(!compact);
+            OwnerDugoutDetailUiFactory.Place(_detailTitle.rectTransform, .04f, compact ? .87f : .86f, .96f, .98f);
+            OwnerDugoutDetailUiFactory.Place(_progress.rectTransform, .04f, compact ? .805f : .735f, .96f, compact ? .87f : .79f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_progressFill.transform.parent, .04f, compact ? .79f : .72f, .96f, compact ? .795f : .73f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_detail.transform.parent.parent.parent,
+                .04f, compact ? .715f : .585f, .96f, compact ? .785f : .705f);
+            OwnerDugoutDetailUiFactory.Place(_playersTitle.rectTransform, .04f, compact ? .65f : .535f, .96f, compact ? .71f : .58f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_playerViewport.parent, .04f, compact ? .21f : .24f, .96f, compact ? .645f : .53f);
+            OwnerDugoutDetailUiFactory.Place(_equipReason.rectTransform, .04f, compact ? .105f : .14f, .96f, compact ? .20f : .23f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_equipButton.transform, .04f, compact ? .01f : .025f, .49f, compact ? .10f : .13f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_equipSecondButton.transform, .51f, compact ? .01f : .025f, .96f, compact ? .10f : .13f);
+            _hasDetailLayoutChanges = true;
+        }
+
         private void ResizeDetailContent()
         {
             ResizeScrollLabel(_detail);
-            ResizeScrollLabel(_players);
+            ResizeEligiblePlayerCards();
+        }
+
+        private void RefreshEligiblePlayers(OwnerTeamColorCandidateSnapshot candidate)
+        {
+            IReadOnlyList<OwnerTeamColorEligiblePlayerSnapshot> players = candidate?.EligiblePlayers;
+            int count = players?.Count ?? 0;
+            while (_playerCards.Count < count)
+            {
+                PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(
+                    _playerContent,
+                    "EligiblePlayer" + _playerCards.Count);
+                card.UseLineupSlotLayout();
+                card.UseRosterPresentation();
+                card.GetComponent<Button>().navigation = new Navigation { mode = Navigation.Mode.None };
+                card.GetComponent<CanvasGroup>().blocksRaycasts = false;
+                _playerCards.Add(card);
+            }
+
+            for (int index = 0; index < count; index++)
+            {
+                OwnerTeamColorEligiblePlayerSnapshot player = players[index];
+                PlayerMiniCardView card = _playerCards[index];
+                card.gameObject.SetActive(true);
+                card.Bind(
+                    player.MiniCard,
+                    PlayerPortraitSprites.GetForPlayer(player.PlayerPersonId, player.Position));
+                card.SetTeamIdentity(player.TeamDisplayName);
+                card.GetComponent<Button>().enabled = false;
+            }
+            for (int index = count; index < _playerCards.Count; index++)
+                _playerCards[index].gameObject.SetActive(false);
+
+            _playersEmpty.gameObject.SetActive(count == 0);
+            _playersEmpty.text = candidate == null
+                ? "컬러를 선택하면 해당 효과를 받는 선수들을 확인할 수 있습니다."
+                : "조건에 맞는 선수가 없습니다.";
+            ResizeEligiblePlayerCards();
+        }
+
+        private void ResizeEligiblePlayerCards()
+        {
+            if (_playerViewport == null || _playerContent == null) return;
+            int visibleCount = 0;
+            for (int index = 0; index < _playerCards.Count; index++)
+                if (_playerCards[index].gameObject.activeSelf) visibleCount++;
+
+            float viewportWidth = Mathf.Max(1f, _playerViewport.rect.width);
+            float cardHeight = Mathf.Min(
+                PlayerMiniCardView.LineupSlotHeight,
+                Mathf.Max(1f, _playerViewport.rect.height - CareerUiTheme.Space1 * 2f));
+            float cardWidth = cardHeight * PlayerMiniCardView.LineupSlotWidth / PlayerMiniCardView.LineupSlotHeight;
+            float gap = CareerUiTheme.Space1;
+            float contentWidth = CareerUiTheme.Space1 * 2f +
+                visibleCount * cardWidth + Mathf.Max(0, visibleCount - 1) * gap;
+            _playerContent.sizeDelta = new Vector2(Mathf.Max(viewportWidth, contentWidth), 0f);
+            _playersEmpty.rectTransform.sizeDelta = Vector2.zero;
+
+            int visibleIndex = 0;
+            for (int index = 0; index < _playerCards.Count; index++)
+            {
+                PlayerMiniCardView card = _playerCards[index];
+                if (!card.gameObject.activeSelf) continue;
+                RectTransform rect = (RectTransform)card.transform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0f, .5f);
+                rect.pivot = new Vector2(0f, .5f);
+                rect.sizeDelta = new Vector2(cardWidth, cardHeight);
+                rect.anchoredPosition = new Vector2(CareerUiTheme.Space1 + visibleIndex * (cardWidth + gap), 0f);
+                visibleIndex++;
+            }
         }
 
         private static void ResizeScrollLabel(Text label)
@@ -380,36 +543,44 @@ namespace Baseball.Presentation.Owner
                 content.sizeDelta = new Vector2(0f, height);
         }
 
-        private string GetEquipReason()
+        private string GetEquipReason(int slotIndex)
         {
             if (_selectedCandidate == null) return "목록에서 팀 컬러를 선택하세요.";
             if (!_selectedCandidate.IsActive) return "필요한 선수를 1군에 등록하면 장착할 수 있습니다.";
-            if (string.Equals(_draftIds[_selectedSlot], _selectedCandidate.Id, StringComparison.Ordinal))
-                return "선택한 슬롯에 이미 장착되어 있습니다.";
-            OwnerTeamColorCandidateSnapshot other = Find(_draftIds[1 - _selectedSlot]);
+            if (string.Equals(_draftIds[slotIndex], _selectedCandidate.Id, StringComparison.Ordinal))
+                return "이미 장착됨";
+            OwnerTeamColorCandidateSnapshot other = Find(_draftIds[1 - slotIndex]);
             if (other == null) return string.Empty;
             if (string.Equals(other.Id, _selectedCandidate.Id, StringComparison.Ordinal))
                 return "다른 슬롯에 장착된 팀 컬러입니다.";
             if (other.Definition.StackPolicy == TeamColorStackPolicy.HighestOnly &&
                 _selectedCandidate.Definition.StackPolicy == TeamColorStackPolicy.HighestOnly &&
                 string.Equals(other.StackGroup, _selectedCandidate.StackGroup, StringComparison.Ordinal))
-                return "같은 계열은 한 단계만 장착할 수 있습니다. 다른 슬롯을 선택하세요.";
+                return "같은 계열은 한 단계만 장착할 수 있습니다.";
             return string.Empty;
         }
 
         private void RefreshEquipState()
         {
-            string reason = GetEquipReason();
-            _equipButton.interactable = reason.Length == 0;
-            _equipButton.transform.Find("Label").GetComponent<Text>().text = "슬롯 " + (_selectedSlot + 1) + "에 장착";
-            OwnerTeamColorCandidateSnapshot previous = _snapshot == null ? null : Find(_snapshot.EquippedIds[_selectedSlot]);
-            _equipReason.text = reason.Length > 0 ? reason :
-                previous == null ? "빈 슬롯에 장착합니다." : "현재 적용: " + previous.Name;
+            string first = RefreshSlotAction(_equipButton, 0);
+            string second = RefreshSlotAction(_equipSecondButton, 1);
+            _equipReason.text = _selectedCandidate == null ? "목록에서 효과를 비교하고 팀 컬러를 선택하세요." :
+                first == second ? first : "슬롯 1: " + first + "\n슬롯 2: " + second;
+        }
+
+        private string RefreshSlotAction(Button button, int slotIndex)
+        {
+            string reason = GetEquipReason(slotIndex);
+            button.interactable = reason.Length == 0;
+            bool occupied = !string.IsNullOrEmpty(_draftIds[slotIndex]);
+            button.transform.Find("Label").GetComponent<Text>().text = "슬롯 " + (slotIndex + 1) +
+                (reason == "이미 장착됨" ? " · 장착 중" : occupied ? " 교체" : "에 장착");
+            return reason.Length > 0 ? reason : occupied ? "장착 중인 컬러를 교체합니다." : "빈 슬롯에 장착합니다.";
         }
 
         private void EquipSelected()
         {
-            if (GetEquipReason().Length > 0) return;
+            if (GetEquipReason(_selectedSlot).Length > 0) return;
             _draftIds[_selectedSlot] = _selectedCandidate.Id;
             RefreshSlots();
             RebuildCandidates();
@@ -469,6 +640,9 @@ namespace Baseball.Presentation.Owner
     /// <summary>TeamColor 효과 대상을 구분하는 카드 플레이트를 Resources에서 한 번만 읽는다.</summary>
     internal static class OwnerTeamColorCardArtwork
     {
+        // 원본 2048px 플레이트에서 등급 홈의 중심을 측정한 정규화 좌표다.
+        private const float CommonGradeCenterX = 0.1875f;
+        private const float RoleGradeCenterX = 0.178f;
         private const string CommonPlateResourcePath =
             "UI/OwnerTeamColor/team_color_card_plate_common_v2";
         private const string HitterPlateResourcePath =
@@ -496,6 +670,13 @@ namespace Baseball.Presentation.Owner
             return selected ?? LoadTexture(CommonPlateResourcePath, ref _commonPlate);
         }
 
+        public static float GetGradeCenterX(TeamColorDefinition definition)
+        {
+            bool affectsHitters = definition != null && definition.HitterBonus.Total > 0;
+            bool affectsPitchers = definition != null && definition.PitcherBonus.Total > 0;
+            return affectsHitters != affectsPitchers ? RoleGradeCenterX : CommonGradeCenterX;
+        }
+
         private static Texture2D LoadTexture(string resourcePath, ref Sprite cachedSprite)
         {
             if (cachedSprite == null) cachedSprite = Resources.Load<Sprite>(resourcePath);
@@ -508,7 +689,6 @@ namespace Baseball.Presentation.Owner
     {
         // 세 생성 자산의 정규화된 상하 투명 여백을 제외한 공통 플레이트 영역이다.
         private static readonly Rect CardPlateUv = new Rect(0f, 0.25f, 1f, 0.50f);
-        private const float GradeCenterX = 0.192f;
         private const float TextSafeLeft = 0.34f;
 
         private RawImage _surface;
@@ -518,6 +698,8 @@ namespace Baseball.Presentation.Owner
         private Text _meta;
         private Text _state;
         private Outline _selection;
+        private Text _effect;
+        private bool _hasComparisonLayout;
 
         /// <summary>키보드·게임패드로 이동한 카드가 스크롤 마스크 뒤에 숨지 않게 한다.</summary>
         public void OnSelect(BaseEventData eventData)
@@ -549,6 +731,12 @@ namespace Baseball.Presentation.Owner
             bool hasCandidate = candidate != null;
             _name.text = hasCandidate ? candidate.Name : "빈 슬롯";
             _grade.text = hasCandidate ? candidate.Grade : "-";
+            float gradeCenterX = OwnerTeamColorCardArtwork.GetGradeCenterX(candidate?.Definition);
+            if (!_hasComparisonLayout)
+            {
+                _grade.rectTransform.anchorMin = new Vector2(gradeCenterX - 0.05f, 0.20f);
+                _grade.rectTransform.anchorMax = new Vector2(gradeCenterX + 0.05f, 0.80f);
+            }
             _meta.text = meta ?? string.Empty;
             _state.text = !hasCandidate || !showActivationState
                 ? string.Empty
@@ -568,6 +756,44 @@ namespace Baseball.Presentation.Owner
                 ? new Color(0.08f, 0.10f, 0.13f, 1f)
                 : Color.clear;
             _selection.enabled = isSelected;
+            if (_hasComparisonLayout)
+            {
+                _surface.enabled = false;
+                _fallbackSurface.color = isSelected ? CareerUiTheme.RosterDivider : CareerUiTheme.RosterBoard;
+                _effect.text = hasCandidate ? DescribeComparisonEffect(candidate.Definition) : string.Empty;
+                _state.text = meta.Contains("슬롯") ? "장착 중" : _state.text;
+            }
+        }
+
+        /// <summary>비교 목록에서는 장식보다 이름·효과·진행도를 우선하는 공통 보드 행을 사용한다.</summary>
+        public void UseComparisonLayout()
+        {
+            _hasComparisonLayout = true;
+            GetComponent<Button>().targetGraphic = _fallbackSurface;
+            OwnerDugoutDetailUiFactory.Place(_grade.rectTransform, .02f, .57f, .085f, .94f);
+            OwnerDugoutDetailUiFactory.Place(_name.rectTransform, .10f, .54f, .81f, .97f);
+            OwnerDugoutDetailUiFactory.Place(_state.rectTransform, .82f, .55f, .98f, .94f);
+            OwnerDugoutDetailUiFactory.Place(_meta.rectTransform, .10f, .035f, .98f, .20f);
+            _effect = OwnerDugoutDetailUiFactory.CreateLabel(transform, "Effect", string.Empty,
+                .10f, .21f, .98f, .54f, 14, FontStyle.Normal, TextAnchor.MiddleLeft);
+            _effect.color = CareerUiTheme.RosterText;
+            _effect.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _effect.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        /// <summary>긴 한국어 이름과 여러 능력치 효과가 줄바꿈되어도 본문을 자르지 않는다.</summary>
+        public float GetComparisonHeight()
+        {
+            return Mathf.Max(_name.preferredHeight / .43f, _effect.preferredHeight / .33f,
+                _meta.preferredHeight / .165f);
+        }
+
+        /// <summary>상세와 같은 효과 문구에서 중첩 설명만 분리해 후보끼리 비교한다.</summary>
+        public static string DescribeComparisonEffect(TeamColorDefinition definition)
+        {
+            string description = OwnerDugoutLoadoutPresentationBuilder.DescribeTeamColorEffect(definition);
+            int suffix = description.IndexOf("\n중첩:", StringComparison.Ordinal);
+            return suffix < 0 ? description : description.Substring(0, suffix);
         }
 
         private void Initialize(Button button)
@@ -596,7 +822,7 @@ namespace Baseball.Presentation.Owner
             _name = button.transform.Find("Label").GetComponent<Text>();
             _name.text = string.Empty;
             _name.fontSize = 16;
-            _name.fontStyle = FontStyle.Bold;
+            _name.fontStyle = FontStyle.Normal;
             _name.alignment = TextAnchor.MiddleLeft;
             _name.color = Color.white;
             _name.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -607,14 +833,15 @@ namespace Baseball.Presentation.Owner
                 transform,
                 "Grade",
                 "-",
-                GradeCenterX - 0.05f,
+                OwnerTeamColorCardArtwork.GetGradeCenterX(null) - 0.05f,
                 0.20f,
-                GradeCenterX + 0.05f,
+                OwnerTeamColorCardArtwork.GetGradeCenterX(null) + 0.05f,
                 0.80f,
                 22,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter);
             _grade.color = Color.white;
+            _grade.alignByGeometry = true;
             _meta = OwnerDugoutDetailUiFactory.CreateLabel(
                 transform, "Meta", string.Empty, TextSafeLeft, 0.12f, 0.78f, 0.34f, 13, FontStyle.Normal, TextAnchor.MiddleLeft);
             _meta.color = new Color(0.80f, 0.82f, 0.84f, 1f);
