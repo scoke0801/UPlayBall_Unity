@@ -33,6 +33,14 @@ namespace Baseball.Presentation.Match
         private readonly Func<int, string> _getName;
         private readonly Func<int, int, OwnerMatchHandedness> _getHands;
         private readonly SpriteMatchStage _spriteStage;
+        private Material _awayUniform, _homeUniform;
+
+        /// <summary>현재 경기 참가 구단의 유니폼을 카드와 같은 발급 규칙으로 고정한다.</summary>
+        public void SetTeamUniforms(string awayFranchiseId, string homeFranchiseId)
+        {
+            _awayUniform = MatchUniformMaterials.GetForFranchise(awayFranchiseId);
+            _homeUniform = MatchUniformMaterials.GetForFranchise(homeFranchiseId);
+        }
         private MatchEvent _event;
         private BallInPlayEventData _play;
         private Vector2 _ballStart, _ballEnd, _fielderStart;
@@ -131,6 +139,8 @@ namespace Baseball.Presentation.Match
         public void Begin(in MatchEvent value, in BallInPlayEventData play)
         {
             _event = value;
+            _spriteStage?.SetUniforms(value.Half == InningHalf.Top ? _awayUniform : _homeUniform,
+                value.Half == InningHalf.Top ? _homeUniform : _awayUniform);
             if (value.EventType == MatchEventType.PlateAppearanceEnded) _spriteStage?.BeginReturnToDuel();
             _batterEventStart = _batterApproachProgress;
             for (int index = 0; index < _runnerRouteCount; index++) _routeEventStart[index] = _routeProgress[index];

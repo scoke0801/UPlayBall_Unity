@@ -1,6 +1,7 @@
 # 완성된 유니폼 이미지를 그대로 등록하고 시즌의 원본 Franchise ID에서 의상을 발급한다.
 param([switch]$VerifyOnly)
 $ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'Publish-MatchUniformColors.ps1') -VerifyOnly:$VerifyOnly
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $production = Join-Path $repository 'output/imagegen/player-portraits/uniforms-v3'
 $target = Join-Path $repository 'Assets/Resources/UI/Portraits'

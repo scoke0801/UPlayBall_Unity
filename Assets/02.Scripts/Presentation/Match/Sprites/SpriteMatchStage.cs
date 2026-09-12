@@ -36,6 +36,14 @@ namespace Baseball.Presentation.Match.Sprites
         public bool IsAvailable => _canPresent;
         public FieldProjection Projection => _projection;
 
+        /// <summary>공격 구단 의상을 타자와 모든 주자에, 수비 구단 의상을 투수·포수·야수에 적용한다.</summary>
+        public void SetUniforms(Material offense, Material defense)
+        {
+            _batter.SetUniform(offense);
+            foreach (SpriteActor runner in _runners) runner.SetUniform(offense);
+            foreach (SpriteActor fielder in _fielders) fielder.SetUniform(defense);
+        }
+
         public float PitchDuration => _canPresent ? Mathf.Max(_pitch.DurationSeconds, _swing.DurationSeconds) : 0f;
 
         /// <summary>승인 카탈로그를 표시할 고정 수의 무대 부품을 생성한다.</summary>

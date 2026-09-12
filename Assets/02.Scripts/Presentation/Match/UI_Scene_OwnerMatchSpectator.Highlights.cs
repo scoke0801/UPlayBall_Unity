@@ -1,4 +1,5 @@
 using Baseball.Simulation.Match;
+using Baseball.Presentation.Match.Sprites;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +16,7 @@ namespace Baseball.Presentation.Match
         private Sprite[] _highlightSprites;
         private OwnerMatchHighlightKind _highlightKind;
         private float _highlightElapsed, _highlightDuration;
+        private string _highlightUniformFranchiseId;
 
         private void OnDisable() => ClearHighlightInset();
 
@@ -53,6 +55,8 @@ namespace Baseball.Presentation.Match
             if (_session == null || _session.State.IsComplete || _session.State.ViewingMode == OwnerMatchViewingMode.ResultOnly)
                 return false;
             OwnerMatchHighlightKind kind = OwnerMatchHighlightCue.Resolve(revealed);
+            _highlightUniformFranchiseId = OwnerMatchHighlightCue.IsHomeTeamSubject(kind, revealed.Half)
+                ? _homeUniformFranchiseId : _awayUniformFranchiseId;
             return TryPresentHighlightInset(kind, _session.State.Speed);
         }
 
@@ -64,6 +68,7 @@ namespace Baseball.Presentation.Match
                 OwnerMatchHighlightImage definition = _highlightConfig.images[index];
                 if (definition.kind != kind || _highlightSprites[index] == null) continue;
                 _highlightImage.sprite = _highlightSprites[index];
+                _highlightImage.material = MatchUniformMaterials.GetForIllustration(_highlightUniformFranchiseId, definition.resourcePath);
                 _highlightCaption.text = definition.caption;
                 _highlightKind = kind;
                 _highlightElapsed = 0;

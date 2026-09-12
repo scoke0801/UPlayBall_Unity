@@ -10,6 +10,12 @@ namespace Baseball.Presentation.Match
     /// <summary>이미 공개한 사건만 소비해 결과를 미리 알리지 않는 삽입 컷 선택기다.</summary>
     public static class OwnerMatchHighlightCue
     {
+        /// <summary>장면에 그려진 주체의 구단을 사건의 공수로 결정한다. 도루 실패도 그림의 주체는 주자다.</summary>
+        public static bool IsHomeTeamSubject(OwnerMatchHighlightKind kind, InningHalf half)
+        {
+            bool isDefense = kind is OwnerMatchHighlightKind.GloveCatch or OwnerMatchHighlightKind.GreatCatch or OwnerMatchHighlightKind.Throw;
+            return isDefense ? half == InningHalf.Top : half == InningHalf.Bottom;
+        }
         /// <summary>선행 조회 데이터 없이 공개 사건 자체의 근거로 장면을 고른다.</summary>
         public static OwnerMatchHighlightKind Resolve(in MatchEvent revealed)
         {

@@ -12,6 +12,7 @@ namespace Baseball.Presentation.Match
         private RectTransform _root;
         private RectTransform _canvas;
         private OwnerMatchSpectatorSession _session;
+        private string _awayUniformFranchiseId, _homeUniformFranchiseId;
         private float _nextAutomaticAdvanceAt;
         private bool _showResults;
         private bool _showPitching;
@@ -59,6 +60,11 @@ namespace Baseball.Presentation.Match
             bool isPostseason = manager.IsNextPostseasonGamePlayerMatch;
             _homeButton.GetComponentInChildren<Text>().text = isPostseason ? "대진으로 돌아가기" : "구단 홈으로";
             _session = OwnerMatchSpectatorSession.PlayNextGame(manager, this);
+            var matchInput = _session.Result.Match.Input;
+            var season = manager.Runtime.ManagerMode.LiveSeason;
+            _awayUniformFranchiseId = manager.GetTeamUniformFranchiseId(season.GetTeamSeasonKey(matchInput.AwayTeam.TeamId));
+            _homeUniformFranchiseId = manager.GetTeamUniformFranchiseId(season.GetTeamSeasonKey(matchInput.HomeTeam.TeamId));
+            _playVisualizer.SetTeamUniforms(_awayUniformFranchiseId, _homeUniformFranchiseId);
             OwnerMatchPresentationOptions settings = OwnerMatchPresentationSettings.Load();
             _session.TrySetPlaybackSpeed(settings.PlaybackSpeed);
             _session.TrySetViewingMode(isPostseason && settings.ViewingMode == OwnerMatchViewingMode.ResultOnly

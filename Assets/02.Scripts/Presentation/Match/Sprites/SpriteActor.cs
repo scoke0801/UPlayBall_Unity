@@ -16,6 +16,9 @@ namespace Baseball.Presentation.Match.Sprites
         public Vector2 Position { get; private set; }
         public bool IsVisible => _root.gameObject.activeSelf;
 
+        /// <summary>명암·피부·글러브를 보존하는 의상 전용 색상 교체 재질을 지정한다.</summary>
+        public void SetUniform(Material material) => _image.material = material;
+
         /// <summary>재사용할 선수 그림과 그림자를 한 번 생성한다.</summary>
         public SpriteActor(RectTransform parent, FieldProjection projection, string name, float sizeScale = 1f)
         {

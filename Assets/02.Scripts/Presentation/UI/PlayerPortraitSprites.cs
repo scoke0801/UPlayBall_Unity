@@ -21,6 +21,7 @@ namespace Baseball.Presentation.UI
         private static Dictionary<string, int> _appearances;
         private static Sprite[] _portraits;
         private static Dictionary<string, string> _seasonUniforms;
+        private static Dictionary<string, string> _franchiseUniforms;
         private static readonly Dictionary<string, Sprite> UniformPortraits = new Dictionary<string, Sprite>(StringComparer.Ordinal);
 
         [Serializable]
@@ -102,6 +103,7 @@ namespace Baseball.Presentation.UI
         private static void EnsureUniforms()
         {
             if (_seasonUniforms != null) return;
+            EnsureAssignments();
             TextAsset asset = Resources.Load<TextAsset>("UI/Portraits/player_uniform_assignments");
             if (asset == null) throw new InvalidOperationException("선수 유니폼 발급 카탈로그가 없습니다.");
             UniformCatalog catalog = JsonUtility.FromJson<UniformCatalog>(asset.text);
@@ -117,6 +119,15 @@ namespace Baseball.Presentation.UI
                 seasons.Add(season.id, franchises[season.franchise]);
             }
             _seasonUniforms = seasons;
+            _franchiseUniforms = franchises;
+        }
+
+        /// <summary>카드 초상과 경기 의상이 동일한 구단 계보 발급표를 사용한다.</summary>
+        public static string GetUniformForFranchise(string franchiseId)
+        {
+            EnsureUniforms();
+            return !string.IsNullOrEmpty(franchiseId) && _franchiseUniforms.TryGetValue(franchiseId, out string uniform)
+                ? uniform : null;
         }
 
         /// <summary>역사 선수는 발급 정본, 생성 선수는 안정 ID의 고정 해시로 초상을 조회한다.</summary>
