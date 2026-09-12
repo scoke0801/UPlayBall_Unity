@@ -14,7 +14,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class OwnerScheduleGateTests
     {
         [Test]
-        public void 정규시즌에는운영만허용하고성장변경은자원을소비하지않는다()
+        public void 정규시즌에도스킬배치를허용하고등록선수유학은자원을소비하지않는다()
         {
             var runtime = CreateRuntime(out _);
             var coordinator = new ManagerModeCoordinator(BalanceTable.CreateDefault());
@@ -23,13 +23,16 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(OwnerScheduleGateService.GetPhase(runtime), Is.EqualTo(OwnerSeasonPhase.RegularSeason));
             foreach (OwnerGrowthAction action in Enum.GetValues(typeof(OwnerGrowthAction)))
                 Assert.That(OwnerScheduleGateService.Evaluate(runtime, action).IsAllowed,
-                    Is.EqualTo(action == OwnerGrowthAction.Support || action == OwnerGrowthAction.Staff), action.ToString());
+                    Is.EqualTo(action == OwnerGrowthAction.Support || action == OwnerGrowthAction.Staff ||
+                        action == OwnerGrowthAction.SkillBlock || action == OwnerGrowthAction.OverseasTraining), action.ToString());
             string cardId = runtime.OwnedCards[0].CardId;
             Assert.Throws<InvalidOperationException>(() => coordinator.StartOwnedCardStudy(runtime, cardId,
                 BalanceTable.CreateDefault().OwnerCardGrowth.StudyPrograms[0]));
-            Assert.Throws<InvalidOperationException>(() => coordinator.PlaceOwnedCardSkillBlock(runtime, cardId, 1, 0, 0, 0));
-            Assert.Throws<InvalidOperationException>(() => coordinator.AutoPlaceOwnedCardSkillBlock(runtime, cardId, 1));
-            Assert.Throws<InvalidOperationException>(() => coordinator.RemoveOwnedCardSkillBlock(runtime, cardId, 1));
+            var definition = BalanceTable.CreateDefault().Growth.SkillBlocks[0];
+            int instanceId = runtime.PlayerGrowth.Inventory.Add(definition.BlockId).InstanceId;
+            coordinator.PlaceOwnedCardSkillBlock(runtime, cardId, instanceId, 0, 0, 0);
+            Assert.That(coordinator.RemoveOwnedCardSkillBlock(runtime, cardId, instanceId), Is.True);
+            Assert.That(coordinator.AutoPlaceOwnedCardSkillBlock(runtime, cardId, instanceId), Is.True);
             Assert.That(runtime.Economy.Money, Is.EqualTo(money));
             Assert.That(runtime.Economy.DevelopmentPoints, Is.EqualTo(points));
             Assert.That(runtime.PlayerGrowth.StudyProjects, Is.Empty);
@@ -44,7 +47,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(OwnerScheduleGateService.GetPhase(runtime), Is.EqualTo(OwnerSeasonPhase.RegularSeason));
             CompleteRegularSeason(runtime);
             Assert.That(OwnerScheduleGateService.GetPhase(runtime), Is.EqualTo(OwnerSeasonPhase.Postseason));
-            Assert.That(OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).IsAllowed, Is.False);
+            Assert.That(OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).IsAllowed, Is.True);
+            Assert.That(OwnerScheduleGateService.CanStudyWhileRegistered(runtime), Is.False);
             CompletePostseason(runtime);
             Assert.That(OwnerScheduleGateService.GetPhase(runtime), Is.EqualTo(OwnerSeasonPhase.Offseason));
         }
@@ -87,8 +91,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
             int points = runtime.Economy.DevelopmentPoints;
             Assert.That(OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining, 4).IsAllowed, Is.False);
             Assert.That(OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining, 3).IsAllowed, Is.True);
-            Assert.Throws<InvalidOperationException>(() => coordinator.StartOwnedCardStudy(runtime, runtime.OwnedCards[0].CardId,
-                BalanceTable.CreateDefault().OwnerCardGrowth.StudyPrograms[0]));
+            Assert.Throws<InvalidOperationException>(() =>
+                OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining, 4).RequireAllowed());
             Assert.That(runtime.Economy.DevelopmentPoints, Is.EqualTo(points));
             var save = adapter.CreateSaveData(runtime);
             save.playerGrowth.offseasonCompletedWeeks = 5;
@@ -96,7 +100,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
-        public void 유학은오프시즌에서만진행하며저장후두경로의영구성장이같다()
+        public void 유학은주간정산과오프시즌에서진행하며저장후두경로의영구성장이같다()
         {
             var runtime = CreateRuntime(out var adapter);
             var coordinator = new ManagerModeCoordinator(BalanceTable.CreateDefault());
@@ -106,7 +110,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             runtime.PlayerGrowth.AddStudy(new CardStudyProjectState(cardId, "study_contact", 1, 4));
             CompleteRegularSeason(runtime);
             coordinator.AdvanceWeek(runtime);
-            Assert.That(runtime.PlayerGrowth.StudyProjects[0].RemainingWeeks, Is.EqualTo(4));
+            Assert.That(runtime.PlayerGrowth.StudyProjects[0].RemainingWeeks, Is.EqualTo(3));
             CompletePostseason(runtime);
             Assert.Throws<InvalidOperationException>(() => coordinator.AdvanceSeason(runtime));
             coordinator.AdvanceOffseasonWeek(runtime, 0);

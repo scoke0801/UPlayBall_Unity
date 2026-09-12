@@ -4,15 +4,25 @@ namespace Baseball.Presentation.Match.Sprites
 {
     public enum BaseballCameraShot { Duel, Field, Highlight, Contact }
 
+    /// <summary>장면별 카메라 연출 또는 표시 영역을 채우는 고정 구도를 선택한다.</summary>
+    public enum BaseballCameraMode { Animated, FixedFill }
+
     /// <summary>배경과 독립 선수·공에 같은 이동과 확대를 적용하는 2D 카메라다.</summary>
     public sealed class BaseballCameraDirector
     {
         private readonly RectTransform _content;
         private readonly FieldLayoutDefinition _layout;
+        private readonly BaseballCameraMode _mode;
         private float _returnZoom;
         private Vector2 _returnPosition;
         /// <summary>선수·공·배경을 담은 같은 화면 공간을 제어한다.</summary>
-        public BaseballCameraDirector(RectTransform content, FieldLayoutDefinition layout) { _content = content; _layout = layout; }
+        public BaseballCameraDirector(RectTransform content, FieldLayoutDefinition layout,
+            BaseballCameraMode mode = BaseballCameraMode.Animated)
+        {
+            _content = content;
+            _layout = layout;
+            _mode = mode;
+        }
 
         /// <summary>절대 진행률을 사용해 배속과 관계없이 같은 구도를 재현한다.</summary>
         public void Render(BaseballCameraShot shot, Vector2 focus, float progress)
@@ -23,6 +33,7 @@ namespace Baseball.Presentation.Match.Sprites
         /// <summary>두 구도의 위치와 배율을 함께 보간해 장면 경계의 확대·이동 점프를 막는다.</summary>
         public void RenderTransition(BaseballCameraShot from, Vector2 fromFocus, BaseballCameraShot to, Vector2 toFocus, float progress)
         {
+            if (_mode == BaseballCameraMode.FixedFill) return;
             float weight = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress));
             float startZoom = GetZoom(from), endZoom = GetZoom(to);
             _content.localScale = Vector3.one * Mathf.Lerp(startZoom, endZoom, weight);
@@ -39,6 +50,7 @@ namespace Baseball.Presentation.Match.Sprites
         /// <summary>결과 표시 시간에 기본 구도로 돌아간다.</summary>
         public void RenderReturnToDuel(float progress)
         {
+            if (_mode == BaseballCameraMode.FixedFill) return;
             float weight = Mathf.SmoothStep(0, 1, Mathf.Clamp01(progress));
             _content.localScale = Vector3.one * Mathf.Lerp(_returnZoom, _layout.duelZoom, weight);
             _content.anchoredPosition = Vector2.Lerp(_returnPosition, Vector2.zero, weight);

@@ -246,6 +246,7 @@ namespace Baseball.Game.Historical
             for (int index = 0; index < replacement.Entries.Count; index++)
             {
                 ActiveRosterEntry entry = replacement.Entries[index];
+                OwnerScheduleGateService.EvaluateStudyRosterRegistration(this, entry.CardId).RequireAllowed();
                 if (IsCardReserved(entry.CardId))
                     throw new InvalidOperationException("특수 영입에 예약된 카드는 1군에 등록할 수 없습니다.");
                 if (!TryGetOwnedCard(entry.CardId, out _))

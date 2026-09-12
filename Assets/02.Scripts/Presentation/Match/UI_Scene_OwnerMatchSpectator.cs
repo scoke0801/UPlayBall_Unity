@@ -21,6 +21,7 @@ namespace Baseball.Presentation.Match
         private int _lastVisibleCount = -1;
         private bool _hasNextGame;
         private bool _isPreparingNextGame;
+        private GameObject _savedFocus;
 
         public event Action HomeRequested;
         public event Action NextGameRequested;
@@ -28,7 +29,11 @@ namespace Baseball.Presentation.Match
         /// <summary>경기 기록으로 복귀할 때 완료 화면의 기본 행동에 포커스를 복원한다.</summary>
         public void FocusCompletedResult()
         {
-            if (IsComplete) (_nextGameButton.gameObject.activeSelf ? _nextGameButton : _homeButton).Select();
+            if (!IsComplete) return;
+            if (_savedFocus != null && _savedFocus.activeInHierarchy &&
+                _savedFocus.TryGetComponent<Selectable>(out var saved) && saved.IsInteractable())
+                saved.Select();
+            else (_nextGameButton.gameObject.activeSelf ? _nextGameButton : _homeButton).Select();
         }
         /// <summary>다음 경기 유무와 준비 상태를 결과 화면의 행동에 반영한다.</summary>
         public void SetNextGameAvailability(bool hasNextGame, bool isPreparing = false)
@@ -53,7 +58,8 @@ namespace Baseball.Presentation.Match
             root.anchorMin = Vector2.zero;
             root.anchorMax = Vector2.one;
             root.offsetMin = root.offsetMax = Vector2.zero;
-            root.GetComponent<Image>().color = Ink;
+            root.GetComponent<Image>().raycastTarget = false;
+            Baseball.Presentation.Owner.UIOwnerFrontOfficePanel.ApplyWorkspace(root);
             var view = go.AddComponent<UI_Scene_OwnerMatchSpectator>();
             view._root = root;
             view.Build();
@@ -66,6 +72,7 @@ namespace Baseball.Presentation.Match
         {
             if (manager == null) throw new ArgumentNullException(nameof(manager));
             _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
+            _savedFocus = null;
             _hasNextGame = _isPreparingNextGame = false;
             _lastVisibleCount = -1;
             ResetGameCast();
@@ -97,13 +104,16 @@ namespace Baseball.Presentation.Match
 
         /// <summary>정규 일정 실행 없이 저장이 끝난 연습경기를 기존 관전 조작으로 재생한다.</summary>
         public void PlayPractice(ManagerModeMatchResult result, Baseball.Simulation.Match.MatchEvent[] events,
-            string awayUniformFranchiseId, string homeUniformFranchiseId)
+            string awayUniformFranchiseId, string homeUniformFranchiseId,
+            Func<int, string> teamNameResolver = null,
+            System.Collections.Generic.IReadOnlyDictionary<int, string> participantNames = null)
         {
             _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
+            _savedFocus = null;
             _hasNextGame = _isPreparingNextGame = false; _lastVisibleCount = -1;
             ResetGameCast();
             _homeButton.GetComponentInChildren<Text>().text = "역대 강팀으로";
-            _session = OwnerMatchSpectatorSession.FromPractice(result, events, this);
+            _session = OwnerMatchSpectatorSession.FromPractice(result, events, this, teamNameResolver, participantNames);
             _awayUniformFranchiseId = awayUniformFranchiseId; _homeUniformFranchiseId = homeUniformFranchiseId;
             _playVisualizer.SetTeamUniforms(_awayUniformFranchiseId, _homeUniformFranchiseId);
             var settings = OwnerMatchPresentationSettings.Load();
@@ -115,8 +125,13 @@ namespace Baseball.Presentation.Match
         /// <summary>관전 화면의 표시 여부를 변경한다.</summary>
         public void SetVisible(bool isVisible)
         {
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            if (!isVisible && events != null && events.currentSelectedGameObject != null &&
+                events.currentSelectedGameObject.transform.IsChildOf(transform))
+                _savedFocus = events.currentSelectedGameObject;
             if (!isVisible) ClearHighlightInset();
             if (_root != null) _root.gameObject.SetActive(isVisible);
+            if (isVisible && IsComplete) FocusCompletedResult();
         }
 
         /// <summary>홈 복귀 시 관전 표시를 종료한다.</summary>
@@ -138,7 +153,8 @@ namespace Baseball.Presentation.Match
         private void FitWorkspace()
         {
             if (_canvas == null || _root == null) return;
-            float scale = Mathf.Min(_root.rect.width / 1440f, _root.rect.height / 810f);
+            // 외곽 V2 프레임 안쪽 16px은 데이터와 입력 영역이 침범하지 않는다.
+            float scale = Mathf.Min((_root.rect.width - 32f) / 1440f, (_root.rect.height - 32f) / 810f);
             _canvas.localScale = Vector3.one * Mathf.Max(0.01f, scale);
         }
 

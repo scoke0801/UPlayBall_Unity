@@ -1,4 +1,5 @@
 using System;
+using Baseball.Presentation.Owner;
 using Baseball.Core.Players;
 using Baseball.Core.Rules;
 using Baseball.Core.Teams;
@@ -58,18 +59,16 @@ namespace Baseball.Presentation.Match
             {
                 OwnerMatchPlaybackSpeed speed = i == 0
                     ? OwnerMatchPlaybackSpeed.Normal
-                    : i == 1 ? OwnerMatchPlaybackSpeed.Fast : OwnerMatchPlaybackSpeed.FourTimes;
+                    : i == 1 ? OwnerMatchPlaybackSpeed.Fast : OwnerMatchPlaybackSpeed.VeryFast;
                 _speedButtons[i].interactable = state.CanChangeSpeed;
-                _speedButtons[i].targetGraphic.color = state.Speed == speed ? Blue : Silver;
-                _speedButtons[i].GetComponentInChildren<Text>().color = state.Speed == speed ? Color.white : Ink;
+                OwnerUiButtonSkin.SetSelected(_speedButtons[i], state.Speed == speed);
             }
             for (int i = 0; i < _viewingModeButtons.Length; i++)
             {
                 OwnerMatchViewingMode mode = (OwnerMatchViewingMode)i;
                 Button button = _viewingModeButtons[i];
                 button.interactable = state.CanChangeViewingMode;
-                button.targetGraphic.color = state.ViewingMode == mode ? Blue : new Color(0.08f, 0.12f, 0.15f, 0.88f);
-                button.GetComponentInChildren<Text>().color = Color.white;
+                OwnerUiButtonSkin.SetSelected(button, state.ViewingMode == mode);
             }
 
             _statusLabel.text = isComplete
@@ -122,6 +121,8 @@ namespace Baseball.Presentation.Match
             _nextGameButton.gameObject.SetActive(isComplete && _hasNextGame);
             _nextGameButton.interactable = !_isPreparingNextGame;
             _resultButton.gameObject.SetActive(isComplete);
+            OwnerUiButtonSkin.Apply(_homeButton, _hasNextGame ? OwnerButtonRole.Secondary : OwnerButtonRole.Primary);
+            OwnerUiButtonSkin.Apply(_nextGameButton, OwnerButtonRole.Primary);
         }
 
         private void UpdateEventPresentation()
@@ -154,6 +155,8 @@ namespace Baseball.Presentation.Match
 
         private void BuildFinalResult()
         {
+            _renderedRecordTab = -1;
+            for (int i = 0; i < _recordScrollPositions.Length; i++) _recordScrollPositions[i] = 1f;
             MatchResult match = _session.Result.Match;
             string away = CurrentModel?.AwayTeam.Name ?? "원정";
             string home = CurrentModel?.HomeTeam.Name ?? "홈";
@@ -202,11 +205,11 @@ namespace Baseball.Presentation.Match
             for (int i = 0; i < innings; i++)
                 AddScoreCell(host, (i + 1).ToString(), teamWidth + i * inningWidth, 0, inningWidth, 38, Silver, Ink, TextAnchor.MiddleCenter);
             float totalsX = teamWidth + innings * inningWidth;
-            AddScoreCell(host, "득점", totalsX, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
+            AddScoreCell(host, "득점", totalsX, 0, statWidth, 38, Silver, Ink, TextAnchor.MiddleCenter);
             if (awayErrors >= 0)
             {
-                AddScoreCell(host, "안타", totalsX + statWidth, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
-                AddScoreCell(host, "실책", totalsX + statWidth * 2, 0, statWidth, 38, Ink, Color.white, TextAnchor.MiddleCenter);
+                AddScoreCell(host, "안타", totalsX + statWidth, 0, statWidth, 38, Silver, Ink, TextAnchor.MiddleCenter);
+                AddScoreCell(host, "실책", totalsX + statWidth * 2, 0, statWidth, 38, Silver, Ink, TextAnchor.MiddleCenter);
             }
             AddScoreRow(host, away, awayRuns, 38, innings, inningWidth, teamWidth, statWidth, awayHits, awayErrors);
             AddScoreRow(host, home, homeRuns, 81, innings, inningWidth, teamWidth, statWidth, homeHits, homeErrors);
@@ -223,10 +226,10 @@ namespace Baseball.Presentation.Match
                 int run = i < runs.Count ? runs[i] : MatchLineScore.NotPlayed;
                 if (run > 0) total += run;
                 AddScoreCell(host, run < 0 ? "-" : run.ToString(), teamWidth + i * inningWidth, y,
-                    inningWidth, 42, run > 0 ? new Color32(226, 243, 252, 255) : Paper, Ink, TextAnchor.MiddleCenter);
+                    inningWidth, 42, run > 0 ? OwnerDashboardStyle.TableSelected : Paper, Ink, TextAnchor.MiddleCenter);
             }
             float totalsX = teamWidth + innings * inningWidth;
-            AddScoreCell(host, total.ToString(), totalsX, y, statWidth, 42, Blue, Color.white, TextAnchor.MiddleCenter);
+            AddScoreCell(host, total.ToString(), totalsX, y, statWidth, 42, OwnerDashboardStyle.TableSelected, Blue, TextAnchor.MiddleCenter);
             if (errors >= 0)
             {
                 AddScoreCell(host, hits.ToString(), totalsX + statWidth, y, statWidth, 42, Paper, Ink, TextAnchor.MiddleCenter);
@@ -237,6 +240,15 @@ namespace Baseball.Presentation.Match
         private void RenderRecords()
         {
             if (_session == null || !_session.State.IsComplete) return;
+            OwnerUiButtonSkin.SetSelected(_recordTabs[0], !_showHomeRecords);
+            OwnerUiButtonSkin.SetSelected(_recordTabs[1], _showHomeRecords);
+            OwnerUiButtonSkin.SetSelected(_recordTabs[2], !_showPitching);
+            OwnerUiButtonSkin.SetSelected(_recordTabs[3], _showPitching);
+            int tab = (_showHomeRecords ? 2 : 0) + (_showPitching ? 1 : 0);
+            if (_renderedRecordTab == tab) return;
+            if (_renderedRecordTab >= 0)
+                _recordScrollPositions[_renderedRecordTab] = _recordScroll.verticalNormalizedPosition;
+            _renderedRecordTab = tab;
             ClearChildren(_recordContent);
             MatchResult match = _session.Result.Match;
             TeamBoxScore box = _showHomeRecords ? match.HomeBoxScore : match.AwayBoxScore;
@@ -300,10 +312,14 @@ namespace Baseball.Presentation.Match
                         false);
                 }
             }
+            if (y == 0)
+                Label("EmptyRecords", _recordContent,
+                    _showPitching ? "등판한 투수의 기록이 없습니다." : "타석에 들어선 선수의 기록이 없습니다.",
+                    16, 16, 48, 1302, 48, Muted);
             float viewportHeight = _recordScroll.viewport.rect.height;
             _recordContent.sizeDelta = new Vector2(1334, Mathf.Max(viewportHeight, y + 42));
             _recordScrollbar.gameObject.SetActive(_recordContent.sizeDelta.y > viewportHeight);
-            _recordScroll.verticalNormalizedPosition = 1;
+            _recordScroll.verticalNormalizedPosition = _recordScrollPositions[tab];
         }
 
         private static PlayerPosition FindBattingPosition(MatchRosterSnapshot roster, int playerId)
@@ -352,29 +368,36 @@ namespace Baseball.Presentation.Match
 
         private static void AddRecordRow(RectTransform host, string[] values, float y, bool header)
         {
-            if (values == null || values.Length < 2)
-                throw new ArgumentException("기록 행에는 선수명과 하나 이상의 기록이 필요합니다.", nameof(values));
+            if (values == null || values.Length < 3)
+                throw new ArgumentException("기록 행에는 선수명·보직과 하나 이상의 기록이 필요합니다.", nameof(values));
 
-            Color background = header ? Ink : ((int)(y / 35) % 2 == 0 ? Paper : new Color32(233, 239, 242, 255));
-            var row = Panel("Row", host, background, 0, Math.Max(0, y), 1334, 34);
-            Color color = header ? Color.white : Ink;
-            float nameWidth = values.Length > 8 ? 234f : 334f;
-            float valueWidth = (1334f - nameWidth) / (values.Length - 1);
-            Label("Name", row, values[0], 14, 10, 0, nameWidth - 20, 34, color);
+            Color background = header ? Silver : ((int)(y / 35) % 2 == 0 ? Paper : OwnerDashboardStyle.TableAlternate);
+            var row = Panel("Row", host, background, 0, Math.Max(0, y), 1334, 35);
+            Panel("RowRule", row, OwnerDashboardStyle.Line, 0, 34, 1334, 1);
+            const float nameWidth = 234f;
+            const float roleWidth = 100f;
+            float valueWidth = (1334f - nameWidth - roleWidth) / (values.Length - 2);
+            Text name = Label("Name", row, values[0], 14, 10, 0, nameWidth - 20, 34, Ink);
+            OwnerDashboardStyle.SetTypography(name, true);
             for (int i = 1; i < values.Length; i++)
             {
-                Text cell = Label("Value", row, values[i], 13,
-                    nameWidth + (i - 1) * valueWidth, 0, valueWidth, 34, color);
-                cell.alignment = TextAnchor.MiddleCenter;
+                float x = i == 1 ? nameWidth : nameWidth + roleWidth + (i - 2) * valueWidth;
+                float width = i == 1 ? roleWidth : valueWidth;
+                Text cell = Label("Value", row, values[i], 13, x + 8, 0, width - 16, 34,
+                    header || i == 1 ? Muted : Ink);
+                cell.alignment = i == 1 ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
+                OwnerDashboardStyle.SetTypography(cell, header);
             }
         }
 
         private static void AddScoreCell(RectTransform host, string value, float x, float y,
             float width, float height, Color background, Color foreground, TextAnchor alignment)
         {
-            var cell = Panel("Cell", host, background, x, y, width - 1, height - 1);
+            var cell = Panel("Cell", host, background, x, y, width, height);
             Text text = Label("Text", cell, value, 14, 8, 0, width - 16, height, foreground);
             text.alignment = alignment;
+            OwnerDashboardStyle.SetTypography(text, y == 0 || x == 0 || foreground == Blue);
+            Panel("RowRule", cell, OwnerDashboardStyle.Line, 0, height - 1, width, 1);
         }
 
         private static void ClearChildren(RectTransform host)

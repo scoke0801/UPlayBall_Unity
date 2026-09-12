@@ -1,4 +1,5 @@
 using Baseball.Core.Players;
+using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,11 +8,14 @@ namespace Baseball.Presentation.Match
 {
     public sealed partial class UI_Scene_OwnerMatchSpectator
     {
-        private static readonly Color Ink = new Color32(29, 34, 40, 255);
-        private static readonly Color Paper = new Color32(246, 248, 249, 255);
-        private static readonly Color Silver = new Color32(216, 225, 231, 255);
-        private static readonly Color Blue = new Color32(29, 122, 187, 255);
-        private static readonly Color Muted = new Color32(103, 122, 137, 255);
+        private static Color Ink => OwnerDashboardStyle.Ivory;
+        private static Color Paper => OwnerDashboardStyle.TableSurface;
+        private static Color Silver => OwnerDashboardStyle.TableHeader;
+        private static Color Blue => OwnerDashboardStyle.Gold;
+        private static Color Muted => OwnerDashboardStyle.TableSecondary;
+        private readonly Button[] _recordTabs = new Button[4];
+        private readonly float[] _recordScrollPositions = { 1f, 1f, 1f, 1f };
+        private int _renderedRecordTab = -1;
         private static Font _font;
         private Text _awayLabel, _homeLabel, _inningLabel, _statusLabel, _pauseLabel;
         private Text _pitcherLabel, _batterLabel, _pitcherDetail, _batterDetail;
@@ -43,7 +47,7 @@ namespace Baseball.Presentation.Match
 
         private void Build()
         {
-            _canvas = Panel("BroadcastCanvas", _root, Ink, 0, 0, 1440, 810);
+            _canvas = Panel("BroadcastCanvas", _root, OwnerDashboardStyle.Surface, 0, 0, 1440, 810);
             _canvas.anchorMin = _canvas.anchorMax = new Vector2(0.5f, 0.5f);
             _canvas.pivot = new Vector2(0.5f, 0.5f);
             _canvas.anchoredPosition = Vector2.zero;
@@ -51,11 +55,11 @@ namespace Baseball.Presentation.Match
             _font ??= Baseball.Presentation.UI.UIProjectFonts.Default;
             RectTransform field = Panel("Field", _canvas, new Color32(27, 56, 42, 255), 12, 124, 900, 552);
             field.gameObject.AddComponent<RectMask2D>();
-            // 원본 3:2 비율을 유지하고 외곽만 여백 처리한다.
-            RectTransform ground = Panel("Ground", field, Color.clear, 36, 0, 828, 552);
+            RectTransform ground = Panel("Ground", field, Color.clear, 0, 0, 900, 552);
             _playVisualizer = new MatchPlayVisualizer(ground, _gameCastConfig, _font,
                 playerId => _session?.GetParticipantName(playerId) ?? string.Empty,
-                (pitcherId, batterId) => _session.GetHandedness(pitcherId, batterId));
+                (pitcherId, batterId) => _session.GetHandedness(pitcherId, batterId),
+                Sprites.BaseballCameraMode.FixedFill);
             BuildHeader();
             BuildFieldOverlay();
             BuildFooter();
@@ -67,8 +71,8 @@ namespace Baseball.Presentation.Match
         private void BuildHeader()
         {
             Panel("Header", _canvas, Silver, 0, 0, 1440, 62);
-            Panel("AwayRibbon", _canvas, Ink, 0, 0, 305, 59);
-            Panel("HomeRibbon", _canvas, Blue, 379, 0, 305, 59);
+            Panel("AwayRibbon", _canvas, Paper, 0, 0, 305, 59);
+            Panel("HomeRibbon", _canvas, OwnerDashboardStyle.TableSelected, 379, 0, 305, 59);
             _awayLabel = Label("Away", _canvas, "원정", 22, 14, 4, 278, 48, Color.white);
             _homeLabel = Label("Home", _canvas, "홈", 22, 391, 4, 278, 48, Color.white);
             _inningLabel = Label("Inning", _canvas, "1회 초", 19, 305, 0, 74, 58, Ink);
@@ -79,7 +83,7 @@ namespace Baseball.Presentation.Match
             _pauseButton = Control("Pause", _canvas, "일시정지", 1050, 12, 110, HandlePauseRequested);
             _pauseLabel = _pauseButton.GetComponentInChildren<Text>();
             _speedButtons = new Button[3];
-            var speeds = new[] { OwnerMatchPlaybackSpeed.Normal, OwnerMatchPlaybackSpeed.Fast, OwnerMatchPlaybackSpeed.FourTimes };
+            var speeds = new[] { OwnerMatchPlaybackSpeed.Normal, OwnerMatchPlaybackSpeed.Fast, OwnerMatchPlaybackSpeed.VeryFast };
             for (int i = 0; i < speeds.Length; i++)
             {
                 OwnerMatchPlaybackSpeed speed = speeds[i];
@@ -102,7 +106,7 @@ namespace Baseball.Presentation.Match
 
         private void BuildFieldOverlay()
         {
-            var badge = Panel("LiveBadge", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.88f), 12, 74, 270, 38);
+            var badge = Panel("LiveBadge", _canvas, Silver, 12, 74, 270, 38);
             _statusLabel = Label("LiveStatus", badge, "경기 중계", 17, 12, 0, 246, 36, Color.white);
             _viewingModeButtons = new Button[3];
             var viewingModes = new[]
@@ -124,7 +128,7 @@ namespace Baseball.Presentation.Match
                     106,
                     () => HandleViewingModeRequested(mode));
             }
-            var runners = Panel("BaseOccupancy", _canvas, new Color(0.08f, 0.12f, 0.15f, 0.85f), 782, 76, 124, 43);
+            var runners = Panel("BaseOccupancy", _canvas, Silver, 782, 76, 124, 43);
             Label("BaseTitle", runners, "주자 상황", 12, 0, 7, 52, 27, Color.white).alignment = TextAnchor.MiddleCenter;
             for (int i = 0; i < 3; i++)
             {
@@ -151,7 +155,6 @@ namespace Baseball.Presentation.Match
         {
             Sprite baseballSprite = _gameCastConfig.LoadBaseballSprite();
             var side = Panel("GameCastSidebar", _canvas, Paper, 924, 74, 504, 602);
-            Panel("Accent", side, Blue, 0, 0, 504, 3);
             Label("Heading", side, "현재 승부", 15, 16, 8, 472, 27, Blue);
             _pitcherRole = Label("PitcherRole", side, "마운드 · 투수", 12, 16, 42, 226, 23, Muted);
             _batterRole = Label("BatterRole", side, "타석 · 타자", 12, 266, 42, 222, 23, Muted);
@@ -159,10 +162,10 @@ namespace Baseball.Presentation.Match
             _batterLabel = Label("BatterName", side, "타석 대기", 24, 266, 68, 222, 36, Ink);
             _pitcherDetail = Label("PitcherDetail", side, "", 13, 16, 106, 226, 25, Muted);
             _batterDetail = Label("BatterDetail", side, "", 13, 266, 106, 222, 25, Muted);
-            Panel("DuelRule", side, Silver, 16, 142, 472, 1);
+            Panel("DuelRule", side, OwnerDashboardStyle.Line, 16, 142, 472, 1);
             RectTransform detail = BuildPitchContext(side);
             _currentPitch = Label("CurrentPitch", detail, "투구 기록", 16, 16, 152, 472, 28, Ink);
-            _strikeZone = Panel("StrikeZone", detail, new Color32(231, 237, 241, 255), 16, 188, 200, 180);
+            _strikeZone = Panel("StrikeZone", detail, OwnerDashboardStyle.TableAlternate, 16, 188, 200, 180);
             _strikeZone.gameObject.AddComponent<RectMask2D>();
             for (int index = 0; index <= 3; index++)
             {
@@ -175,7 +178,7 @@ namespace Baseball.Presentation.Match
                 _pitchDots[index] = dot;
                 SpritePanel("Baseball", dot.transform, baseballSprite, 2, 2, 17, 17);
                 _pitchNumbers[index] = Label("Number", dot.transform, "", 11, 0, 0, 21, 21, Color.white);
-                _pitchNumbers[index].color = Ink;
+                _pitchNumbers[index].color = OwnerDashboardStyle.Ink;
                 _pitchNumbers[index].alignment = TextAnchor.MiddleCenter;
                 dot.gameObject.SetActive(false);
             }
@@ -187,19 +190,19 @@ namespace Baseball.Presentation.Match
             _pitchHistory.fontStyle = FontStyle.Normal;
             Label("ZoneNote", detail, "포수 시점", 11, 16, 370, 472, 20, Muted);
             _playExplanation = Panel("PlayExplanation", detail, Color.clear, 16, 404, 472, 85);
-            Panel("PlayRule", _playExplanation, Silver, 0, 0, 472, 1);
+            Panel("PlayRule", _playExplanation, OwnerDashboardStyle.Line, 0, 0, 472, 1);
             Label("PlayTitle", _playExplanation, "플레이 해설", 13, 0, 9, 472, 22, Blue);
             _playDetail = Label("PlayDetail", _playExplanation, "", 15, 0, 36, 472, 49, Ink);
             _playDetail.fontStyle = FontStyle.Normal;
             _playExplanation.gameObject.SetActive(false);
             _decisionExplanation = Panel("DecisionExplanation", side, Color.clear, 16, 504, 472, 87);
-            Panel("DecisionRule", _decisionExplanation, Silver, 0, 0, 472, 1);
+            Panel("DecisionRule", _decisionExplanation, OwnerDashboardStyle.Line, 0, 0, 472, 1);
             Label("DecisionTitle", _decisionExplanation, "감독의 판단", 13, 0, 9, 472, 22, Blue);
             _decisionNote = Label("DecisionNote", _decisionExplanation, "", 14, 0, 37, 472, 50, Ink);
             _decisionNote.fontStyle = FontStyle.Normal;
             _decisionExplanation.gameObject.SetActive(false);
             BuildHighlightInset(side);
-            _miniLineScore = Panel("CompactLineScore", _canvas, Color.clear, 24, 622, 852, 54);
+            _miniLineScore = Panel("CompactLineScore", _canvas, Paper, 24, 622, 852, 54);
             Label("Title", _miniLineScore, "이닝별 득점", 13, 0, 0, 180, 18, Color.white);
             _miniAwayTeam = Label("AwayTeam", _miniLineScore, "", 13, 0, 18, 180, 18, Color.white);
             _miniHomeTeam = Label("HomeTeam", _miniLineScore, "", 13, 0, 36, 180, 18, Color.white);
@@ -211,7 +214,7 @@ namespace Baseball.Presentation.Match
         private void BuildFooter()
         {
             Panel("Footer", _canvas, Paper, 0, 682, 1440, 128);
-            Panel("FooterRule", _canvas, Silver, 0, 682, 1440, 2);
+            Panel("FooterRule", _canvas, OwnerDashboardStyle.Line, 0, 682, 1440, 1);
             Label("CommentaryTitle", _canvas, "경기 중계", 16, 20, 692, 106, 28, Blue);
             _commentary = Label("Commentary", _canvas, "잠시 후 경기가 시작됩니다.", 17, 140, 692, 900, 108, Ink);
             _commentary.alignment = TextAnchor.UpperLeft;
@@ -227,23 +230,21 @@ namespace Baseball.Presentation.Match
             {
                 if (IsComplete && _hasNextGame && !_isPreparingNextGame) NextGameRequested?.Invoke();
             });
-            _nextGameButton.targetGraphic.color = Blue;
-            _nextGameButton.GetComponentInChildren<Text>().color = Color.white;
         }
 
         private void BuildResults()
         {
             _resultPanel = Panel("MatchResult", _canvas, Paper, 0, 62, 1440, 620);
-            Panel("ResultTitleRule", _resultPanel, Silver, 20, 56, 1400, 2);
+            Panel("ResultTitleRule", _resultPanel, OwnerDashboardStyle.Line, 20, 56, 1400, 1);
             _resultHeading = Label("Title", _resultPanel, "경기 결과", 26, 32, 8, 1376, 42, Blue);
             _resultHeading.alignment = TextAnchor.MiddleCenter;
             _resultSummary = Label("Versus", _resultPanel, "", 28, 40, 70, 1360, 55, Ink);
             _resultSummary.alignment = TextAnchor.MiddleCenter;
             _resultScoreRows = Panel("FinalLineScore", _resultPanel, Silver, 40, 140, 1360, 126);
-            Control("AwayRecords", _resultPanel, "원정 기록", 40, 280, 135, () => { _showHomeRecords = false; RenderRecords(); });
-            Control("HomeRecords", _resultPanel, "홈 기록", 185, 280, 135, () => { _showHomeRecords = true; RenderRecords(); });
-            Control("BattingRecords", _resultPanel, "타격 성적", 340, 280, 135, () => { _showPitching = false; RenderRecords(); });
-            Control("PitchingRecords", _resultPanel, "투구 성적", 485, 280, 135, () => { _showPitching = true; RenderRecords(); });
+            _recordTabs[0] = Control("AwayRecords", _resultPanel, "원정 기록", 40, 280, 135, () => { _showHomeRecords = false; RenderRecords(); });
+            _recordTabs[1] = Control("HomeRecords", _resultPanel, "홈 기록", 185, 280, 135, () => { _showHomeRecords = true; RenderRecords(); });
+            _recordTabs[2] = Control("BattingRecords", _resultPanel, "타격 성적", 340, 280, 135, () => { _showPitching = false; RenderRecords(); });
+            _recordTabs[3] = Control("PitchingRecords", _resultPanel, "투구 성적", 485, 280, 135, () => { _showPitching = true; RenderRecords(); });
             _recordHeader = Label("RecordHeader", _resultPanel, "", 17, 650, 280, 748, 38, Blue);
             _recordHeader.alignment = TextAnchor.MiddleRight;
             var viewport = Panel("RecordViewport", _resultPanel, Silver, 40, 332, 1334, 264);
@@ -281,7 +282,7 @@ namespace Baseball.Presentation.Match
             return scrollbar;
         }
 
-        private static RectTransform Panel(string name, Transform parent, Color color, float x, float y, float width, float height)
+        private static RectTransform Panel(string name, Transform parent, Color color, float x, float y, float width, float height, bool dataSurface = true)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
@@ -289,6 +290,8 @@ namespace Baseball.Presentation.Match
             Place(rect, x, y, width, height);
             go.GetComponent<Image>().color = color;
             go.GetComponent<Image>().raycastTarget = false;
+            if (dataSurface)
+                go.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             return rect;
         }
 
@@ -301,6 +304,7 @@ namespace Baseball.Presentation.Match
             var graphic = go.GetComponent<UICircleGraphic>();
             graphic.color = color;
             graphic.raycastTarget = false;
+            go.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             return rect;
         }
 
@@ -323,6 +327,7 @@ namespace Baseball.Presentation.Match
             image.color = Color.white;
             image.preserveAspect = true;
             image.raycastTarget = false;
+            go.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             return rect;
         }
 
@@ -346,7 +351,8 @@ namespace Baseball.Presentation.Match
             label.fontSize = size;
             label.color = color;
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontStyle = FontStyle.Bold;
+            OwnerDashboardStyle.SetTypography(label, size >= 19 || color == Blue || name == "LiveStatus" || name == "Label");
+            go.AddComponent<CareerUiPreserveTextColor>();
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
@@ -356,17 +362,18 @@ namespace Baseball.Presentation.Match
         private static Button Control(string name, Transform parent, string text, float x, float y, float width,
             UnityEngine.Events.UnityAction action)
         {
-            var rect = Panel(name, parent, Silver, x, y, width, 38);
+            var rect = Panel(name, parent, Silver, x, y, width, 38, false);
             var image = rect.GetComponent<Image>();
             image.raycastTarget = true;
             var button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
-            var colors = button.colors;
-            colors.highlightedColor = new Color32(170, 215, 240, 255);
-            colors.pressedColor = new Color32(105, 178, 220, 255);
-            button.colors = colors;
             Label("Label", rect, text, 15, 4, 0, width - 8, 38, Ink).alignment = TextAnchor.MiddleCenter;
             button.onClick.AddListener(action);
+            bool isTab = name.StartsWith("Speed", System.StringComparison.Ordinal)
+                || name.StartsWith("ViewingMode", System.StringComparison.Ordinal)
+                || name.EndsWith("Records", System.StringComparison.Ordinal);
+            OwnerUiButtonSkin.Apply(button, isTab ? OwnerButtonRole.Tab : OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.SetSelected(button, false);
             return button;
         }
     }

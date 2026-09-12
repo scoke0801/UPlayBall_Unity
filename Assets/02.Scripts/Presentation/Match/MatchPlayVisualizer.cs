@@ -52,7 +52,8 @@ namespace Baseball.Presentation.Match
 
         /// <summary>고정 수의 공·야수·주자 표시 부품을 한 번 생성한다.</summary>
         public MatchPlayVisualizer(RectTransform field, MatchGameCastConfig config, Font font, Func<int, string> getName,
-            Func<int, int, OwnerMatchHandedness> getHands = null)
+            Func<int, int, OwnerMatchHandedness> getHands = null,
+            BaseballCameraMode cameraMode = BaseballCameraMode.Animated)
         {
             _field = new GameObject("GameCastMarkers", typeof(RectTransform)).GetComponent<RectTransform>();
             _field.SetParent(field, false);
@@ -87,7 +88,7 @@ namespace Baseball.Presentation.Match
             _ball = CreateBaseballMarker("Ball", config.fieldBallSize, config.LoadBaseballSprite()).rectTransform;
             SpriteAnimationCatalog catalog = Resources.Load<SpriteAnimationCatalog>("UI/SpriteMatch/AnimationCatalog");
             if (catalog != null && catalog.fieldLayout != null && catalog.fieldLayout.background != null)
-                _spriteStage = new SpriteMatchStage(field, catalog, config.LoadBaseballSprite());
+                _spriteStage = new SpriteMatchStage(field, catalog, config.LoadBaseballSprite(), cameraMode);
             Reset();
         }
 

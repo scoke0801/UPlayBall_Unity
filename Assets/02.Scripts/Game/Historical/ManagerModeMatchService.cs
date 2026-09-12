@@ -315,6 +315,7 @@ namespace Baseball.Game.Historical
             // 영수증 경계를 먼저 통과한 뒤 일정과 선수 상태를 확정한다.
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
             int scoutingPointsEarned = GrantMatchScoutingPoints(runtime, match, playerIsHome);
+            OwnerTraitTrainingService.GrantMatchReward(runtime, _balance.TraitTraining);
             ApplyPostGameState(mode, playerBuild, opponentBuild, match);
             RecordStatistics(mode, game, match);
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
@@ -979,15 +980,18 @@ namespace Baseball.Game.Historical
                 pitchRepertoire: season.PitchRepertoire,
                 isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                 secondaryPositions: season.SecondaryPositions,
-                traitIds: usesOwnedEconomy
-                    ? _ownerCardAbilityResolver.ResolveActiveTraitIds(owned)
-                    : Array.Empty<string>(),
+                  traitIds: usesOwnedEconomy
+                      ? _ownerCardAbilityResolver.ResolveActiveTraitIds(owned)
+                      : Array.Empty<string>(),
+                  cardTrait: usesOwnedEconomy && owned != null && owned.Trait.trait != CardTraitKind.None
+                      ? new CardTraitEffect(owned.Trait.trait, _balance.TraitTraining.Get(owned.Trait.trait).effect
+                          * _balance.TraitTraining.multipliers[(int)owned.Trait.rank - 1]) : default,
                 bakedPitcherAttributes: source.ToPitcherAttributes(),
                 permanentPitcherAttributes: new PitcherAttributes(
                     GetPermanent(PlayerAbility.Stamina), GetPermanent(PlayerAbility.Velocity),
                     GetPermanent(PlayerAbility.Stuff), GetPermanent(PlayerAbility.Breaking),
                     GetPermanent(PlayerAbility.Control), GetPermanent(PlayerAbility.PitcherMental)),
-                hasResolvedMatchRatings: true,
+                  hasResolvedMatchRatings: true,
                 uncurvedPitcherAttributes: new PitcherRatingValues(
                     GetRawEffective(PlayerAbility.Stamina), GetRawEffective(PlayerAbility.Velocity),
                     GetRawEffective(PlayerAbility.Stuff), GetRawEffective(PlayerAbility.Breaking),

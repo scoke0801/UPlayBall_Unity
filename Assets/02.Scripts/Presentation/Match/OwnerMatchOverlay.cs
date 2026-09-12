@@ -75,6 +75,8 @@ namespace Baseball.Presentation.Match
             var speed = (OwnerMatchPlaybackSpeed)PlayerPrefs.GetInt(
                 PlaybackSpeedKey,
                 (int)DefaultOptions.PlaybackSpeed);
+            if (speed == OwnerMatchPlaybackSpeed.FourTimes)
+                speed = OwnerMatchPlaybackSpeed.VeryFast;
             if (!Enum.IsDefined(typeof(OwnerMatchPlaybackSpeed), speed))
                 speed = DefaultOptions.PlaybackSpeed;
 

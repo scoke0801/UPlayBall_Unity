@@ -28,6 +28,7 @@ namespace Baseball.Presentation.Match.Sprites
         private readonly SpriteActor[] _sorted = new SpriteActor[14];
         private readonly BallVisualController _ball;
         private readonly BaseballCameraDirector _camera;
+        private readonly BaseballCameraMode _cameraMode;
         private SpriteClipDefinition _pitch, _swing, _ground, _fly, _run, _runnerIdle, _catcher;
         private Handedness _batting;
         private bool _canPresent;
@@ -47,8 +48,10 @@ namespace Baseball.Presentation.Match.Sprites
         public float PitchDuration => _canPresent ? Mathf.Max(_pitch.DurationSeconds, _swing.DurationSeconds) : 0f;
 
         /// <summary>승인 카탈로그를 표시할 고정 수의 무대 부품을 생성한다.</summary>
-        public SpriteMatchStage(RectTransform parent, SpriteAnimationCatalog catalog, Sprite ballSprite)
+        public SpriteMatchStage(RectTransform parent, SpriteAnimationCatalog catalog, Sprite ballSprite,
+            BaseballCameraMode cameraMode = BaseballCameraMode.Animated)
         {
+            _cameraMode = cameraMode;
             _catalog = catalog;
             _projection = new FieldProjection(catalog.fieldLayout);
             _viewport = new GameObject("SpriteMatchStage", typeof(RectTransform), typeof(RectMask2D)).GetComponent<RectTransform>();
@@ -77,7 +80,7 @@ namespace Baseball.Presentation.Match.Sprites
                 _runnerMarkers[i].rectTransform.sizeDelta = new Vector2(14, 14);
             }
             _ball = new BallVisualController(_content, ballSprite, _projection);
-            _camera = new BaseballCameraDirector(_content, catalog.fieldLayout);
+            _camera = new BaseballCameraDirector(_content, catalog.fieldLayout, cameraMode);
             SetHands(Handedness.Right, Handedness.Right);
             SetVisible(false);
         }
@@ -342,6 +345,12 @@ namespace Baseball.Presentation.Match.Sprites
 
         private void FitBackground()
         {
+            if (_cameraMode == BaseballCameraMode.FixedFill)
+            {
+                // 배경과 선수 좌표에 같은 영역을 사용해 여백 없이 베이스 정렬을 유지한다.
+                _content.sizeDelta = _viewport.rect.size;
+                return;
+            }
             Texture2D background = _catalog.fieldLayout.background;
             float aspect = (float)background.width / background.height;
             Vector2 size = _viewport.rect.size;

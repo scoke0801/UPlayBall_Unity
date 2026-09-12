@@ -204,7 +204,7 @@ namespace Baseball.Game.Historical
                 ownedCard, season, program, runtime.Economy, efficiency);
         }
 
-        /// <summary>1군 밖 보유 카드의 유학을 TrainingCenter 정원과 시즌 1회 규칙으로 시작한다.</summary>
+        /// <summary>시즌 중 등록 제한과 시설 정원·시즌 1회 규칙으로 유학을 시작한다.</summary>
         public void StartOwnedCardStudy(
             ManagerHistoricalRuntimeState runtime,
             string cardId,
@@ -215,9 +215,8 @@ namespace Baseball.Game.Historical
             // 기간·비용은 호출자가 만든 정의가 아니라 현재 밸런스의 정본으로 재검증한다.
             program = _balance.OwnerCardGrowth.GetStudyProgram(program.ProgramId);
             OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining, program.DurationWeeks).RequireAllowed();
-            foreach (var camp in runtime.PlayerGrowth.Camps)
-                if (camp.CardId == cardId) throw new InvalidOperationException("전지훈련을 마친 뒤 유학을 시작하세요.");
-            if (ContainsCard(runtime.GetRoster(runtime.PlayerTeamSeasonKey), cardId))
+            if (!OwnerScheduleGateService.CanStudyWhileRegistered(runtime) &&
+                ContainsCard(runtime.GetRoster(runtime.PlayerTeamSeasonKey), cardId))
                 throw new InvalidOperationException("1군 등록 카드는 유학을 시작할 수 없습니다.");
             if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState owned))
                 throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드는 유학할 수 없습니다.");
@@ -439,6 +438,7 @@ namespace Baseball.Game.Historical
                 status = ManagerModeTransactionStatus.Applied;
             }
 
+            AdvanceStudies(runtime);
             season.AdvanceWeek();
             mode.ClubOperation.BeginWeek(season.CurrentWeekIndex);
             return new ManagerWeeklyAdvanceResult(status, production, recoveries);
@@ -461,7 +461,20 @@ namespace Baseball.Game.Historical
             }
             if (!runtime.PlayerGrowth.Offseason.TryAdvance(expectedCompletedWeeks)) return false;
             AdvanceStudies(runtime);
-            OwnerCampService.AdvanceWeek(runtime, _balance);
+            return true;
+        }
+
+        /// <summary>가장 늦게 귀환하는 선수까지 한 번에 정산하고 미사용 비시즌 주차는 남긴다.</summary>
+        public bool CompleteOffseasonStudies(ManagerHistoricalRuntimeState runtime, int expectedCompletedWeeks)
+        {
+            if (OwnerScheduleGateService.GetPhase(runtime) != OwnerSeasonPhase.Offseason)
+                throw new InvalidOperationException("포스트시즌이 끝난 뒤 유학을 빠르게 완료할 수 있습니다.");
+            if (runtime.PlayerGrowth.Offseason.CompletedWeeks != expectedCompletedWeeks) return false;
+            int weeks = 1;
+            foreach (CardStudyProjectState project in runtime.PlayerGrowth.StudyProjects)
+                weeks = Math.Max(weeks, project.RemainingWeeks);
+            for (int week = 0; week < weeks; week++)
+                if (!AdvanceOffseasonWeek(runtime, expectedCompletedWeeks + week)) return false;
             return true;
         }
 
@@ -500,7 +513,6 @@ namespace Baseball.Game.Historical
 
         private static bool IsStudying(ManagerHistoricalRuntimeState runtime, string cardId)
         {
-            foreach (var camp in runtime.PlayerGrowth.Camps) if (camp.CardId == cardId) return true;
             for (int index = 0; index < runtime.PlayerGrowth.StudyProjects.Count; index++)
                 if (string.Equals(runtime.PlayerGrowth.StudyProjects[index].CardId, cardId, StringComparison.Ordinal)) return true;
             return false;
@@ -533,8 +545,11 @@ namespace Baseball.Game.Historical
         /// <summary>연봉·계약 마감 후 전체 구단의 순위 승강과 조 재추첨을 적용하고 다음 시즌을 연다.</summary>
         public ManagerSeasonAdvanceResult AdvanceSeason(ManagerHistoricalRuntimeState runtime)
         {
+            foreach (var card in runtime.OwnedCards)
+                if (card.Trait.HasCandidates)
+                    throw new InvalidOperationException("선택 대기 중인 특성이 있습니다. 특성훈련에서 후보를 확정한 뒤 다음 시즌을 시작하세요.");
             ManagerModeRuntimeState mode = RequireMode(runtime);
-            if (runtime.PlayerGrowth.StudyProjects.Count > 0 || runtime.PlayerGrowth.Camps.Count > 0)
+            if (runtime.PlayerGrowth.StudyProjects.Count > 0)
                 throw new InvalidOperationException("유학 중인 선수가 있습니다. 오프시즌 훈련 주차를 진행해 귀환시킨 뒤 다음 시즌을 시작해 주세요.");
             if (!mode.LiveSeason.IsCompleted || runtime.LeagueWorld != null && !runtime.LeagueWorld.IsCompleted)
             {

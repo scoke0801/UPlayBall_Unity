@@ -386,7 +386,9 @@ namespace Baseball.Presentation.Match
         public ManagerModeMatchResult Result { get; }
         /// <summary>저장이 끝난 연습경기의 동일 사건을 재생한다.</summary>
         public static OwnerMatchSpectatorSession FromPractice(ManagerModeMatchResult result, MatchEvent[] events,
-            IMatchHudView view) => new OwnerMatchSpectatorSession(result, events, view, result.Match.Input.HomeRoster.TeamId);
+            IMatchHudView view, Func<int, string> teamNameResolver = null,
+            IReadOnlyDictionary<int, string> participantNames = null) => new OwnerMatchSpectatorSession(
+                result, events, view, result.Match.Input.HomeRoster.TeamId, teamNameResolver, participantNames);
         public MatchHudPresentationModel CurrentHud { get; private set; }
         /// <summary>관전 화면은 이 경계 안의 이벤트만 읽어 최종 결과가 먼저 노출되지 않게 한다.</summary>
         public MatchEvent GetVisibleEvent(int index)
