@@ -105,7 +105,8 @@ namespace Baseball.Game.Historical
         private StaffMarketResolver _staffMarketResolver;
         private IBakedWorldHistorySource _bakedWorldHistorySource;
         private HistoricalWorldRuntimeBuilder _worldBuilder;
-        private readonly DugoutStaffCatalog _dugoutCatalog = DugoutStaffCatalog.CreateDefault();
+        private DugoutStaffCatalog _loadedDugoutCatalog;
+        private DugoutStaffCatalog _dugoutCatalog => _loadedDugoutCatalog ??= DugoutStaffBalanceLoader.Load();
         private readonly DugoutTacticalProfileResolver _dugoutResolver = new DugoutTacticalProfileResolver();
 
         public override int InitializationOrder => -20;
@@ -374,13 +375,15 @@ namespace Baseball.Game.Historical
         public ManagerSeasonAdvanceResult AdvanceSeason()
         {
             EnsureRegularSeasonSimulationIsNotRunning();
-            ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            ManagerHistoricalRuntimeState runtime = _saveAdapter.CreateSimulationCopy(RequireRuntime());
             // 구형 세이브의 완료 시즌에는 신규 월드 조의 경기가 아직 없으므로 같은 상세 경로로 마감한다.
             if (runtime.ManagerMode.LiveSeason.IsCompleted && runtime.LeagueWorld != null && !runtime.LeagueWorld.IsCompleted)
                 _matchService.CompleteRegularSeason(runtime);
             ManagerSeasonAdvanceResult result = _coordinator.AdvanceSeason(runtime);
             if (result.IsApplied)
             {
+                _saveStore.Save(_saveAdapter.CreateSaveData(runtime));
+                Runtime = runtime;
                 CurrentPregame = null;
                 LastMatch = null;
             }
@@ -690,7 +693,9 @@ namespace Baseball.Game.Historical
         /// <summary>정규시즌·포스트시즌·다음 등급을 같은 확정 상태에서 조회한다.</summary>
         public OwnerSeasonReviewSnapshot CreateSeasonReview()
         {
-            return OwnerSeasonReviewService.Create(RequireRuntime(), _balance);
+            // 관전 직전에도 확정된 대진을 읽어야 한다. Worker는 별도 복사본만 변경한다.
+            var runtime = Runtime ?? throw new InvalidOperationException("활성 구단주 Runtime이 없습니다.");
+            return OwnerSeasonReviewService.Create(runtime, _balance);
         }
 
         /// <summary>최종 순위를 고정해 포스트시즌 대진을 만들고 시즌 검토 화면에 제공한다.</summary>
@@ -1071,6 +1076,7 @@ namespace Baseball.Game.Historical
         public bool HasAvailableCardStudySlot()
         {
             ManagerHistoricalRuntimeState runtime = RequireRuntime();
+            if (!OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining).IsAllowed) return false;
             int capacity = _balance.OwnerCardGrowth.GetStudyCapacity(
                 runtime.ManagerMode.ClubOperation.GetFacility(FacilityType.TrainingCenter).Level);
             if (runtime.PlayerGrowth.StudyProjects.Count >= capacity) return false;
@@ -1091,7 +1097,8 @@ namespace Baseball.Game.Historical
         public void StartOwnedCardStudy(string cardId, string programId)
         {
             CardStudyProgramDefinition program = _balance.OwnerCardGrowth.GetStudyProgram(programId);
-            _coordinator.StartOwnedCardStudy(RequireRuntime(), cardId, program);
+            OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.OverseasTraining, program.DurationWeeks).RequireAllowed();
+            CommitGrowthChange(candidate => { _coordinator.StartOwnedCardStudy(candidate, cardId, program); return true; });
             PublishGrowthFact("CardStudyStarted", cardId,
                 new Dictionary<string, string>(StringComparer.Ordinal) { ["program"] = program.DisplayName });
             InvalidatePregame();
@@ -1102,8 +1109,12 @@ namespace Baseball.Game.Historical
             string cardId, int instanceId, int originX, int originY, int rotationQuarterTurns)
         {
             string[] traitsBefore = GetActiveOwnerCardTraits(cardId);
-            _coordinator.PlaceOwnedCardSkillBlock(
-                RequireRuntime(), cardId, instanceId, originX, originY, rotationQuarterTurns);
+            OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.SkillBlock).RequireAllowed();
+            CommitGrowthChange(candidate =>
+            {
+                _coordinator.PlaceOwnedCardSkillBlock(candidate, cardId, instanceId, originX, originY, rotationQuarterTurns);
+                return true;
+            });
             PublishGrowthFact("SkillBlockPlaced", cardId,
                 new Dictionary<string, string>(StringComparer.Ordinal)
                     { ["instanceId"] = instanceId.ToString(System.Globalization.CultureInfo.InvariantCulture) });
@@ -1115,7 +1126,8 @@ namespace Baseball.Game.Historical
         public bool AutoPlaceOwnedCardSkillBlock(string cardId, int instanceId)
         {
             string[] traitsBefore = GetActiveOwnerCardTraits(cardId);
-            bool placed = _coordinator.AutoPlaceOwnedCardSkillBlock(RequireRuntime(), cardId, instanceId);
+            OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.SkillBlock).RequireAllowed();
+            bool placed = CommitGrowthChange(candidate => _coordinator.AutoPlaceOwnedCardSkillBlock(candidate, cardId, instanceId));
             if (!placed) return false;
             PublishGrowthFact("SkillBlockPlaced", cardId,
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -1128,7 +1140,8 @@ namespace Baseball.Game.Historical
 
         public bool RemoveOwnedCardSkillBlock(string cardId, int instanceId)
         {
-            bool removed = _coordinator.RemoveOwnedCardSkillBlock(RequireRuntime(), cardId, instanceId);
+            OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.SkillBlock).RequireAllowed();
+            bool removed = CommitGrowthChange(candidate => _coordinator.RemoveOwnedCardSkillBlock(candidate, cardId, instanceId));
             if (!removed) return false;
             InvalidatePregame();
             NotifyRuntimeChanged();
@@ -1164,11 +1177,11 @@ namespace Baseball.Game.Historical
         public ShopService CreateShopService() => OwnerShopComposer.Create(this);
 
         /// <summary>스카우트·전술 연구를 Game 계층 단일 Command로 실행한다.</summary>
-        public ShopPurchaseResult PurchaseShopProduct(string productId)
+        public ShopPurchaseResult PurchaseShopProduct(string productId, string targetCardId = null)
         {
             ShopService shop = CreateShopService();
             shop.Catalog.TryGetProduct(productId, out ShopProductDefinition product);
-            ShopPurchaseResult result = shop.Purchase(productId);
+            ShopPurchaseResult result = shop.Purchase(productId, targetCardId);
             if (result.IsSuccess)
             {
                 PublishSkillBlockAcquisitionFacts(product, result);
@@ -1492,6 +1505,8 @@ namespace Baseball.Game.Historical
             IBakedWorldHistorySource bakedWorldHistorySource = null)
         {
             _contentProvider = contentProvider ?? throw new ArgumentNullException(nameof(contentProvider));
+            _practiceCatalog = null;
+            _practiceRosterBuilder = null;
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _newGameConfiguration = newGameConfiguration;
             _bakedWorldHistorySource = bakedWorldHistorySource;
@@ -1512,7 +1527,7 @@ namespace Baseball.Game.Historical
                 _contentProvider,
                 _balance,
                 teamColors: _teamColors,
-                tacticCards: _tacticCards);
+                tacticCards: _tacticCards, dugoutCatalog: _dugoutCatalog);
             _staffMarketResolver = new StaffMarketResolver();
         }
 
@@ -1671,7 +1686,7 @@ namespace Baseball.Game.Historical
                 _contentProvider,
                 _balance,
                 teamColors: _teamColors,
-                tacticCards: _tacticCards);
+                tacticCards: _tacticCards, dugoutCatalog: _dugoutCatalog);
         }
 
         private string[] ResolveAvailableTeamColorIds(CurrentRosterState roster)

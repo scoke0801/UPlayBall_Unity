@@ -51,24 +51,19 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         public void Actions_경기와바로가기를기존Coordinator에요청한다()
         {
             int requests = 0;
-            string route = null;
             _view.OpponentAnalysisRequested += () => requests++;
             _view.MatchPreparationRequested += () => requests++;
             _view.PlayNextGameRequested += () => requests++;
             _view.CompleteSeasonRequested += () => requests++;
-            _view.SaveRequested += () => requests++;
-            _view.NavigationRequested += value => route = value;
+            _shell.SaveRequested += () => requests++;
             _view.Bind(CreateModel(), true);
-            foreach (string name in new[] { "OpponentAnalysisButton", "MatchPreparationButton", "PlayNextGameButton", "SaveButton" })
+            foreach (string name in new[] { "OpponentAnalysisButton", "MatchPreparationButton", "PlayNextGameButton" })
                 FindButton(name).onClick.Invoke();
+            _shell.GetComponentsInChildren<Button>().Single(button => button.name == "GlobalSave").onClick.Invoke();
             FindButton("CompleteSeasonButton").onClick.Invoke();
             Assert.That(requests, Is.EqualTo(4), "첫 클릭은 시즌 일괄 진행 확인만 열어야 한다.");
             FindButton("CompleteSeasonButton").onClick.Invoke();
             Assert.That(requests, Is.EqualTo(5));
-            FindButton("ScheduleButton").onClick.Invoke();
-            Assert.That(route, Is.EqualTo(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId));
-            FindButton("ClubButton").onClick.Invoke();
-            Assert.That(route, Is.EqualTo(OwnerNavigationRoutes.ClubInformation));
         }
 
         [Test]
@@ -91,7 +86,6 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(FindButton("PlayNextGameButton").interactable, Is.False);
             Assert.That(FindButton("MatchPreparationButton").interactable, Is.False);
             Assert.That(FindButton("OpponentAnalysisButton").interactable, Is.False);
-            Assert.That(FindButton("ScheduleButton").interactable, Is.True);
             Assert.That(FindButton("CompleteSeasonButton").interactable, Is.True);
             Assert.That(FindButton("CompleteSeasonButton").GetComponentInChildren<Text>().text, Is.EqualTo("다음 시즌"));
             Assert.That(FindText("NextMatchValue").text, Is.EqualTo("남은 일정 없음"));
@@ -180,7 +174,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 5,
                 2,
                 45,
-                180);
+                180,
+                seasonRank: 3);
             popup.Bind(progress, key => key == "BUSAN" ? "부산 마리너스" : "서울 웨이브스");
             popup.Show();
 
@@ -191,6 +186,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(texts.Any(text => text.name == "LeagueProgress" && text.text.Contains("45 / 180")), Is.True);
             Assert.That(texts.Any(text => text.name == "PlayerProgress" && text.text.Contains("18 / 72")), Is.True);
             Assert.That(texts.Any(text => text.name == "SeasonRecord" && text.text.Contains("11승  2무  5패")), Is.True);
+            Assert.That(texts.Any(text => text.name == "SeasonRecord" && text.text.Contains("현재 순위  3위")), Is.True);
             Text title = texts.First(text => text.name == "Title");
             CareerUiSkin.Apply(popup.transform);
             Assert.That(title.color, Is.EqualTo(CareerUiTheme.TextPrimary));

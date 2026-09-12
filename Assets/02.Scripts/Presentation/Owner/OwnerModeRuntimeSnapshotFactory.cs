@@ -278,7 +278,9 @@ namespace Baseball.Presentation.Owner
                     throw new InvalidOperationException($"CardId {owned.CardId} 원본이 없습니다.");
                 cards[index] = CreateRosterCardSummary(manager, runtime, owned, card, teamDisplayNames);
             }
-            return new OwnerCollectionSnapshot(cards);
+            return new OwnerCollectionSnapshot(cards,
+                OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock),
+                CreateStudySchedulePermission(manager, runtime));
         }
 
         /// <summary>현재 Save의 OwnedCards와 WorldCardCatalog를 보유 선수 화면 Snapshot으로 투영한다.</summary>
@@ -300,7 +302,17 @@ namespace Baseball.Presentation.Owner
                 cards[index] = CreateCollectionCard(
                     manager, runtime, owned, card, teamColorBonuses, availableSkillBlockCount);
             }
-            return new OwnerCollectionSnapshot(cards);
+            return new OwnerCollectionSnapshot(cards,
+                OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock),
+                CreateStudySchedulePermission(manager, runtime));
+        }
+
+        private static OwnerSchedulePermission CreateStudySchedulePermission(OwnerModeManager manager, ManagerHistoricalRuntimeState runtime)
+        {
+            int minimumWeeks = int.MaxValue;
+            foreach (var program in manager.Balance.OwnerCardGrowth.StudyPrograms)
+                minimumWeeks = Math.Min(minimumWeeks, program.DurationWeeks);
+            return OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining, minimumWeeks);
         }
 
         /// <summary>선수단에서 실제로 연 카드만 상세 Snapshot으로 계산한다.</summary>
@@ -366,6 +378,7 @@ namespace Baseball.Presentation.Owner
                   pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                   isActiveRoster: IsActiveRoster(runtime, owned.CardId),
                   studyStatus: GetStudyStatus(runtime, owned.CardId),
+                  growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth),
                   teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder,
                   isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                   originFranchiseId: season.OriginFranchiseId,
@@ -413,11 +426,20 @@ namespace Baseball.Presentation.Owner
                     contribution.SkillBlock,
                     teamColorBonuses.Get(owned.CardId, ability),
                     contribution.Study,
-                    contribution.Enhancement);
+                    contribution.Enhancement, contribution.Mentoring, contribution.Correction,
+                    contribution.Support, contribution.Slogan, contribution.Staff);
             }
             TeamSeasonPlayerStatusState statuses = runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey);
             int? condition = statuses.TryGetPlayer(season.PlayerPersonId, out TeamSeasonPlayerStatus playerStatus)
                 ? playerStatus.StoredBaseCondition : null;
+            if (condition.HasValue)
+                foreach (var entry in runtime.GetRoster(runtime.PlayerTeamSeasonKey).Entries)
+                    if (entry.CardId == owned.CardId)
+                    {
+                        condition = Math.Min(100, condition.Value + OwnerSupportService.GetConditionBonus(runtime, owned.CardId)
+                            + ManagerModeMatchService.ResolveHeadCoachConditionBonus(runtime, runtime.PlayerTeamSeasonKey, manager.Balance.ConditionChemistry));
+                        break;
+                    }
             string conditionLabel = condition.HasValue
                 ? FormatConditionLabel(manager.Balance.ConditionChemistry.Presentation.GetBand(condition.Value).LabelKey)
                 : "정보 없음";
@@ -453,9 +475,10 @@ namespace Baseball.Presentation.Owner
                 abilityBreakdowns,
                 manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                 conditionLevel: condition.HasValue ? manager.Balance.ConditionChemistry.Presentation.GetLevel(condition.Value) : (int?)null,
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth),
                 originFranchiseId: season.OriginFranchiseId,
                 franchiseHistoryDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(
-                    season.OriginFranchiseId));
+                    season.OriginFranchiseId), growthHistory: OwnerGrowthHistoryFormatter.Format(owned, manager.Balance.Growth));
         }
 
         private static PerCardBonusMap CreateCurrentTeamColorBonuses(
@@ -900,7 +923,7 @@ namespace Baseball.Presentation.Owner
                 ownRoster,
                 selectedPlan);
             result.OwnStarterCard = CreatePublicLineupCard(
-                runtime,
+                manager,
                 ownRoster,
                 ownCardId,
                 FormatRotationOrder(ownRotationIndex),
@@ -954,7 +977,7 @@ namespace Baseball.Presentation.Owner
             LineupPresetState opponentPlan = ManagerModeMatchService.CreateRosterRolePlan(opponentRoster, runtime.WorldCardCatalog);
             int opponentRotationIndex = FindCardIndex(opponentPlan.StarterRotationCardIds, opponentCardId);
             result.OpponentStarterCard = CreatePublicLineupCard(
-                runtime,
+                manager,
                 opponentRoster,
                 opponentCardId,
                 FormatRotationOrder(opponentRotationIndex),

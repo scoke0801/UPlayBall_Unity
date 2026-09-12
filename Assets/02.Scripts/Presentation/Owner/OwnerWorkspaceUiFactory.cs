@@ -95,6 +95,10 @@ namespace Baseball.Presentation.Owner
             CareerUiFrame frame = root.gameObject.AddComponent<CareerUiFrame>();
             frame.Initialize(frameImage, header.rectTransform, content, content, CareerUiTheme.WideFramePadding, isHero);
             CareerUiSkin.ApplyVisualElement(frameImage);
+            // 기존 Outline은 면 전체가 불투명해지는 스킨 충돌이 있어 전용 메시 테두리로 대체한다.
+            borderImage.enabled = false;
+            border.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
+            UIOwnerPanelFrame.Attach(root, isHero);
             return new Panel(root, content);
         }
 
@@ -108,7 +112,7 @@ namespace Baseball.Presentation.Owner
             Color? color = null)
         {
             RectTransform rect = CreateRect(name, parent);
-            var text = rect.gameObject.AddComponent<Text>();
+            var text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = Font;
             text.text = value ?? string.Empty;
             text.fontSize = fontSize;

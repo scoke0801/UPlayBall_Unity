@@ -67,8 +67,7 @@ namespace Baseball.Game.Historical
         Applied,
         SeasonInProgress,
         InsufficientMoney,
-        InvalidStaffState,
-        ContractRenewalRequired
+        InvalidStaffState
     }
 
     /// <summary>시즌 재무 마감, 연봉, 계약 만료와 다음 일정 교체의 단일 결과다.</summary>
@@ -213,6 +212,11 @@ namespace Baseball.Game.Historical
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             if (program == null) throw new ArgumentNullException(nameof(program));
+            // 기간·비용은 호출자가 만든 정의가 아니라 현재 밸런스의 정본으로 재검증한다.
+            program = _balance.OwnerCardGrowth.GetStudyProgram(program.ProgramId);
+            OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.OverseasTraining, program.DurationWeeks).RequireAllowed();
+            foreach (var camp in runtime.PlayerGrowth.Camps)
+                if (camp.CardId == cardId) throw new InvalidOperationException("전지훈련을 마친 뒤 유학을 시작하세요.");
             if (ContainsCard(runtime.GetRoster(runtime.PlayerTeamSeasonKey), cardId))
                 throw new InvalidOperationException("1군 등록 카드는 유학을 시작할 수 없습니다.");
             if (!runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState owned))
@@ -226,7 +230,9 @@ namespace Baseball.Game.Historical
                 RequireMode(runtime).ClubOperation.GetFacility(FacilityType.TrainingCenter).Level);
             OwnerCardStudyResolver.Start(
                 runtime.PlayerGrowth, owned, runtime.WorldCardCatalog.GetPlayerSeason(card), program,
-                runtime.Economy, runtime.ManagerMode.LiveSeason.SeasonNumber, capacity);
+                runtime.Economy, runtime.ManagerMode.LiveSeason.SeasonNumber, capacity,
+                Baseball.Simulation.Random.DeterministicSeed.Derive(runtime.WorldHistory.WorldHistorySeed, (ulong)runtime.PlayerGrowth.StudySequence + 4801UL),
+                new Baseball.Simulation.Random.Pcg32Random(Baseball.Simulation.Random.DeterministicSeed.Derive(runtime.WorldHistory.WorldHistorySeed, (ulong)runtime.PlayerGrowth.StudySequence + 4801UL)));
         }
 
         /// <summary>공유 인벤토리 블록을 다른 카드와 중복하지 않게 지정 좌표에 장착한다.</summary>
@@ -238,6 +244,7 @@ namespace Baseball.Game.Historical
             int originY,
             int rotationQuarterTurns)
         {
+            OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).RequireAllowed();
             OwnedPlayerCardState card = GetOwnedCard(runtime, cardId);
             EnsureBlockIsNotEquipped(runtime, instanceId, cardId);
             new OwnerSkillBoardService(_balance.Growth).Place(
@@ -246,14 +253,18 @@ namespace Baseball.Game.Historical
 
         public bool AutoPlaceOwnedCardSkillBlock(ManagerHistoricalRuntimeState runtime, string cardId, int instanceId)
         {
+            OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).RequireAllowed();
             OwnedPlayerCardState card = GetOwnedCard(runtime, cardId);
             EnsureBlockIsNotEquipped(runtime, instanceId, cardId);
             return new OwnerSkillBoardService(_balance.Growth).TryPlaceFirstAvailable(
                 runtime.PlayerGrowth.Inventory, card.SkillBoard, instanceId);
         }
 
-        public bool RemoveOwnedCardSkillBlock(ManagerHistoricalRuntimeState runtime, string cardId, int instanceId) =>
-            new OwnerSkillBoardService(_balance.Growth).Remove(GetOwnedCard(runtime, cardId).SkillBoard, instanceId);
+        public bool RemoveOwnedCardSkillBlock(ManagerHistoricalRuntimeState runtime, string cardId, int instanceId)
+        {
+            OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).RequireAllowed();
+            return new OwnerSkillBoardService(_balance.Growth).Remove(GetOwnedCard(runtime, cardId).SkillBoard, instanceId);
+        }
 
         /// <summary>보유 중복 카드 한 장을 실패 없이 +5 상한까지 강화한다.</summary>
         public CardEnhancementResult EnhanceOwnedCard(
@@ -429,9 +440,29 @@ namespace Baseball.Game.Historical
             }
 
             season.AdvanceWeek();
-            AdvanceStudies(runtime);
             mode.ClubOperation.BeginWeek(season.CurrentWeekIndex);
             return new ManagerWeeklyAdvanceResult(status, production, recoveries);
+        }
+
+        /// <summary>오프시즌 한 주를 중복 없이 정산하며 시설의 경기 주간 보상을 발급하지 않는다.</summary>
+        public bool AdvanceOffseasonWeek(ManagerHistoricalRuntimeState runtime, int expectedCompletedWeeks)
+        {
+            if (OwnerScheduleGateService.GetPhase(runtime) != OwnerSeasonPhase.Offseason)
+                throw new InvalidOperationException("포스트시즌이 끝난 뒤 훈련 주차를 진행할 수 있습니다.");
+            // 원본 누락으로 주차만 소비되지 않도록 모든 완료 대상을 먼저 확인한다.
+            foreach (CardStudyProjectState project in runtime.PlayerGrowth.StudyProjects)
+            {
+                if (project.RemainingWeeks > runtime.PlayerGrowth.Offseason.RemainingWeeks)
+                    throw new InvalidOperationException("훈련 기간이 남은 오프시즌을 초과합니다. 저장된 훈련 일정을 확인해 주세요.");
+                GetOwnedCard(runtime, project.CardId);
+                if (!runtime.WorldCardCatalog.TryGetCard(project.CardId, out _))
+                    throw new InvalidOperationException("유학 카드 원본이 없습니다.");
+                _balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId);
+            }
+            if (!runtime.PlayerGrowth.Offseason.TryAdvance(expectedCompletedWeeks)) return false;
+            AdvanceStudies(runtime);
+            OwnerCampService.AdvanceWeek(runtime, _balance);
+            return true;
         }
 
         private void AdvanceStudies(ManagerHistoricalRuntimeState runtime)
@@ -447,7 +478,7 @@ namespace Baseball.Game.Historical
                 OwnerCardStudyResolver.Complete(
                     owned,
                     runtime.WorldCardCatalog.GetPlayerSeason(card),
-                    _balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId));
+                    _balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId), project.ResultBonus);
                 runtime.PlayerGrowth.RemoveStudyAt(index);
             }
         }
@@ -469,6 +500,7 @@ namespace Baseball.Game.Historical
 
         private static bool IsStudying(ManagerHistoricalRuntimeState runtime, string cardId)
         {
+            foreach (var camp in runtime.PlayerGrowth.Camps) if (camp.CardId == cardId) return true;
             for (int index = 0; index < runtime.PlayerGrowth.StudyProjects.Count; index++)
                 if (string.Equals(runtime.PlayerGrowth.StudyProjects[index].CardId, cardId, StringComparison.Ordinal)) return true;
             return false;
@@ -502,6 +534,8 @@ namespace Baseball.Game.Historical
         public ManagerSeasonAdvanceResult AdvanceSeason(ManagerHistoricalRuntimeState runtime)
         {
             ManagerModeRuntimeState mode = RequireMode(runtime);
+            if (runtime.PlayerGrowth.StudyProjects.Count > 0 || runtime.PlayerGrowth.Camps.Count > 0)
+                throw new InvalidOperationException("유학 중인 선수가 있습니다. 오프시즌 훈련 주차를 진행해 귀환시킨 뒤 다음 시즌을 시작해 주세요.");
             if (!mode.LiveSeason.IsCompleted || runtime.LeagueWorld != null && !runtime.LeagueWorld.IsCompleted)
             {
                 return new ManagerSeasonAdvanceResult(
@@ -575,6 +609,7 @@ namespace Baseball.Game.Historical
                 staffAdvance.Assignment,
                 completedSeasonState);
             worldService.CommitNextSeason(runtime, nextWorld);
+            runtime.PlayerGrowth.Offseason.BeginNextSeason();
             runtime.ShopPurchaseHistory.ResetPeriod();
             return new ManagerSeasonAdvanceResult(
                 ManagerSeasonAdvanceStatus.Applied,
@@ -805,7 +840,7 @@ namespace Baseball.Game.Historical
     /// <summary>저장된 시즌 이력에서 유학지 해금 성취를 결정론적으로 복원한다.</summary>
     public static class OwnerCardStudyUnlockEvaluator
     {
-        public static OwnerCardStudyUnlockProgress Evaluate(ManagerHistoricalRuntimeState runtime)
+        public static OwnerCardStudyUnlockProgress Evaluate(ManagerHistoricalRuntimeState runtime, LeagueGrade minimumChampionshipGrade = LeagueGrade.Rookie)
         {
             if (runtime == null) throw new ArgumentNullException(nameof(runtime));
             if (!runtime.HasManagerMode)
@@ -825,11 +860,11 @@ namespace Baseball.Game.Historical
                 championships += CountChampionships(
                     runtime.LeagueWorld.CompletedGroups,
                     runtime.PlayerTeamSeasonKey,
-                    countedSeasonIds);
+                    countedSeasonIds, minimumChampionshipGrade);
                 championships += CountChampionships(
                     runtime.LeagueWorld.Groups,
                     runtime.PlayerTeamSeasonKey,
-                    countedSeasonIds);
+                    countedSeasonIds, minimumChampionshipGrade);
             }
             return new OwnerCardStudyUnlockProgress(highestGrade, championships);
         }
@@ -837,12 +872,13 @@ namespace Baseball.Game.Historical
         private static int CountChampionships(
             IReadOnlyList<OwnerLeagueGroupState> groups,
             string playerTeamSeasonKey,
-            HashSet<string> countedSeasonIds)
+            HashSet<string> countedSeasonIds, LeagueGrade minimumGrade)
         {
             int count = 0;
             for (int groupIndex = 0; groupIndex < groups.Count; groupIndex++)
             {
                 OwnerLeagueGroupState group = groups[groupIndex];
+                if (group.League.Grade < minimumGrade) continue;
                 OwnerPostseasonState postseason = group.Postseason;
                 if (postseason == null || !postseason.IsCompleted ||
                     !countedSeasonIds.Add(group.Season.SeasonId))

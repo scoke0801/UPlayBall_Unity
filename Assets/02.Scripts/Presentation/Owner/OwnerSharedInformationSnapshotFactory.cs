@@ -9,7 +9,7 @@ using Baseball.Presentation.SharedScreens;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>Owner Runtime의 확정 일정과 역사 기록만 공용 정보 화면 Snapshot으로 투영한다.</summary>
-    public sealed class OwnerSharedInformationSnapshotFactory
+    public sealed partial class OwnerSharedInformationSnapshotFactory
     {
         /// <summary>현재 Save의 전체 대진과 완료 점수를 날짜를 발명하지 않는 Round 일정으로 복사한다.</summary>
         public ScheduleScreenSnapshot CreateSchedule(OwnerModeManager manager)

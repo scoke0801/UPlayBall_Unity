@@ -42,7 +42,6 @@ namespace Baseball.Presentation.Owner
                 float width = Mathf.Min(24f, step * 0.44f);
                 Color accent = PlayerCardConditionSprites.GetColor(_levels[i]);
                 Color body = Color.Lerp(CareerUiTheme.RosterSurface, accent, 0.65f);
-                Quad(vh, new Rect(x - width / 2f, r.y, width, r.height), CareerUiTheme.RosterSurface);
                 Quad(vh, new Rect(x - width / 2f, r.y, width, y - r.y), body);
                 float capHeight = Mathf.Min(3f, y - r.y);
                 if (capHeight > 0f)

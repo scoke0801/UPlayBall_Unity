@@ -9,7 +9,7 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>순위표 레퍼런스의 밝은 격자와 구단 강조를 네 개의 리그 탭에 표시한다.</summary>
     [RequireComponent(typeof(RectTransform))]
-    public sealed class UI_Scene_OwnerLeague : MonoBehaviour
+    public sealed partial class UI_Scene_OwnerLeague : MonoBehaviour
     {
         private static Color Ink => CareerUiTheme.ReferenceDataInk;
         private static Color Blue => CareerUiTheme.ReferenceDataAccent;
@@ -19,7 +19,15 @@ namespace Baseball.Presentation.Owner
         private OwnerLeaguePresentationModel _model;
         private int _tab;
         private int _historyStart;
+        private Button _selectedTeamButton;
         public event Action<string> TeamSelected;
+
+        /// <summary>선수단 상세에서 돌아오면 선택했던 구단으로 입력 포커스를 복원한다.</summary>
+        public void RestoreFocus()
+        {
+            if (_selectedTeamButton != null) _selectedTeamButton.Select();
+            else if (_tab == 0) _sectionButton?.Select();
+        }
 
         /// <summary>공용 셸의 리그 작업 영역에 화면을 만든다.</summary>
         public static UI_Scene_OwnerLeague CreateRuntime(RectTransform host)
@@ -29,8 +37,11 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>현재 시즌 기록을 교체하고 최신 여섯 라운드를 선택한다.</summary>
-        public void Bind(OwnerLeaguePresentationModel model)
+        public void Bind(OwnerLeaguePresentationModel model, Baseball.Game.Historical.OwnerSeasonReviewSnapshot postseason = null)
         {
+            if (_postseason != null && postseason != null && _postseason.SeasonNumber != postseason.SeasonNumber)
+                _section = StandingsSection.PennantRace;
+            _postseason = postseason;
             _model = model ?? throw new ArgumentNullException(nameof(model));
             _historyStart = Math.Max(0, model.Rounds.Count - 6);
             if (gameObject.activeSelf) Render();
@@ -46,14 +57,24 @@ namespace Baseball.Presentation.Owner
 
         private void Render()
         {
+            _selectedTeamButton = null;
+            _sectionButton = null;
+            // Destroy가 지연되는 프레임에도 이전 탭의 입력과 글자가 겹치지 않게 한다.
+            for (int i = 0; i < transform.childCount; i++) transform.GetChild(i).gameObject.SetActive(false);
             OwnerRuntimeUiFactory.ClearChildren(transform);
             if (_model == null) return;
             var root = (RectTransform)transform;
             Surface(root, "Paper", CareerUiTheme.ReferenceDataCanvas, 0, 0, 1, 1);
             Label(root, "Season", _model.SeasonLabel, .035f, .91f, .8f, .98f, 16, Ink, TextAnchor.MiddleLeft);
             Surface(root, "BlueRule", Blue, .025f, .897f, .975f, .9f);
+            if (_tab == 0) RenderSectionTabs(root);
+            if (_tab == 0 && _section == StandingsSection.Postseason)
+            {
+                RenderPostseason(root);
+                return;
+            }
             var table = OwnerRuntimeUiFactory.CreateRect("LeagueTable", root);
-            Place(table, .035f, .12f, .965f, .87f);
+            Place(table, .035f, .12f, .965f, _tab == 0 ? .79f : .87f);
             if (_model.Standings.Count == 0)
                 Label(table, "Empty", "표시할 리그 일정이 없습니다.", 0, 0, 1, 1, 20, Ink);
             else if (_tab == 2) RenderMatchups(table);
@@ -98,7 +119,7 @@ namespace Baseball.Presentation.Owner
                 var button = row.gameObject.AddComponent<Button>();
                 button.targetGraphic = image;
                 string teamId = team.Id;
-                button.onClick.AddListener(() => TeamSelected?.Invoke(teamId));
+                button.onClick.AddListener(() => { _selectedTeamButton = button; TeamSelected?.Invoke(teamId); });
             }
         }
 

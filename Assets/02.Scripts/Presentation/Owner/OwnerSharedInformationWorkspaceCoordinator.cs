@@ -28,6 +28,25 @@ namespace Baseball.Presentation.Owner
         public void FocusFrontManagerButton() => _clubInformationView?.FocusFrontManagerButton();
         private UI_Scene_OwnerSharedInformation _scheduleView;
         private UI_Scene_OwnerSharedInformation _recordsView;
+        private UI_Scene_OwnerClubHistory _clubHistoryView;
+        public event Action<int> HistorySeasonPlayersRequested;
+
+        /// <summary>기록실의 시즌 상세를 닫고 이전 목록으로 돌아간다.</summary>
+        public bool TryCloseHistoryDetail() => _clubHistoryView != null &&
+            _clubHistoryView.gameObject.activeSelf && _clubHistoryView.TryGoBack();
+
+        /// <summary>구단의 시즌·통산·최고 기록·수상 이력을 기록실에 연결한다.</summary>
+        public void BindClubHistory(OwnerClubHistoryPresentationModel model)
+        {
+            RequireInitialized();
+            if (_clubHistoryView == null)
+            {
+                _clubHistoryView = UI_Scene_OwnerClubHistory.CreateRuntime(_shell.MainWorkspaceHost);
+                _clubHistoryView.SeasonPlayersRequested += season => HistorySeasonPlayersRequested?.Invoke(season);
+                _clubHistoryView.SetVisible(false);
+            }
+            _clubHistoryView.Bind(model);
+        }
         private UI_Scene_OwnerSeasonRecords _seasonRecordsView;
         private UI_Scene_OwnerLeague _leagueView;
         private UI_Scene_OwnerTeamLineup _teamLineupView;
@@ -41,7 +60,11 @@ namespace Baseball.Presentation.Owner
         {
             if (_teamLineupView == null || !_teamLineupView.gameObject.activeSelf) return false;
             _teamLineupView.SetVisible(false);
-            if (_leagueView != null) _leagueView.gameObject.SetActive(true);
+            if (_leagueView != null)
+            {
+                _leagueView.gameObject.SetActive(true);
+                _leagueView.RestoreFocus();
+            }
             return true;
         }
 
@@ -81,7 +104,8 @@ namespace Baseball.Presentation.Owner
         /// <summary>현재 Owner 일정 Snapshot을 읽기 전용 Action Provider와 합성한다.</summary>
         public void BindSchedule(
             ScheduleScreenSnapshot snapshot,
-            UiCapabilitySet capabilities)
+            UiCapabilitySet capabilities,
+            Baseball.Game.Historical.OwnerSeasonReviewSnapshot postseason = null)
         {
             RequireInitialized();
             UiContentStateModel state = snapshot == null || snapshot.Games.Count == 0
@@ -108,7 +132,7 @@ namespace Baseball.Presentation.Owner
                 _leagueView.gameObject.SetActive(false);
             }
             if (snapshot != null)
-                _leagueView.Bind(new OwnerLeaguePresentationModel(snapshot));
+                _leagueView.Bind(new OwnerLeaguePresentationModel(snapshot), postseason);
         }
 
         /// <summary>현재 Save에서 실제 진행한 구단 시즌 이력을 읽기 전용 화면과 합성한다.</summary>
@@ -207,6 +231,15 @@ namespace Baseball.Presentation.Owner
                 ActiveRouteId = SeasonRecordsRouteId;
                 return true;
             }
+            if ((string.Equals(routeId, RecordsRouteId, StringComparison.Ordinal) ||
+                 string.Equals(routeId, OwnerNavigationRoutes.ClubHistory, StringComparison.Ordinal)) && _clubHistoryView != null)
+            {
+                HideAll();
+                _clubHistoryView.SetVisible(true);
+                ShowContext(routeId, "구단 기록실", "시즌 전적 · 통산 성적 · 최고 기록 · 트로피룸");
+                ActiveRouteId = routeId;
+                return true;
+            }
             if (string.Equals(routeId, RecordsRouteId, StringComparison.Ordinal) && _recordsModel != null)
             {
                 HideAll();
@@ -227,6 +260,7 @@ namespace Baseball.Presentation.Owner
             _teamLineupView?.SetVisible(false);
             _scheduleView?.SetVisible(false);
             _recordsView?.SetVisible(false);
+            _clubHistoryView?.SetVisible(false);
             _seasonRecordsView?.SetVisible(false);
             if (_leagueView != null) _leagueView.gameObject.SetActive(false);
             if (_clubInformationView != null) _clubInformationView.gameObject.SetActive(false);

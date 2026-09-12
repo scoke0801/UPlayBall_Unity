@@ -65,11 +65,17 @@ namespace Baseball.Presentation.Owner
             int guaranteedMinimumCost,
             IReadOnlyList<OwnerScoutProbabilitySnapshot> probabilities,
             Func<IReadOnlyList<OwnerScoutProbabilitySnapshot>> probabilityResolver = null,
-            Func<OwnerScoutCandidateSummary> candidateSummaryResolver = null)
+            Func<OwnerScoutCandidateSummary> candidateSummaryResolver = null,
+            string targetFranchiseId = null,
+            string targetFranchiseName = null,
+            int? targetYear = null)
         {
             ProductId = productId ?? string.Empty;
             Title = title ?? string.Empty;
             Scope = scope ?? string.Empty;
+            TargetFranchiseId = targetFranchiseId ?? string.Empty;
+            TargetFranchiseName = targetFranchiseName ?? string.Empty;
+            TargetYear = targetYear;
             PriceText = priceText ?? string.Empty;
             CanPurchase = canPurchase;
             BlockedReason = blockedReason ?? string.Empty;
@@ -90,6 +96,9 @@ namespace Baseball.Presentation.Owner
         public string ProductId { get; }
         public string Title { get; }
         public string Scope { get; }
+        public string TargetFranchiseId { get; }
+        public string TargetFranchiseName { get; }
+        public int? TargetYear { get; }
         public string PriceText { get; }
         public bool CanPurchase { get; }
         public string BlockedReason { get; }
@@ -180,18 +189,27 @@ namespace Baseball.Presentation.Owner
     /// <summary>보유 카드 한 장과 적용 가능한 훈련 Program 목록이다.</summary>
     public sealed class OwnerCardTrainingTargetSnapshot
     {
-        private readonly OwnerCardTrainingProgramSnapshot[] _programs;
+        private readonly Lazy<IReadOnlyList<OwnerCardTrainingProgramSnapshot>> _programs;
 
         public OwnerCardTrainingTargetSnapshot(
             OwnerCollectionCardSnapshot card,
             IReadOnlyList<OwnerCardTrainingProgramSnapshot> programs)
         {
             Card = card ?? throw new ArgumentNullException(nameof(card));
-            _programs = OwnerPowerUpSnapshotCopy.Copy(programs);
+            var copy = OwnerPowerUpSnapshotCopy.Copy(programs);
+            _programs = new Lazy<IReadOnlyList<OwnerCardTrainingProgramSnapshot>>(() => copy);
+        }
+
+        /// <summary>선택한 카드의 훈련 Preview만 한 번 조회한다.</summary>
+        public OwnerCardTrainingTargetSnapshot(OwnerCollectionCardSnapshot card,
+            Func<IReadOnlyList<OwnerCardTrainingProgramSnapshot>> programs)
+        {
+            Card = card ?? throw new ArgumentNullException(nameof(card));
+            _programs = new Lazy<IReadOnlyList<OwnerCardTrainingProgramSnapshot>>(programs);
         }
 
         public OwnerCollectionCardSnapshot Card { get; }
-        public IReadOnlyList<OwnerCardTrainingProgramSnapshot> Programs => _programs;
+        public IReadOnlyList<OwnerCardTrainingProgramSnapshot> Programs => _programs.Value;
     }
 
     /// <summary>훈련 대상과 현재 DP를 묶은 화면 Snapshot이다.</summary>
@@ -222,6 +240,9 @@ namespace Baseball.Presentation.Owner
     public sealed class OwnerEnhancementSaleTargetSnapshot
     {
         private readonly CardSalePreview[] _salePreviews;
+        private readonly Lazy<CardEnhancementPreview> _enhancement;
+        private readonly Func<int, CardSalePreview> _saleResolver;
+        private readonly Dictionary<int, CardSalePreview> _queriedSales = new Dictionary<int, CardSalePreview>();
 
         public OwnerEnhancementSaleTargetSnapshot(
             OwnerCollectionCardSnapshot card,
@@ -229,20 +250,42 @@ namespace Baseball.Presentation.Owner
             IReadOnlyList<CardSalePreview> salePreviews)
         {
             Card = card ?? throw new ArgumentNullException(nameof(card));
-            Enhancement = enhancement;
+            _enhancement = new Lazy<CardEnhancementPreview>(() => enhancement);
             _salePreviews = OwnerPowerUpSnapshotCopy.Copy(salePreviews);
         }
 
+        /// <summary>강화는 선택 시, 판매는 요청 수량별로 한 번만 조회한다.</summary>
+        public OwnerEnhancementSaleTargetSnapshot(OwnerCollectionCardSnapshot card,
+            Func<CardEnhancementPreview> enhancement, Func<int, CardSalePreview> sale)
+        {
+            Card = card ?? throw new ArgumentNullException(nameof(card));
+            _enhancement = new Lazy<CardEnhancementPreview>(enhancement);
+            _saleResolver = sale;
+        }
+
         public OwnerCollectionCardSnapshot Card { get; }
-        public CardEnhancementPreview Enhancement { get; }
-        public IReadOnlyList<CardSalePreview> SalePreviews => _salePreviews;
+        public CardEnhancementPreview Enhancement => _enhancement.Value;
+        public IReadOnlyList<CardSalePreview> SalePreviews
+        {
+            get
+            {
+                if (_salePreviews != null) return _salePreviews;
+                var previews = new CardSalePreview[Math.Max(1, Card.DuplicateCount)];
+                for (int index = 0; index < previews.Length; index++) previews[index] = GetSalePreview(index + 1);
+                return previews;
+            }
+        }
 
         /// <summary>요청 수량에 대응하는 Simulation 판매 Preview를 반환한다.</summary>
         public CardSalePreview GetSalePreview(int count)
         {
-            if (count <= 0 || count > _salePreviews.Length)
+            int maximum = _salePreviews?.Length ?? Math.Max(1, Card.DuplicateCount);
+            if (count <= 0 || count > maximum)
                 return default;
-            return _salePreviews[count - 1];
+            if (_salePreviews != null) return _salePreviews[count - 1];
+            if (!_queriedSales.TryGetValue(count, out CardSalePreview preview))
+                _queriedSales[count] = preview = _saleResolver(count);
+            return preview;
         }
     }
 
@@ -276,6 +319,18 @@ namespace Baseball.Presentation.Owner
         private readonly Lazy<OwnerScoutScreenSnapshot> _scout;
         private readonly Lazy<OwnerCardTrainingScreenSnapshot> _training;
         private readonly Lazy<OwnerEnhancementSaleScreenSnapshot> _enhancementSale;
+        private readonly Func<string, OwnerCollectionCardSnapshot> _detailResolver;
+        private readonly Dictionary<string, OwnerCollectionCardSnapshot> _details =
+            new Dictionary<string, OwnerCollectionCardSnapshot>(StringComparer.Ordinal);
+
+        /// <summary>목록에 실제로 표시하거나 선택한 카드의 상세만 Snapshot 수명 동안 재사용한다.</summary>
+        public OwnerCollectionCardSnapshot ResolveCard(OwnerCollectionCardSnapshot card)
+        {
+            if (_detailResolver == null) return card;
+            if (!_details.TryGetValue(card.CardId, out OwnerCollectionCardSnapshot detail))
+                _details[card.CardId] = detail = _detailResolver(card.CardId);
+            return detail;
+        }
 
         public OwnerPowerUpSnapshot(
             OwnerScoutScreenSnapshot scout,
@@ -294,11 +349,13 @@ namespace Baseball.Presentation.Owner
         public OwnerPowerUpSnapshot(
             Func<OwnerScoutScreenSnapshot> scout,
             Func<OwnerCardTrainingScreenSnapshot> training,
-            Func<OwnerEnhancementSaleScreenSnapshot> enhancementSale)
+            Func<OwnerEnhancementSaleScreenSnapshot> enhancementSale,
+            Func<string, OwnerCollectionCardSnapshot> detailResolver = null)
         {
             _scout = new Lazy<OwnerScoutScreenSnapshot>(scout);
             _training = new Lazy<OwnerCardTrainingScreenSnapshot>(training);
             _enhancementSale = new Lazy<OwnerEnhancementSaleScreenSnapshot>(enhancementSale);
+            _detailResolver = detailResolver;
         }
 
         public OwnerScoutScreenSnapshot Scout => _scout.Value;
@@ -313,15 +370,18 @@ namespace Baseball.Presentation.Owner
         public static OwnerPowerUpSnapshot BuildDeferred(
             OwnerModeManager manager,
             ShopService shop,
-            Func<OwnerCollectionSnapshot> collectionFactory)
+            Func<OwnerCollectionSnapshot> collectionFactory,
+            Func<string, OwnerCollectionCardSnapshot> detailResolver = null)
         {
             if (manager == null) throw new ArgumentNullException(nameof(manager));
             if (shop == null) throw new ArgumentNullException(nameof(shop));
             var collection = new Lazy<OwnerCollectionSnapshot>(collectionFactory);
-            return new OwnerPowerUpSnapshot(
+            OwnerPowerUpSnapshot snapshot = null;
+            snapshot = new OwnerPowerUpSnapshot(
                 () => BuildScout(manager, shop),
-                () => BuildTraining(manager, collection.Value),
-                () => BuildEnhancementSale(manager, collection.Value));
+                () => BuildTraining(manager, collection.Value, snapshot.ResolveCard),
+                () => BuildEnhancementSale(manager, collection.Value), detailResolver);
+            return snapshot;
         }
 
         /// <summary>동일 Runtime에서 세 전력보강 Route의 표시 Snapshot을 만든다.</summary>
@@ -393,7 +453,8 @@ namespace Baseball.Presentation.Owner
                 pity.GuaranteedMinimumCost,
                 null,
                 () => CreateScoutProbabilities(shop, product.ProductId),
-                () => CreateScoutCandidateSummary(manager.Runtime, scoutPool, featurePolicy));
+                () => CreateScoutCandidateSummary(manager.Runtime, scoutPool, featurePolicy),
+                product.TargetFranchiseId, product.TargetFranchiseName, product.TargetYear);
         }
 
         private static ScoutPoolDefinition FindScoutPool(
@@ -445,7 +506,8 @@ namespace Baseball.Presentation.Owner
 
         private static OwnerCardTrainingScreenSnapshot BuildTraining(
             OwnerModeManager manager,
-            OwnerCollectionSnapshot collection)
+            OwnerCollectionSnapshot collection,
+            Func<OwnerCollectionCardSnapshot, OwnerCollectionCardSnapshot> resolve = null)
         {
             try
             {
@@ -454,15 +516,19 @@ namespace Baseball.Presentation.Owner
                 for (int cardIndex = 0; cardIndex < targets.Length; cardIndex++)
                 {
                     OwnerCollectionCardSnapshot card = collection.Cards[cardIndex];
-                    var programs = new List<OwnerCardTrainingProgramSnapshot>(6);
-                    bool isPitcher = IsPitcher(card);
-                    for (int programIndex = 0; programIndex < definitions.Count; programIndex++)
+                    targets[cardIndex] = new OwnerCardTrainingTargetSnapshot(card, () =>
                     {
-                        CardTrainingProgramDefinition definition = definitions[programIndex];
-                        if (PlayerAbilityCatalog.IsBatterAbility(definition.Ability) == isPitcher) continue;
-                        programs.Add(CreateTrainingProgram(manager, card, definition));
-                    }
-                    targets[cardIndex] = new OwnerCardTrainingTargetSnapshot(card, programs);
+                        OwnerCollectionCardSnapshot detail = resolve == null ? card : resolve(card);
+                        var programs = new List<OwnerCardTrainingProgramSnapshot>(6);
+                        bool isPitcher = IsPitcher(detail);
+                        for (int programIndex = 0; programIndex < definitions.Count; programIndex++)
+                        {
+                            CardTrainingProgramDefinition definition = definitions[programIndex];
+                            if (PlayerAbilityCatalog.IsBatterAbility(definition.Ability) == isPitcher) continue;
+                            programs.Add(CreateTrainingProgram(manager, detail, definition));
+                        }
+                        return programs;
+                    });
                 }
                 return new OwnerCardTrainingScreenSnapshot(
                     targets,
@@ -513,13 +579,10 @@ namespace Baseball.Presentation.Owner
                 for (int index = 0; index < targets.Length; index++)
                 {
                     OwnerCollectionCardSnapshot card = collection.Cards[index];
-                    var salePreviews = new CardSalePreview[Math.Max(1, card.DuplicateCount)];
-                    for (int count = 1; count <= salePreviews.Length; count++)
-                        salePreviews[count - 1] = manager.PreviewOwnedCardSale(card.CardId, count);
                     targets[index] = new OwnerEnhancementSaleTargetSnapshot(
                         card,
-                        manager.PreviewOwnedCardEnhancement(card.CardId),
-                        salePreviews);
+                        () => manager.PreviewOwnedCardEnhancement(card.CardId),
+                        count => manager.PreviewOwnedCardSale(card.CardId, count));
                 }
                 return new OwnerEnhancementSaleScreenSnapshot(
                     targets,

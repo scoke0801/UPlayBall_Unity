@@ -21,73 +21,55 @@ namespace Baseball.Presentation.Owner
             _reinforcementCanvas = OwnerRuntimeUiFactory.CreateRect("ReferenceReinforcement", _enhancementRoot);
             _reinforcementCanvas.anchorMin = _reinforcementCanvas.anchorMax = new Vector2(.5f, .5f);
             _reinforcementCanvas.sizeDelta = new Vector2(1000f, 460f);
-            var paper = new GameObject("ReinforcementPaper", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
-            paper.transform.SetParent(_reinforcementCanvas, false);
-            OwnerRuntimeUiFactory.Stretch(paper.rectTransform);
-            paper.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/reinforcement_paper_v1");
-            paper.raycastTarget = false;
-
-            ReferenceButton(_reinforcementCanvas, "PlayerTab", "선수 카드", () => { }, 8, 6, 100, 26);
-            string[] tabs = { "서포트 카드", "작전 카드", "수석코치 카드" };
-            for (int index = 0; index < tabs.Length; index++)
-                ReferenceButton(_reinforcementCanvas, "Category" + index, tabs[index], null,
-                    108 + index * 98, 6, 98, 26).interactable = false;
+            _reinforcementCanvas.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            EnhancementSurface(_reinforcementCanvas, "InventoryBoard", 0, 0, 496, 460);
+            EnhancementText(_reinforcementCanvas, "InventoryTitle", "보유 선수", 20, 16, 12, 200, 28);
             ReferenceButton(_reinforcementCanvas, "CostSort", "코스트 ▼", () =>
             {
                 _sortCostDescending = !_sortCostDescending;
                 _reinforcementCanvas.Find("CostSort/Label").GetComponent<Text>().text =
                     _sortCostDescending ? "코스트 ▼" : "코스트 ▲";
                 BindEnhancementSale();
-            }, 402, 6, 82, 26);
-            _enhancementCardCount = ReferenceText(_reinforcementCanvas, "EnhancementCardCount", "", 15, 730, 6, 250, 26);
-            _enhancementCardCount.alignment = TextAnchor.MiddleRight;
+            }, 380, 12, 100, 28);
+            _enhancementCardCount = EnhancementText(_reinforcementCanvas, "EnhancementCardCount", "", 12, 16, 44, 180, 24);
             ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalGridScroll(
-                "EnhancementInventory", _reinforcementCanvas, 6, new Vector2(70f, 116f), 6f,
+                "EnhancementInventory", _reinforcementCanvas, 6, new Vector2(70f, 100f), 6f,
                 out _enhancementCardList);
-            PlaceReference(scroll.GetComponent<RectTransform>(), 8, 34, 478, 366);
+            PlaceReference(scroll.GetComponent<RectTransform>(), 8, 76, 478, 320);
+            StyleTrainingScroll(_enhancementCardList);
             _enhancementCardList.GetComponent<GridLayoutGroup>().padding = new RectOffset(4, 4, 4, 4);
             AddInventoryScrollbar(scroll);
+            _enhancementGrid = new CardGrid(_enhancementCardList, SelectAndRegisterEnhancementCard,
+                ShowEnhancementCardDetail);
 
-            Image frame = ReferenceSurface(_reinforcementCanvas, "RegistrationFrame", 536, 46, 410, 267,
-                new Color32(244, 247, 250, 255), new Color32(72, 103, 145, 255));
-            ReferenceSurface(frame.transform, "InsetFrame", 4, 4, 402, 259, Color.white,
-                new Color32(170, 185, 203, 255));
-            for (int index = 0; index < 10; index++)
-            {
-                Image slot = ReferenceSurface(frame.transform, "RegistrationSlot" + index,
-                    12 + index % 5 * 78, 10 + index / 5 * 108, 74, 104,
-                    new Color32(245, 245, 244, 255), new Color32(218, 221, 223, 255));
-                ReferenceText(slot.transform, "EmptyCard", "○", 52, 2, 16, 70, 72).color =
-                    new Color32(233, 234, 234, 255);
-                if (index > 1) continue;
-                PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(slot.transform,
-                    index == 0 ? "TargetCard" : "MaterialCard");
-                card.UseLineupSlotLayout();
-                OwnerRuntimeUiFactory.Stretch(card.GetComponent<RectTransform>(), new Vector2(3, 3), new Vector2(-3, -3));
-                card.DetailRequested += _ => ShowEnhancementCardDetail(_selectedEnhancementCardId);
-                if (index == 0) _enhancementCard = card;
-                else _enhancementMaterialCard = card;
-            }
-            _enhancementMaterialEmpty = ReferenceText(frame.transform, "MaterialCardEmpty", "", 11, 90, 50, 74, 40);
-            _registerButton = ReferenceButton(frame.transform, "Register", "등록하기", RegisterEnhancement, 10, 229, 128, 28);
-            ReferenceButton(frame.transform, "Unregister", "등록취소", ClearEnhancementRegistration, 140, 229, 128, 28);
-            ReferenceButton(frame.transform, "Reset", "초기화", ResetEnhancement, 270, 229, 128, 28);
-            ReferenceSurface(_reinforcementCanvas, "ReinforceButtonFrame", 662, 350, 154, 48,
-                new Color32(233, 239, 244, 255), new Color32(110, 143, 180, 255));
-            _enhanceButton = ReferenceButton(_reinforcementCanvas, "Enhance", "보강", RequestEnhancement, 669, 356, 140, 34);
-            _enhancementDetails = ReferenceText(_reinforcementCanvas, "EnhancementDetails", "", 12, 528, 316, 442, 32);
-            _enhancementDetails.alignment = TextAnchor.UpperLeft;
-            _enhancementWallet = ReferenceText(_reinforcementCanvas, "EnhancementWallet", "", 12, 518, 404, 292, 24);
-            ReferenceButton(_reinforcementCanvas, "OpenSale", "선수방출", () =>
-                _salePanel.gameObject.SetActive(true), 8, 412, 130, 28);
+            Image frame = EnhancementSurface(_reinforcementCanvas, "RegistrationFrame", 508, 0, 492, 460);
+            RectTransform content = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", frame.transform);
+            PlaceReference(content, 20, 16, 452, 428);
+            EnhancementText(content, "FusionTitle", "선수 카드 합성", 22, 0, 0, 300, 32);
+            EnhancementText(content, "FusionHint", "같은 카드 한 장으로, 한 단계 더 강하게", 13, 0, 36, 452, 24).color = CareerUiTheme.RosterTextSecondary;
+            EnhancementText(content, "TargetLabel", "강화할 선수", 14, 32, 72, 156, 24);
+            EnhancementText(content, "MaterialLabel", "소모할 중복 카드 · 1장", 14, 264, 72, 164, 24);
+            SetTrainingSurface(EnhancementSurface(content, "TargetWell", 28, 100, 164, 208), CareerUiTheme.RosterBoard);
+            SetTrainingSurface(EnhancementSurface(content, "MaterialWell", 260, 100, 164, 208), CareerUiTheme.RosterBoard);
+            _enhancementTargetEmpty = EnhancementText(content, "TargetEmpty", "선수 선택\n\n왼쪽에서 카드를 선택하세요", 14, 32, 108, 156, 180);
+            _enhancementMaterialEmpty = EnhancementText(content, "MaterialCardEmpty", "동일 카드 필요\n\n보유 중복 카드가 자동 등록됩니다", 14, 264, 108, 156, 180);
+            _enhancementTargetEmpty.alignment = _enhancementMaterialEmpty.alignment = TextAnchor.MiddleCenter;
+            _enhancementCard = CreateEnhancementPreview(content, "TargetCard", 36);
+            _enhancementMaterialCard = CreateEnhancementPreview(content, "MaterialCard", 268);
+            EnhancementText(content, "FusionOperator", "+", 30, 208, 172, 36, 48).alignment = TextAnchor.MiddleCenter;
+            _enhancementDetails = EnhancementText(content, "EnhancementDetails", "", 14, 0, 308, 452, 64);
+            _registerButton = ReferenceButton(content, "Register", "선택 해제", ClearEnhancementRegistration, 0, 384, 144, 44);
+            _enhanceButton = ReferenceButton(content, "Enhance", "카드 합성", RequestEnhancement, 156, 384, 296, 44);
+            OwnerUiButtonSkin.Apply(_enhanceButton, OwnerButtonRole.Primary);
+            _enhancementWallet = EnhancementText(_reinforcementCanvas, "EnhancementWallet", "", 12, 196, 44, 284, 24);
+            _enhancementWallet.alignment = TextAnchor.MiddleRight;
+            ReferenceButton(_reinforcementCanvas, "OpenSale", "중복 카드 판매", () =>
+                _salePanel.gameObject.SetActive(true), 16, 412, 144, 32);
             _hideLockedButton = ReferenceButton(_reinforcementCanvas, "HideLocked", "□ 잠금 선수 숨기기", () =>
             {
                 _hideLockedCards = !_hideLockedCards;
                 BindEnhancementSale();
-            }, 320, 412, 166, 28);
-            ReferenceButton(_reinforcementCanvas, "PowerUpSettings", "전력보강 설정", () =>
-                SetFeedback("선수 카드 선택 → 등록하기 → 보강. 동일 카드 1장을 사용하며 실패 확률은 없습니다.", false),
-                838, 412, 142, 28);
+            }, 308, 412, 172, 32);
 
             _salePanel = CreateCenteredCard(_root, "DuplicateSalePanel", new Vector2(420, 180));
             OwnerWorkspaceUiFactory.AddVerticalLayout(_salePanel, 10).padding = new RectOffset(20, 20, 16, 16);
@@ -102,36 +84,51 @@ namespace Baseball.Presentation.Owner
             _salePanel.gameObject.SetActive(false);
         }
 
+        private Text _enhancementTargetEmpty;
+
+        private static Image EnhancementSurface(Transform parent, string name, float x, float y, float width, float height)
+        {
+            Image surface = ReferenceSurface(parent, name, x, y, width, height,
+                CareerUiTheme.RosterSurface, CareerUiTheme.RosterDivider);
+            SetTrainingSurface(surface, CareerUiTheme.RosterSurface);
+            return surface;
+        }
+
+        private static Text EnhancementText(Transform parent, string name, string value, int size,
+            float x, float y, float width, float height)
+        {
+            Text text = ReferenceText(parent, name, value, size, x, y, width, height);
+            text.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            text.color = CareerUiTheme.RosterText;
+            text.alignment = TextAnchor.MiddleLeft;
+            return text;
+        }
+
+        private PlayerMiniCardView CreateEnhancementPreview(Transform parent, string name, float x)
+        {
+            PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(parent, name);
+            card.UseLineupSlotLayout();
+            PlaceReference(card.GetComponent<RectTransform>(), x, 100, 148, 208);
+            card.DetailRequested += _ => ShowEnhancementCardDetail(_selectedEnhancementCardId);
+            return card;
+        }
+
         private void LateUpdate()
         {
             ResizeScoutReference();
+            ResizeTrainingPrograms();
+            _trainingGrid?.Refresh();
+            _enhancementGrid?.Refresh();
             if (_reinforcementCanvas == null || !_enhancementRoot.gameObject.activeInHierarchy) return;
             Rect bounds = _enhancementRoot.rect;
             float scale = Mathf.Max(.01f, Mathf.Min(bounds.width / 1000f, (bounds.height - 32f) / 460f));
             _reinforcementCanvas.localScale = Vector3.one * scale;
         }
 
-        private void RegisterEnhancement()
-        {
-            _hasRegisteredEnhancement = FindEnhancementTarget(_selectedEnhancementCardId) != null;
-            RefreshEnhancementTarget();
-        }
-
         private void ClearEnhancementRegistration()
         {
             _hasRegisteredEnhancement = false;
-            _enhancementCard.gameObject.SetActive(false);
-            _enhancementMaterialCard.gameObject.SetActive(false);
-            _enhanceButton.interactable = false;
-            _enhancementDetails.text = "선수 카드를 선택한 뒤 등록하기를 누르세요.";
-        }
-
-        private void ResetEnhancement()
-        {
-            _selectedEnhancementCardId = string.Empty;
-            _saleCount = 1;
-            ClearEnhancementRegistration();
-            BindEnhancementSale();
+            RefreshEnhancementTarget();
         }
 
         private static void PlaceReference(RectTransform rect, float x, float y, float width, float height)
@@ -173,7 +170,7 @@ namespace Baseball.Presentation.Owner
 
         private static void AddInventoryScrollbar(ScrollRect scroll)
         {
-            Image track = ReferenceSurface(scroll.transform, "InventoryScrollbar", 466, 0, 12, 366,
+            Image track = ReferenceSurface(scroll.transform, "InventoryScrollbar", 466, 0, 12, 320,
                 new Color32(234, 235, 235, 255), new Color32(181, 184, 187, 255));
             Scrollbar bar = track.gameObject.AddComponent<Scrollbar>();
             Image handle = OwnerRuntimeUiFactory.CreateImage("Handle", track.transform, new Color32(175, 183, 191, 255));

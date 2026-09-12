@@ -175,7 +175,8 @@ namespace Baseball.Presentation.Owner
             _progressFill.raycastTarget = false;
             fill.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             RectTransform effectContent = CreateBoardScroll(
-                detail, "EffectScroll", .04f, .505f, .96f, .625f, out _);
+                detail, "EffectScroll", .04f, .505f, .96f, .625f, out ScrollRect effectScroll);
+            effectScroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
             _detail = CreateBoardLabel(effectContent, "Description", string.Empty, 0f, 0f, 1f, 1f, 18, FontStyle.Bold, TextAnchor.UpperLeft);
             _playersTitle = CreateBoardLabel(
                 detail, "PlayersTitle", "효과를 받는 선수", .04f, .445f, .96f, .495f, 14, FontStyle.Bold);
@@ -442,17 +443,28 @@ namespace Baseball.Presentation.Owner
         private void RefreshResponsiveDetail()
         {
             bool compact = ((RectTransform)_detailTitle.transform.parent).rect.height < 420f;
-            if (_hasCompactDetail == compact) return;
+            if (_hasCompactDetail == compact && !_hasDetailLayoutChanges &&
+                _lastDetailSize == ((RectTransform)_detail.transform.parent.parent).rect.size) return;
             _hasCompactDetail = compact;
             // 낮은 화면에서는 보조 설명을 접어 선수 카드와 교체 행동의 가독성을 먼저 보존한다.
             _description.gameObject.SetActive(!compact);
             OwnerDugoutDetailUiFactory.Place(_detailTitle.rectTransform, .04f, compact ? .87f : .86f, .96f, .98f);
             OwnerDugoutDetailUiFactory.Place(_progress.rectTransform, .04f, compact ? .805f : .735f, .96f, compact ? .87f : .79f);
             OwnerDugoutDetailUiFactory.Place((RectTransform)_progressFill.transform.parent, .04f, compact ? .79f : .72f, .96f, compact ? .795f : .73f);
+            bool hasCandidate = _selectedCandidate != null;
+            _progress.gameObject.SetActive(hasCandidate);
+            _progressFill.transform.parent.gameObject.SetActive(hasCandidate);
+            float panelHeight = Mathf.Max(1f, ((RectTransform)_detailTitle.transform.parent).rect.height);
+            float effectTop = hasCandidate ? (compact ? .785f : .705f) : (compact ? .86f : .79f);
+            // 기본 시너지는 빈 선수 영역을 활용한다. 후보 선택 후에는 선수 카드의 가독성을 보존한다.
+            float effectHeight = hasCandidate ? (compact ? .07f : .12f) :
+                Mathf.Clamp((_detail.preferredHeight + CareerUiTheme.Space2) / panelHeight,
+                    .24f, effectTop - (compact ? .43f : .40f));
+            float effectBottom = effectTop - effectHeight;
             OwnerDugoutDetailUiFactory.Place((RectTransform)_detail.transform.parent.parent.parent,
-                .04f, compact ? .715f : .585f, .96f, compact ? .785f : .705f);
-            OwnerDugoutDetailUiFactory.Place(_playersTitle.rectTransform, .04f, compact ? .65f : .535f, .96f, compact ? .71f : .58f);
-            OwnerDugoutDetailUiFactory.Place((RectTransform)_playerViewport.parent, .04f, compact ? .21f : .24f, .96f, compact ? .645f : .53f);
+                .04f, effectBottom, .96f, effectTop);
+            OwnerDugoutDetailUiFactory.Place(_playersTitle.rectTransform, .04f, effectBottom - .065f, .96f, effectBottom - .005f);
+            OwnerDugoutDetailUiFactory.Place((RectTransform)_playerViewport.parent, .04f, compact ? .21f : .24f, .96f, effectBottom - .07f);
             OwnerDugoutDetailUiFactory.Place(_equipReason.rectTransform, .04f, compact ? .105f : .14f, .96f, compact ? .20f : .23f);
             OwnerDugoutDetailUiFactory.Place((RectTransform)_equipButton.transform, .04f, compact ? .01f : .025f, .49f, compact ? .10f : .13f);
             OwnerDugoutDetailUiFactory.Place((RectTransform)_equipSecondButton.transform, .51f, compact ? .01f : .025f, .96f, compact ? .10f : .13f);
@@ -538,6 +550,7 @@ namespace Baseball.Presentation.Owner
         {
             if (label == null) return;
             RectTransform content = (RectTransform)label.transform.parent;
+            // 콘텐츠는 가로만 Stretch하고 세로는 상단 고정이므로 실제 전체 높이를 지정한다.
             float height = Mathf.Max(((RectTransform)content.parent).rect.height, label.preferredHeight + CareerUiTheme.Space2);
             if (Mathf.Abs(content.sizeDelta.y - height) > .5f)
                 content.sizeDelta = new Vector2(0f, height);
@@ -732,11 +745,8 @@ namespace Baseball.Presentation.Owner
             _name.text = hasCandidate ? candidate.Name : "빈 슬롯";
             _grade.text = hasCandidate ? candidate.Grade : "-";
             float gradeCenterX = OwnerTeamColorCardArtwork.GetGradeCenterX(candidate?.Definition);
-            if (!_hasComparisonLayout)
-            {
-                _grade.rectTransform.anchorMin = new Vector2(gradeCenterX - 0.05f, 0.20f);
-                _grade.rectTransform.anchorMax = new Vector2(gradeCenterX + 0.05f, 0.80f);
-            }
+            _grade.rectTransform.anchorMin = new Vector2(gradeCenterX - 0.05f, 0.20f);
+            _grade.rectTransform.anchorMax = new Vector2(gradeCenterX + 0.05f, 0.80f);
             _meta.text = meta ?? string.Empty;
             _state.text = !hasCandidate || !showActivationState
                 ? string.Empty
@@ -758,24 +768,20 @@ namespace Baseball.Presentation.Owner
             _selection.enabled = isSelected;
             if (_hasComparisonLayout)
             {
-                _surface.enabled = false;
-                _fallbackSurface.color = isSelected ? CareerUiTheme.RosterDivider : CareerUiTheme.RosterBoard;
                 _effect.text = hasCandidate ? DescribeComparisonEffect(candidate.Definition) : string.Empty;
                 _state.text = meta.Contains("슬롯") ? "장착 중" : _state.text;
             }
         }
 
-        /// <summary>비교 목록에서는 장식보다 이름·효과·진행도를 우선하는 공통 보드 행을 사용한다.</summary>
+        /// <summary>비교 목록도 공용 플레이트를 사용하고 이름·효과·진행도를 프레임 안에 배치한다.</summary>
         public void UseComparisonLayout()
         {
             _hasComparisonLayout = true;
-            GetComponent<Button>().targetGraphic = _fallbackSurface;
-            OwnerDugoutDetailUiFactory.Place(_grade.rectTransform, .02f, .57f, .085f, .94f);
-            OwnerDugoutDetailUiFactory.Place(_name.rectTransform, .10f, .54f, .81f, .97f);
-            OwnerDugoutDetailUiFactory.Place(_state.rectTransform, .82f, .55f, .98f, .94f);
-            OwnerDugoutDetailUiFactory.Place(_meta.rectTransform, .10f, .035f, .98f, .20f);
+            OwnerDugoutDetailUiFactory.Place(_name.rectTransform, TextSafeLeft, .56f, .80f, .80f);
+            OwnerDugoutDetailUiFactory.Place(_state.rectTransform, .81f, .30f, .94f, .70f);
+            OwnerDugoutDetailUiFactory.Place(_meta.rectTransform, TextSafeLeft, .14f, .80f, .29f);
             _effect = OwnerDugoutDetailUiFactory.CreateLabel(transform, "Effect", string.Empty,
-                .10f, .21f, .98f, .54f, 14, FontStyle.Normal, TextAnchor.MiddleLeft);
+                TextSafeLeft, .30f, .80f, .55f, 14, FontStyle.Normal, TextAnchor.MiddleLeft);
             _effect.color = CareerUiTheme.RosterText;
             _effect.horizontalOverflow = HorizontalWrapMode.Wrap;
             _effect.verticalOverflow = VerticalWrapMode.Truncate;
@@ -784,8 +790,8 @@ namespace Baseball.Presentation.Owner
         /// <summary>긴 한국어 이름과 여러 능력치 효과가 줄바꿈되어도 본문을 자르지 않는다.</summary>
         public float GetComparisonHeight()
         {
-            return Mathf.Max(_name.preferredHeight / .43f, _effect.preferredHeight / .33f,
-                _meta.preferredHeight / .165f);
+            return Mathf.Max(_name.preferredHeight / .24f, _effect.preferredHeight / .25f,
+                _meta.preferredHeight / .15f);
         }
 
         /// <summary>상세와 같은 효과 문구에서 중첩 설명만 분리해 후보끼리 비교한다.</summary>

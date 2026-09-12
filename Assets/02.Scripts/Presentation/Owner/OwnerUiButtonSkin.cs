@@ -25,6 +25,16 @@ namespace Baseball.Presentation.Owner
         private bool _lastInteractable;
         private bool _hasRendered;
         private bool _usesBoardStyle;
+        private bool _usesDashboardStyle;
+
+        /// <summary>홈의 행동 위계를 골드 기본 행동·네이비 추천·투명 탐색으로 표현한다.</summary>
+        public static void SetDashboardStyle(Button button)
+        {
+            var skin = button.GetComponent<OwnerUiButtonSkin>();
+            if (skin == null) return;
+            skin._usesDashboardStyle = true;
+            skin.Refresh();
+        }
 
         /// <summary>기존 프레임을 유지하며 어두운 카드 편성 보드의 보조 버튼 대비를 맞춘다.</summary>
         public static void SetBoardStyle(Button button)
@@ -106,7 +116,12 @@ namespace Baseball.Presentation.Owner
         public void Refresh()
         {
             if (_frame == null || !enabled) return;
-            if (_role == OwnerButtonRole.Quiet)
+            if (_usesDashboardStyle)
+            {
+                RefreshDashboard();
+                return;
+            }
+            if (_role == OwnerButtonRole.Quiet || _role == OwnerButtonRole.Navigation)
             {
                 _source.enabled = false;
                 _frame.sprite = null;
@@ -122,6 +137,16 @@ namespace Baseball.Presentation.Owner
                 quietColors.disabledColor = Color.clear;
                 _button.colors = quietColors;
                 _label.color = _button.IsInteractable() ? CareerUiTheme.TextSecondary : CareerUiTheme.TextMuted;
+                if (_isSelected == true) _label.color = CareerUiTheme.AccentGold;
+                if (_role == OwnerButtonRole.Navigation)
+                {
+                    var navigationOutline = _source.GetComponent<Outline>();
+                    if (navigationOutline != null) navigationOutline.enabled = false;
+                    var icon = transform.Find("Icon")?.GetComponent<RawImage>();
+                    if (icon != null) icon.color = _isSelected == true ? CareerUiTheme.AccentGold : CareerUiTheme.TextSecondary;
+                }
+                quietColors.fadeDuration = .18f;
+                _button.colors = quietColors;
                 _lastSource = _source.color; _lastLabel = _label.color;
                 _lastInteractable = _button.IsInteractable(); _hasRendered = true;
                 return;
@@ -170,6 +195,36 @@ namespace Baseball.Presentation.Owner
             _lastSource = semantic;
             _lastLabel = _label.color;
             _hasRendered = true;
+        }
+
+        private void RefreshDashboard()
+        {
+            _source.enabled = false;
+            var outline = _source.GetComponent<Outline>();
+            if (outline != null) outline.enabled = false;
+            _frame.sprite = null;
+            _frame.type = Image.Type.Simple;
+            _frame.color = Color.white;
+            bool primary = _role == OwnerButtonRole.Primary;
+            bool quiet = _role == OwnerButtonRole.Quiet;
+            Color surface = primary ? OwnerDashboardStyle.Gold : quiet ? Color.clear : OwnerDashboardStyle.Raised;
+            if (_isSelected == true && !primary) surface = OwnerDashboardStyle.Raised;
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = surface;
+            colors.highlightedColor = primary ? new Color32(242, 212, 146, 255) : new Color32(55, 72, 85, 255);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = primary ? new Color32(186, 151, 87, 255) : new Color32(27, 41, 52, 255);
+            colors.disabledColor = quiet ? Color.clear : new Color32(39, 46, 51, 255);
+            colors.fadeDuration = .18f;
+            _button.targetGraphic = _frame;
+            _button.transition = Selectable.Transition.ColorTint;
+            _button.colors = colors;
+            _label.font = primary ? UIProjectFonts.Default : UIProjectFonts.Body;
+            _label.fontStyle = FontStyle.Normal;
+            _label.color = !_button.IsInteractable() ? OwnerDashboardStyle.Muted
+                : primary ? OwnerDashboardStyle.Ink : _isSelected == true ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Ivory;
+            _lastSource = _source.color; _lastLabel = _label.color;
+            _lastInteractable = _button.IsInteractable(); _hasRendered = true;
         }
 
         private static Sprite LoadFrame(int index)

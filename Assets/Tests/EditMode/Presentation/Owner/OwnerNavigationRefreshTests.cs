@@ -58,6 +58,24 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void SeasonSimulation_진행중홈성적을숨기고종료후복원한다()
+        {
+            Transform home = _shell.MainWorkspaceHost.Find("OwnerHomeWorkspace");
+            Assert.That(home.gameObject.activeSelf, Is.True);
+
+            SetField(_coordinator, "_isSeasonSimulationVisible", true);
+            SetField(_coordinator, "_isPostseasonSimulationVisible", true);
+            _coordinator.Refresh();
+            Assert.That(home.gameObject.activeSelf, Is.False,
+                "포스트시즌 진행창 뒤의 정규시즌 성적 라벨은 숨겨야 한다.");
+
+            SetField(_coordinator, "_isSeasonSimulationVisible", false);
+            SetField(_coordinator, "_isPostseasonSimulationVisible", false);
+            _coordinator.Refresh();
+            Assert.That(home.gameObject.activeSelf, Is.True);
+        }
+
+        [Test]
         public void PlayerCards_양구단카드와선수기록표가현재시즌기록을공유한다()
         {
             var factory = new OwnerModeRuntimeSnapshotFactory();
@@ -220,7 +238,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 OwnerNavigationRoutes.PowerUpStudy, OwnerNavigationRoutes.DugoutLineupNotes,
                 OwnerNavigationRoutes.DugoutManagerPolicy, OwnerManagementRoutes.ClubFinance,
                 OwnerManagementRoutes.ClubFacility, OwnerNavigationRoutes.ClubOwner,
-                OwnerNavigationRoutes.ClubInformation, OwnerNavigationRoutes.ClubContract,
+                OwnerNavigationRoutes.ClubInformation,
                 OwnerNavigationRoutes.LeagueStandings,
                 OwnerNavigationRoutes.LeagueTeamResults, OwnerNavigationRoutes.LeagueMatchups,
                 OwnerNavigationRoutes.LeagueRankHistory,
@@ -291,26 +309,6 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Is.GreaterThanOrEqualTo(snapshot.TeamColorCards[0].Definition.RequiredCount));
         }
 
-        [Test]
-        public void Contract_연장직후목록과상세에증가한잔여기간을표시한다()
-        {
-            Navigate(OwnerNavigationRoutes.ClubContract);
-            object expansion = GetField(_coordinator, "_expansionWorkspace");
-            var before = (OwnerContractSnapshot)GetField(expansion, "_contractSnapshot");
-            string cardId = before.SelectedCardId;
-            int remaining = _manager.Runtime.ManagerMode.GetPlayerContract(cardId).RemainingSeasons;
-
-            Invoke(_coordinator, "HandleContractRenewalRequested", cardId, 1);
-
-            var after = (OwnerContractSnapshot)GetField(expansion, "_contractSnapshot");
-            Assert.That(after, Is.Not.SameAs(before));
-            Assert.That(after.SelectedCardId, Is.EqualTo(cardId));
-            var row = new List<OwnerContractPlayerRow>(after.Players).Find(player => player.CardId == cardId);
-            Assert.That(row.RemainingSeasons, Is.EqualTo(remaining + 1));
-            var view = (UI_Scene_OwnerPlayerMarket)GetField(expansion, "_playerMarketView");
-            var labels = (List<UnityEngine.UI.Text>)GetField(view, "_leftLabels");
-            Assert.That(labels.Exists(label => label.text.Contains($"잔여 {remaining + 1}년")), Is.True);
-        }
 
         private void Navigate(string route) => Invoke(_coordinator, "HandleNavigationRequested", route);
         private static object GetField(object target, string name) => target.GetType()

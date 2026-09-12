@@ -15,6 +15,40 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     /// <summary>팀 컬러 장착의 저장 경계와 실제 해상도별 보드 배치를 검증한다.</summary>
     public sealed class OwnerTeamColorWorkspaceTests
     {
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void 기본시너지본문은스크롤없이전체높이로표시된다(int width, int height)
+        {
+            var root = new GameObject("TeamColorCanvas", typeof(RectTransform));
+            UI_Scene_OwnerTeamColor view = null;
+            try
+            {
+                root.GetComponent<RectTransform>().sizeDelta = new Vector2(width, height);
+                view = UI_Scene_OwnerTeamColor.CreateRuntime(root.transform);
+                view.Bind(new OwnerTeamColorSnapshot("기본", new string[2], Array.Empty<OwnerTeamColorCandidateSnapshot>()));
+                var scroll = view.transform.Find("OwnerTeamColorWorkspace/DetailPanel/ContentSafeRect/EffectScroll").GetComponent<ScrollRect>();
+                Text label = scroll.content.Find("Description").GetComponent<Text>();
+                label.text = "현재 활성 효과 2개 · 2025 2025 LG 트윈스 · 완성된 연대기 + 2025 2025 LG 트윈스 · 한 시즌의 중심\n야수: 올 스탯 +17\n투수: 올 스탯 +17";
+                for (int pass = 0; pass < 3; pass++)
+                {
+                    typeof(UI_Scene_OwnerTeamColor).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(view, null);
+                    typeof(ScrollRect).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(scroll, null);
+                }
+                Assert.That(label.gameObject.activeInHierarchy, Is.True);
+                Assert.That(label.rectTransform.rect.height, Is.GreaterThan(0f));
+                Assert.That(label.preferredHeight, Is.LessThanOrEqualTo(label.rectTransform.rect.height));
+                Assert.That(scroll.content.rect.height, Is.EqualTo(scroll.viewport.rect.height).Within(.1f));
+                AssertInside(scroll.viewport, label.rectTransform);
+            }
+            finally
+            {
+                if (view != null) UnityEngine.Object.DestroyImmediate(view.gameObject);
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         [Test]
         public void 같은계열교체는기존슬롯에서만허용하고되돌리기는두슬롯을복원한다()
         {

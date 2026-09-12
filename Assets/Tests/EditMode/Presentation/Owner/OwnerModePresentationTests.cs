@@ -69,16 +69,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_계약과스카우트를현재권한으로연다()
+        public void Profile_선수계약은제거하고스카우트는연다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
-            NavigationEntry contract = profile.FindEntry(OwnerNavigationRoutes.ClubContract);
+            NavigationEntry contract = profile.FindEntry("Owner.Club.Contract");
             NavigationEntry awardScout = profile.FindEntry("Owner.Scout.Award");
 
-            Assert.That(contract, Is.Not.Null);
-            Assert.That(contract.IsEnabled, Is.True);
-            Assert.That(contract.RequiredCapability, Is.EqualTo(UiCapability.CanManagePlayerContracts));
+            Assert.That(contract, Is.Null);
             Assert.That(awardScout.RouteId, Is.EqualTo(OwnerNavigationRoutes.PowerUpScout));
             Assert.That(awardScout.IsEnabled, Is.True);
             Assert.That(awardScout.DisabledReason, Is.Empty);

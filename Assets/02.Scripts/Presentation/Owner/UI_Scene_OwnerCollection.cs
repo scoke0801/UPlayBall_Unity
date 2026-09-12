@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using Baseball.Core.Growth;
+using Baseball.Core.Players;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -42,10 +43,8 @@ namespace Baseball.Presentation.Owner
             { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
         private static readonly PlayerAbility[] PitcherTrainingAbilities =
             { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental };
-        private static readonly string[] BatterStudyPrograms =
-            { "study_contact", "study_power", "study_defense", "study_batter_allround" };
-        private static readonly string[] PitcherStudyPrograms =
-            { "study_velocity", "study_command", "study_breaking", "study_stamina" };
+        private static readonly string[] BatterStudyPrograms = GetStudyProgramIds(PlayerType.Batter);
+        private static readonly string[] PitcherStudyPrograms = GetStudyProgramIds(PlayerType.Pitcher);
 
         public event Action<string> EnhancementRequested;
         public event Action<string> DuplicateSaleRequested;
@@ -75,6 +74,7 @@ namespace Baseball.Presentation.Owner
             _pendingEnhancementCardId = string.Empty;
             RefreshCards();
             OwnerCollectionCardSnapshot selected = GetSelectedCard();
+            RefreshGrowthActions(selected);
             if (selected == null)
             {
                 _selectedCardId = string.Empty;
@@ -411,6 +411,7 @@ namespace Baseball.Presentation.Owner
 
         private void ShowInspector(OwnerCollectionCardSnapshot card)
         {
+            RefreshGrowthActions(card);
             _inspectorCard.gameObject.SetActive(true);
             _inspectorCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card, true));
             _inspectorCard.SetTeamIdentity(card.TeamDisplayName);
@@ -439,6 +440,23 @@ namespace Baseball.Presentation.Owner
             PlayerAbility[] abilities = IsPitcher(card) ? PitcherTrainingAbilities : BatterTrainingAbilities;
             _trainingIndex = (_trainingIndex + 1) % abilities.Length;
             SetFeedback($"훈련 선택: {DescribeAbility(abilities[_trainingIndex])} · 실행 전 DP와 상한을 다시 검증합니다.", false);
+        }
+
+        private void RefreshGrowthActions(OwnerCollectionCardSnapshot card)
+        {
+            if (_snapshot == null || _actionRoot == null) return;
+            bool hasCard = card != null;
+            SetActionEnabled("SkillPlace", hasCard && _snapshot.SkillPermission.IsAllowed && card.AvailableSkillBlockCount > 0);
+            SetActionEnabled("SkillRemove", hasCard && _snapshot.SkillPermission.IsAllowed && card.PlacedSkillBlockCount > 0);
+            SetActionEnabled("StudyStart", hasCard && _snapshot.StudyPermission.IsAllowed && !card.IsActiveRoster && string.IsNullOrEmpty(card.StudyStatus));
+            if (!_snapshot.SkillPermission.IsAllowed) SetFeedback(_snapshot.SkillPermission.Reason, false);
+            else if (!_snapshot.StudyPermission.IsAllowed) SetFeedback(_snapshot.StudyPermission.Reason, false);
+        }
+
+        private void SetActionEnabled(string name, bool enabled)
+        {
+            var action = _actionRoot.Find(name);
+            if (action != null) action.GetComponent<Button>().interactable = enabled;
         }
 
         private void RequestTraining()
@@ -487,13 +505,16 @@ namespace Baseball.Presentation.Owner
             PlayerAbility.Breaking => "변화구", PlayerAbility.Control => "제구력", _ => "투수 정신력"
         };
 
-        private static string DescribeStudy(string id) => id switch
+        private static string DescribeStudy(string id) =>
+            Baseball.Core.Historical.OwnerCardGrowthBalanceTable.CreateDefault().GetStudyProgram(id).DisplayName;
+
+        private static string[] GetStudyProgramIds(PlayerType playerType)
         {
-            "study_contact" => "정교 타격 아카데미", "study_power" => "장타 강화 캠프",
-            "study_defense" => "수비 전문 학교", "study_batter_allround" => "야수 실전 리그",
-            "study_velocity" => "구속 연구소", "study_command" => "제구 아카데미",
-            "study_breaking" => "변화구 디자인 랩", _ => "선발 체력 리그"
-        };
+            var ids = new List<string>();
+            foreach (var program in Baseball.Core.Historical.OwnerCardGrowthBalanceTable.CreateDefault().StudyPrograms)
+                if (program.PlayerType == playerType) ids.Add(program.ProgramId);
+            return ids.ToArray();
+        }
 
         private void ShowNoSelection()
         {

@@ -56,7 +56,7 @@ namespace Baseball.Presentation.Owner
             int skillBlock,
             int teamColor,
             int study,
-            int enhancement)
+            int enhancement, int mentoring = 0, int correction = 0, int support = 0, int slogan = 0, int staff = 0)
         {
             if (baseCard < 0 || training < 0 || skillBlock < 0 || teamColor < 0 || study < 0 || enhancement < 0)
                 throw new ArgumentOutOfRangeException(nameof(baseCard));
@@ -66,6 +66,7 @@ namespace Baseball.Presentation.Owner
             TeamColor = teamColor;
             Study = study;
             Enhancement = enhancement;
+            Mentoring = mentoring; Correction = correction; Support = support; Slogan = slogan; Staff = staff;
         }
 
         public int BaseCard { get; }
@@ -74,7 +75,12 @@ namespace Baseball.Presentation.Owner
         public int TeamColor { get; }
         public int Study { get; }
         public int Enhancement { get; }
-        public int GrowthTotal => checked(Training + SkillBlock + TeamColor + Study + Enhancement);
+        public int Mentoring { get; }
+        public int Correction { get; }
+        public int Support { get; }
+        public int Slogan { get; }
+        public int Staff { get; }
+        public int GrowthTotal => checked(Training + SkillBlock + TeamColor + Study + Enhancement + Mentoring + Correction + Support + Slogan + Staff);
         public int Total => checked(BaseCard + GrowthTotal);
     }
 
@@ -148,7 +154,8 @@ namespace Baseball.Presentation.Owner
             bool isPositionEvidenceMissing = false,
             int? conditionLevel = null,
             string originFranchiseId = "",
-            string franchiseHistoryDisplayName = "")
+            string franchiseHistoryDisplayName = "",
+            PlayerCardGrowthBadgeModel growthBadges = null, string growthHistory = "")
         {
             CardId = RequireText(cardId, nameof(cardId));
             PlayerPersonId = RequireText(playerPersonId, nameof(playerPersonId));
@@ -175,6 +182,8 @@ namespace Baseball.Presentation.Owner
             AvailableSkillBlockCount = availableSkillBlockCount;
             IsActiveRoster = isActiveRoster;
             StudyStatus = studyStatus ?? string.Empty;
+            GrowthHistory = growthHistory ?? string.Empty;
+            GrowthBadges = isOwnedCard ? growthBadges ?? PlayerCardGrowthBadgeModel.Empty : PlayerCardGrowthBadgeModel.Empty;
             TeamDisplayName = teamDisplayName ?? string.Empty;
             OriginFranchiseId = originFranchiseId?.Trim() ?? string.Empty;
             FranchiseHistoryDisplayName = string.IsNullOrWhiteSpace(franchiseHistoryDisplayName)
@@ -218,6 +227,8 @@ namespace Baseball.Presentation.Owner
         public int AvailableSkillBlockCount { get; }
         public bool IsActiveRoster { get; }
         public string StudyStatus { get; }
+        public string GrowthHistory { get; }
+        public PlayerCardGrowthBadgeModel GrowthBadges { get; }
         /// <summary>현재 실제·가상 표시 설정의 카드 원본 구단명. 연도와 사용자 구단명은 포함하지 않는다.</summary>
         public string TeamDisplayName { get; }
         public string OriginFranchiseId { get; }
@@ -237,7 +248,7 @@ namespace Baseball.Presentation.Owner
         public int? GetAbility(PlayerAbility ability) => _abilities?.Get(ability);
         public int? GetEffectiveAbility(PlayerAbility ability) => _abilityBreakdowns == null
             ? _abilities?.Get(ability)
-            : Math.Min(AbilityGraphMaximum, _abilityBreakdowns[(int)ability].Total);
+            : Math.Max(1, Math.Min(AbilityGraphMaximum, _abilityBreakdowns[(int)ability].Total));
         public OwnerAbilityBreakdownSnapshot? GetAbilityBreakdown(PlayerAbility ability) =>
             _abilityBreakdowns == null ? null : _abilityBreakdowns[(int)ability];
 
@@ -268,8 +279,12 @@ namespace Baseball.Presentation.Owner
     {
         private readonly OwnerCollectionCardSnapshot[] _cards;
 
-        public OwnerCollectionSnapshot(IReadOnlyList<OwnerCollectionCardSnapshot> cards)
+        public OwnerCollectionSnapshot(IReadOnlyList<OwnerCollectionCardSnapshot> cards,
+            Baseball.Game.Historical.OwnerSchedulePermission? skillPermission = null,
+            Baseball.Game.Historical.OwnerSchedulePermission? studyPermission = null)
         {
+            SkillPermission = skillPermission ?? new Baseball.Game.Historical.OwnerSchedulePermission(false, "성장 메뉴에서 시즌 일정을 확인하세요.");
+            StudyPermission = studyPermission ?? SkillPermission;
             if (cards == null) throw new ArgumentNullException(nameof(cards));
             _cards = new OwnerCollectionCardSnapshot[cards.Count];
             for (int index = 0; index < cards.Count; index++)
@@ -278,6 +293,8 @@ namespace Baseball.Presentation.Owner
         }
 
         public IReadOnlyList<OwnerCollectionCardSnapshot> Cards => _cards;
+        public Baseball.Game.Historical.OwnerSchedulePermission SkillPermission { get; }
+        public Baseball.Game.Historical.OwnerSchedulePermission StudyPermission { get; }
     }
 
     /// <summary>공용 Mini Card와 Inspector 원본을 함께 전달하는 보유 카드 표시 모델이다.</summary>
@@ -364,7 +381,8 @@ namespace Baseball.Presentation.Owner
                 FormatEdition(card.Edition),
                 status,
                 string.IsNullOrEmpty(card.PlayerSeasonId) ? card.PlayerPersonId : card.PlayerSeasonId,
-                visualState: state, frameEdition: card.Edition, cost: card.Cost, conditionLevel: card.ConditionLevel);
+                visualState: state, frameEdition: card.Edition, cost: card.Cost, conditionLevel: card.ConditionLevel,
+                growthBadges: card.GrowthBadges);
         }
 
         public static string FormatPosition(PlayerPosition position, bool isPositionEvidenceMissing = false)

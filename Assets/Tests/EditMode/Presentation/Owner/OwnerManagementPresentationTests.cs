@@ -113,12 +113,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     OwnerUiButtonSkin.Apply(button);
                     CareerUiSkin.ApplyButton(button);
                     RawImage artwork = card.Find("Artwork").GetComponent<RawImage>();
-                    Assert.That(button.targetGraphic, Is.SameAs(artwork), path);
+                    bool isComparison = card.Find("Effect") != null;
+                    Assert.That(button.targetGraphic, Is.SameAs(isComparison ? (Graphic)card.GetComponent<Image>() : artwork), path);
+                    Assert.That(artwork.enabled, Is.EqualTo(!isComparison), path);
                     Assert.That(artwork.texture, Is.Not.Null, path);
                     Assert.That(artwork.color.a, Is.EqualTo(1f), path);
                     Assert.That(button.colors.disabledColor, Is.EqualTo(Color.white), path);
                     Assert.That(card.Find("Label").GetComponent<Text>().color, Is.EqualTo(Color.white), path);
-                    Assert.That(card.GetComponent<Image>().color.a, Is.Zero, path);
+                    Assert.That(card.GetComponent<Image>().color.a, Is.EqualTo(isComparison ? 1f : 0f), path);
                     Transform frame = card.Find("OwnerButtonFrame");
                     if (frame != null) Assert.That(frame.gameObject.activeSelf, Is.False, path);
                 }
@@ -133,6 +135,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         public void SetUp()
         {
             _root = new GameObject("OwnerManagementPresentationTests_Root", typeof(RectTransform));
+            _root.GetComponent<RectTransform>().sizeDelta = new Vector2(1100, 650);
         }
 
         [TearDown]
@@ -528,7 +531,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(execute.interactable, Is.False);
                 view.Bind(new OwnerPowerUpSnapshot(scout,
                     new OwnerCardTrainingScreenSnapshot(Array.Empty<OwnerCardTrainingTargetSnapshot>(), 0), enhancement));
-                Assert.That(list.childCount, Is.Zero);
+                Assert.That(list.GetComponentsInChildren<PlayerMiniCardView>(), Is.Empty);
                 Assert.That(execute.interactable, Is.False);
             }
             finally
@@ -937,7 +940,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             view.Bind(snapshot);
 
             Transform card = view.transform.Find(
-                "OwnerTeamColorWorkspace/CandidateList/ContentSafeRect/Scroll/Viewport/Content/Candidate0");
+                "OwnerTeamColorWorkspace/EquippedSlots/ContentSafeRect/Slot0");
             RawImage artwork = card.Find("Artwork").GetComponent<RawImage>();
             RectTransform grade = card.Find("Grade").GetComponent<RectTransform>();
             RectTransform title = card.Find("Label").GetComponent<RectTransform>();
@@ -948,11 +951,11 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(artwork.texture, Is.Not.Null);
             Assert.That(artwork.uvRect.y, Is.EqualTo(0.25f).Within(0.001f));
             Assert.That(artwork.uvRect.height, Is.EqualTo(0.50f).Within(0.001f));
-            Assert.That((grade.anchorMin.x + grade.anchorMax.x) * 0.5f, Is.EqualTo(0.192f).Within(0.001f));
+            Assert.That((grade.anchorMin.x + grade.anchorMax.x) * 0.5f, Is.EqualTo(0.1875f).Within(0.001f));
             Assert.That(grade.anchorMin.y + grade.anchorMax.y, Is.EqualTo(1f).Within(0.001f));
             Assert.That(title.anchorMin.x, Is.EqualTo(0.34f).Within(0.001f));
             Assert.That(meta.anchorMin.x, Is.EqualTo(0.34f).Within(0.001f));
-            Assert.That(cardRect.anchorMax.y - cardRect.anchorMin.y, Is.GreaterThan(0.9f));
+            Assert.That(cardRect.anchorMax.y - cardRect.anchorMin.y, Is.GreaterThan(0.5f));
         }
 
         [Test]
@@ -977,26 +980,24 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 1,
                 noBonus,
                 TeamColorStatBonus.AllForRole(PlayerRole.Pitcher, 1));
-            var snapshot = new OwnerTeamColorSnapshot(
-                "기본 프리셋",
-                new string[] { null, null },
-                new[]
-                {
-                    new OwnerTeamColorCandidateSnapshot(common, 1, new[] { "공통 선수" }, true),
-                    new OwnerTeamColorCandidateSnapshot(hitter, 1, new[] { "타자 선수" }, true),
-                    new OwnerTeamColorCandidateSnapshot(pitcher, 1, new[] { "투수 선수" }, true)
-                });
             UI_Scene_OwnerTeamColor view = UI_Scene_OwnerTeamColor.CreateRuntime(_root.transform);
+            var definitions = new[] { common, hitter, pitcher };
+            var names = new[] { "common", "hitter", "pitcher" };
+            for (int index = 0; index < definitions.Length; index++)
+            {
+                var candidate = new OwnerTeamColorCandidateSnapshot(definitions[index], 1, new[] { "선수" }, true);
+                view.Bind(new OwnerTeamColorSnapshot("기본 프리셋", new[] { candidate.Id, null }, new[] { candidate }));
+                Transform slot = view.transform.Find("OwnerTeamColorWorkspace/EquippedSlots/ContentSafeRect/Slot0");
+                Assert.That(slot.Find("Artwork").GetComponent<RawImage>().texture.name,
+                    Is.EqualTo("team_color_card_plate_" + names[index] + "_v2"));
+                Assert.That(GetHorizontalCenter(slot.Find("Grade")), Is.EqualTo(index == 0 ? .1875f : .178f).Within(.001f));
+            }
+        }
 
-            view.Bind(snapshot);
-
-            Transform content = view.transform.Find("OwnerTeamColorWorkspace/CandidateList/ContentSafeRect/Scroll/Viewport/Content");
-            Assert.That(content.Find("Candidate0/Artwork").GetComponent<RawImage>().texture.name,
-                Is.EqualTo("team_color_card_plate_common_v2"));
-            Assert.That(content.Find("Candidate1/Artwork").GetComponent<RawImage>().texture.name,
-                Is.EqualTo("team_color_card_plate_hitter_v2"));
-            Assert.That(content.Find("Candidate2/Artwork").GetComponent<RawImage>().texture.name,
-                Is.EqualTo("team_color_card_plate_pitcher_v2"));
+        private static float GetHorizontalCenter(Transform transform)
+        {
+            RectTransform rect = transform.GetComponent<RectTransform>();
+            return (rect.anchorMin.x + rect.anchorMax.x) * 0.5f;
         }
 
         [Test]

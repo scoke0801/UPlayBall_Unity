@@ -38,6 +38,8 @@ namespace Baseball.Presentation.Owner
                     return OwnerManagementRoutes.ClubFinance;
                 case OwnerNavigationRoutes.ClubOwner:
                     return OwnerNavigationRoutes.ClubInformation;
+                case OwnerNavigationRoutes.ClubHistory:
+                    return OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId;
                 case OwnerNavigationRoutes.LeagueStandings:
                 case OwnerNavigationRoutes.LeagueTeamResults:
                 case OwnerNavigationRoutes.LeagueMatchups:
@@ -85,7 +87,8 @@ namespace Baseball.Presentation.Owner
                 case OwnerNavigationRoutes.PowerUpScout:
                     _shopService = _manager.CreateShopService();
                     _expansionWorkspace.BindPowerUp(OwnerPowerUpPresentationBuilder.BuildDeferred(
-                        _manager, _shopService, () => _snapshotFactory.CreateCollection(_manager)),
+                        _manager, _shopService, () => _snapshotFactory.CreateCollectionSummary(_manager),
+                        cardId => _snapshotFactory.CreateCollectionCardDetails(_manager, new[] { cardId })[0]),
                         ResolveWorkspaceRoute(ActiveRouteId));
                     break;
                 case OwnerManagementRoutes.ClubFinance:
@@ -93,10 +96,6 @@ namespace Baseball.Presentation.Owner
                     break;
                 case OwnerExpansionWorkspaceCoordinator.StaffOfficeRouteId:
                     _expansionWorkspace.BindStaffOffice(_snapshotFactory.CreateStaffOffice(_manager));
-                    break;
-                case OwnerNavigationRoutes.ClubContract:
-                    _expansionWorkspace.BindPlayerContracts(_snapshotFactory.CreatePlayerContracts(
-                        _manager, _selectedContractCardId, _selectedContractTerm));
                     break;
                 case OwnerExpansionWorkspaceCoordinator.PregameRouteId:
                 case OwnerNavigationRoutes.MatchCenterOpponentLineup:
@@ -110,11 +109,11 @@ namespace Baseball.Presentation.Owner
                 case OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId:
                     _sharedInformationWorkspace.BindSchedule(
                         _sharedInformationSnapshotFactory.CreateSchedule(_manager),
-                        _profile.Capabilities);
+                        _profile.Capabilities, _manager.CreateSeasonReview());
                     break;
                 case OwnerSharedInformationWorkspaceCoordinator.RecordsRouteId:
-                    _sharedInformationWorkspace.BindClubSeasonHistoryRecords(
-                        _sharedInformationSnapshotFactory.CreateClubSeasonHistoryRecords(_manager), _profile.Capabilities);
+                    _sharedInformationWorkspace.BindClubHistory(
+                        _sharedInformationSnapshotFactory.CreateClubHistory(_manager));
                     break;
                 case OwnerSharedInformationWorkspaceCoordinator.SeasonRecordsRouteId:
                     _sharedInformationWorkspace.BindSeasonRecords(
@@ -129,7 +128,7 @@ namespace Baseball.Presentation.Owner
                         _snapshotFactory.CreateClubOperation(_manager),
                         _sharedInformationSnapshotFactory.CreateSchedule(_manager),
                         _manager.Runtime.OwnerProfile.Nickname, _manager.Runtime.OwnerProfile.FrontManagerId,
-                        _manager.GetClubDisplayName(playerTeamKey), region));
+                        sourceTeamName: _manager.GetTeamIdentityDisplayName(playerTeamKey), region: region));
                     break;
             }
         }

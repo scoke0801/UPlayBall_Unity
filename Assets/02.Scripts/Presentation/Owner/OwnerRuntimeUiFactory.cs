@@ -183,6 +183,9 @@ namespace Baseball.Presentation.Owner
             for (int index = parent.childCount - 1; index >= 0; index--)
             {
                 GameObject child = parent.GetChild(index).gameObject;
+                // Destroy는 프레임 끝까지 지연되므로 같은 프레임의 Find/재생성에서 이전 UI를 제외한다.
+                child.SetActive(false);
+                child.transform.SetParent(null, false);
                 if (Application.isPlaying)
                     Object.Destroy(child);
                 else

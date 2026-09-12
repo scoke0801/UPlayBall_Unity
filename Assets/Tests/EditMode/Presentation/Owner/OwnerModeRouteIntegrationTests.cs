@@ -29,12 +29,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Profile_Contract는권한과ProductionRoute로활성화되고Trade는노출하지않는다()
+        public void Profile_선수계약과트레이드는노출하지않는다()
         {
             GameModeUiProfile profile = OwnerModeUiProfileFactory.Create();
 
-            Assert.That(profile.Capabilities.Has(UiCapability.CanManagePlayerContracts), Is.True);
-            AssertEnabled(profile, OwnerNavigationRoutes.ClubContract);
+            Assert.That(profile.Capabilities.Has(UiCapability.CanManagePlayerContracts), Is.False);
+            Assert.That(profile.FindEntry("Owner.Club.Contract"), Is.Null);
             Assert.That(profile.FindEntry("Owner.Club.Trade"), Is.Null);
         }
 

@@ -115,6 +115,7 @@ namespace Baseball.Presentation.Owner
             if (isFirstBind) _ownedPageIndex = 0;
             ClearSelection();
             _summaryText.text = model.RosterSummaryText;
+            ClearComparison();
             _evaluationText.text = model.EvaluationText + "\n" + model.EvaluationBasisText;
             _validationText.text = string.Empty;
             _validationText.color = InspectorMessage;
@@ -135,6 +136,7 @@ namespace Baseball.Presentation.Owner
                 return;
             }
             _workspaceMode = mode;
+            ClearComparison();
             _activePlayerGroup = target;
             _positionFilter = 0;
             _ownedPageIndex = 0;
@@ -202,6 +204,11 @@ namespace Baseball.Presentation.Owner
                 if (_placementEditButton != null)
                     _placementEditButton.GetComponentInChildren<Text>().text = "배치 편집";
                 ClearSelection();
+                return true;
+            }
+            if (_isComparisonTab)
+            {
+                SelectAnalysisTab(false);
                 return true;
             }
             return false;
@@ -306,6 +313,7 @@ namespace Baseball.Presentation.Owner
             foreach (Transform panel in board)
                 if (panel.name.EndsWith("Panel", StringComparison.Ordinal)) CompactPanel((RectTransform)panel);
             BuildOwnedPlayerHeader(ownedPanel);
+            BuildAnalysisTabs(analysisPanel);
             OwnerRuntimeUiFactory.SetAnchors(ownedPanel, Vector2.zero, new Vector2(0.64f, 0.60f), Vector2.zero, Vector2.zero);
             OwnerRuntimeUiFactory.SetAnchors(analysisPanel, new Vector2(0.65f, 0f), new Vector2(1f, 0.60f), Vector2.zero, Vector2.zero);
         }
@@ -431,6 +439,7 @@ namespace Baseball.Presentation.Owner
         private void HandlePlayerGroupSelected(PlayerGroupTab playerGroup)
         {
             if (_activePlayerGroup == playerGroup) return;
+            ClearComparison();
             _activePlayerGroup = playerGroup;
             _workspaceMode = playerGroup == PlayerGroupTab.Pitcher
                 ? OwnerRosterWorkspaceMode.Pitching
@@ -902,7 +911,8 @@ namespace Baseball.Presentation.Owner
                 status,
                 visualState: PlayerMiniCardVisualState.Normal,
                 frameEdition: player?.Edition,
-                cost: player?.Cost, conditionLevel: player?.ConditionLevel);
+                cost: player?.Cost, conditionLevel: player?.ConditionLevel,
+                growthBadges: FindOwnedCard(player?.CardId)?.GrowthBadges);
             card.Bind(model, player == null ? null : PlayerPortraitSprites.GetDefault(player.NaturalPosition));
             card.SetTeamIdentity(FindOwnedCard(player?.CardId)?.TeamDisplayName);
         }
@@ -962,7 +972,7 @@ namespace Baseball.Presentation.Owner
                     : OwnerRosterLineupPresentationBuilder.FormatEdition(player.Edition),
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(player.Position, player.PitcherRole, player.IsPositionEvidenceMissing),
                 frameEdition: player.Edition,
-                cost: player.Cost, conditionLevel: player.ConditionLevel);
+                cost: player.Cost, conditionLevel: player.ConditionLevel, growthBadges: player.GrowthBadges);
             card.Bind(model, PlayerPortraitSprites.GetDefault(player.Position));
             card.SetTeamIdentity(player.TeamDisplayName);
             card.SetAssignmentBadge(assignment);
@@ -1171,7 +1181,12 @@ namespace Baseball.Presentation.Owner
             ClearSelection();
             if (firstGroup == slot.Group)
             {
+                OwnerCollectionCardSnapshot before = FindOwnedCard(FindCurrentSlot(firstGroup, first)?.Player?.CardId);
+                OwnerCollectionCardSnapshot after = FindOwnedCard(slot.Player?.CardId);
                 SwapRequested?.Invoke(slot.Group, first, slot.Index);
+                if (_hasPreview && before != null && after != null &&
+                    FindCurrentSlot(firstGroup, first)?.Player?.CardId == after.CardId)
+                    ShowComparison(before, after);
                 return;
             }
             if (slot.Player != null)
@@ -1219,27 +1234,7 @@ namespace Baseball.Presentation.Owner
             AssignmentRequested?.Invoke(group, index, incomingCardId);
             if (!_hasPreview || outgoing == null || incoming == null ||
                 FindCurrentSlot(group, index)?.Player?.CardId != incomingCardId) return;
-            IReadOnlyList<OwnerCollectionCardSnapshot> cards = ResolveCardDetails(new[] { outgoing, incoming });
-            if (cards.Count != 2) return;
-            OwnerRuntimeUiFactory.ClearChildren(_analysisContent);
-            SetAnalysisTitle("교체 전후 비교");
-            AddPositionExplanation($"{outgoing.DisplayName} → {incoming.DisplayName}", 32f).fontStyle = FontStyle.Bold;
-            AddPositionExplanation("변경안입니다. 배치 저장으로 확정하세요.", 40f);
-            AddPositionExplanation($"주 포지션  {OwnerCollectionPresentationBuilder.FormatPosition(outgoing.Position, outgoing.IsPositionEvidenceMissing)} → " +
-                OwnerCollectionPresentationBuilder.FormatPosition(incoming.Position, incoming.IsPositionEvidenceMissing), 32f);
-            bool pitcher = IsPitcher(incoming);
-            PlayerAbility[] abilities = pitcher
-                ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental }
-                : new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
-            string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화", "제구", "정신력" }
-                : new[] { "교타", "장타", "주력", "번트", "수비", "정신력" };
-            for (int abilityIndex = 0; abilityIndex < abilities.Length; abilityIndex++)
-            {
-                int? before = cards[0].GetAbility(abilities[abilityIndex]);
-                int? after = cards[1].GetAbility(abilities[abilityIndex]);
-                AddPositionExplanation($"{labels[abilityIndex]}    {before?.ToString() ?? "—"}  →  {after?.ToString() ?? "—"}", 28f);
-            }
-            if (!pitcher) RenderDefensiveWarnings();
+            ShowComparison(outgoing, incoming);
         }
 
         private void ShowPitchingDetail(OwnerLineupSwapGroup group, int index)

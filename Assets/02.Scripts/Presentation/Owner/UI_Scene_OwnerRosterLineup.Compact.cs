@@ -14,7 +14,7 @@ namespace Baseball.Presentation.Owner
     {
         private readonly OwnerCardFilters _cardFilters = new OwnerCardFilters();
         private enum CostSortOrder { Default, Descending, Ascending }
-        private CostSortOrder _costSortOrder;
+        private CostSortOrder _costSortOrder = CostSortOrder.Descending;
         private PlayerCardEdition? _editionFilter;
         private string _playerSearch = string.Empty;
         private bool? _areFiltersExpanded;
@@ -91,6 +91,7 @@ namespace Baseball.Presentation.Owner
                 if (_model.DefensiveLineup[index].Player?.CardId == cardId && cardId != null)
                     sourceIndex = index;
             if (sourceIndex < 0) return;
+            SelectAnalysisTab(false);
             ResetPositionEditorLayout();
             ClearSelection();
             _positionSourceIndex = sourceIndex;
@@ -221,6 +222,7 @@ namespace Baseball.Presentation.Owner
 
         private void SetAnalysisTitle(string title)
         {
+            if (_isComparisonTab) title = "교체 전후 비교";
             _workspaceRoot.Find("PlayerOrderBoard/ConditionAnalysisPanel/HeaderSlot").GetComponent<Text>().text = title;
         }
 
@@ -426,8 +428,7 @@ namespace Baseball.Presentation.Owner
                     new Vector2(0f, -52f), new Vector2(0f, -28f));
                 Text value = CreateConditionChartText(plot, "Value" + index,
                     valid[index] ? values[index].ToString("0") : "—", 13, CareerUiTheme.RosterText);
-                float height = valid[index] ? Mathf.Clamp01(values[index] / 100f) : 0f;
-                OwnerRuntimeUiFactory.SetAnchors(value.rectTransform, new Vector2(left, height), new Vector2(right, height),
+                OwnerRuntimeUiFactory.SetAnchors(value.rectTransform, new Vector2(left, 1f), new Vector2(right, 1f),
                     new Vector2(0f, 4f), new Vector2(0f, 24f));
             }
             graphic.Bind(values, valid, levels);

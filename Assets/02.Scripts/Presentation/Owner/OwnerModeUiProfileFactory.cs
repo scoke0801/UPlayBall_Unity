@@ -7,6 +7,7 @@ namespace Baseball.Presentation.Owner
     public static class OwnerNavigationRoutes
     {
         public const string Home = "Owner.Home";
+        public const string LegendaryPractice = "Owner.Practice.Legendary";
         public const string Roster = "Owner.Roster";
         public const string RosterLineup = "Owner.Roster.Lineup";
         public const string RosterTacticCards = "Owner.Roster.TacticCards";
@@ -33,7 +34,7 @@ namespace Baseball.Presentation.Owner
         public const string Club = "Owner.Club";
         public const string ClubOwner = "Owner.Club.Owner";
         public const string ClubInformation = "Owner.Club.Information";
-        public const string ClubContract = "Owner.Club.Contract";
+        public const string ClubHistory = "Owner.Club.History";
         public const string League = "Shared.League";
         public const string LeagueStandings = "Shared.League.Standings";
         public const string LeagueTeamResults = "Shared.League.TeamResults";
@@ -120,13 +121,10 @@ namespace Baseball.Presentation.Owner
             {
                 new NavigationEntry(OwnerNavigationRoutes.ClubOwner, "구단주"),
                 new NavigationEntry(OwnerNavigationRoutes.ClubInformation, "구단"),
+                new NavigationEntry(OwnerNavigationRoutes.ClubHistory, "기록실", UiCapability.CanViewSeasonRecords),
                 new NavigationEntry(OwnerManagementRoutes.ClubFinance, "재정"),
                 new NavigationEntry(OwnerManagementRoutes.ClubFacility, "시설"),
                 new NavigationEntry(OwnerExpansionWorkspaceCoordinator.StaffOfficeRouteId, "코칭스태프"),
-                new NavigationEntry(
-                    OwnerNavigationRoutes.ClubContract,
-                    "계약",
-                    UiCapability.CanManagePlayerContracts)
             };
 
             var manifest = new NavigationManifest(new[]
@@ -150,6 +148,7 @@ namespace Baseball.Presentation.Owner
 
             var contextNavigation = new NavigationManifest(new[]
             {
+                new NavigationEntry(OwnerNavigationRoutes.LegendaryPractice, "역대 강팀"),
                 new NavigationEntry(OwnerNavigationRoutes.MatchCenter, "경기 준비", children: new[]
                 {
                     new NavigationEntry(OwnerNavigationRoutes.MatchCenterAnalysis, "상대 분석"),
@@ -194,8 +193,7 @@ namespace Baseball.Presentation.Owner
                 UiCapability.CanTrainOwnedCards |
                 UiCapability.CanManageFinance |
                 UiCapability.CanViewLeagueInformation |
-                UiCapability.CanViewSeasonRecords |
-                UiCapability.CanManagePlayerContracts);
+                UiCapability.CanViewSeasonRecords);
 
             return new GameModeUiProfile(
                 UiGameMode.OwnerCareer,

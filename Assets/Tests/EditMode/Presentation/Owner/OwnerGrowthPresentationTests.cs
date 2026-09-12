@@ -5,6 +5,7 @@ using System.Reflection;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
+using Baseball.Game.Historical;
 using Baseball.Presentation.Owner;
 using NUnit.Framework;
 using UnityEngine;
@@ -92,9 +93,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
 
             Button destination = Find<Button>("StudyPin_study_contact");
-            Assert.That(destination.GetComponent<RectTransform>().rect.width, Is.EqualTo(60).Within(0.1f));
-            Assert.That(destination.GetComponent<RawImage>().texture, Is.Not.Null);
-            Assert.That(FindOrNull<Image>("StudyRoute_study_contact"), Is.Not.Null);
+            Assert.That(destination.GetComponent<RectTransform>().rect.width, Is.EqualTo(44).Within(0.1f));
+            Assert.That(destination.GetComponentInChildren<UIStudyDestinationPin>(), Is.Not.Null);
+            Assert.That(FindOrNull<Image>("StudyRoute_study_contact"), Is.Null);
             Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
             Assert.That(Find<Text>("StudyName").text, Does.Contain("목적지를 선택"));
             Assert.That(FindOrNull<Button>("StartStudy"), Is.Null);
@@ -105,21 +106,22 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(Find<Button>("ChooseStudyPlayer").IsActive(), Is.True);
             Assert.That(Find<Text>("StudyPlayer").text, Is.Not.Empty);
             Assert.That(Find<CanvasGroup>("StudyPlayerCard").blocksRaycasts, Is.False);
-            RawImage selectedPlane = Find<RawImage>("StudyPin_study_contact");
+            UIStudyDestinationPin selectedPlane = Find<UIStudyDestinationPin>("StudyPinSymbol_study_contact");
             Assert.That(selectedPlane.GetComponent<Outline>(), Is.Null,
                 "비행기 원본을 복제하는 Outline 효과를 사용하면 안 됩니다.");
-            Assert.That(selectedPlane.rectTransform.pivot, Is.EqualTo(new Vector2(.5f, .5f)));
-            Assert.That(FindOrNull<Image>("StudySelection_study_contact"), Is.Not.Null);
+            Assert.That(selectedPlane.rectTransform.rect.width, Is.EqualTo(38));
+            Assert.That(Find<Button>("StudyPin_study_contact").GetComponentInChildren<RawImage>().texture, Is.Not.Null);
+            Assert.That(Find<Button>("StudyPinLabel_study_contact").GetComponent<Outline>().effectDistance.x, Is.EqualTo(2));
 
             Click("StudyPin_study_contact");
             Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
-            Click("StudyPin_study_contact");
+            Click("StudyPinLabel_study_contact");
             Click("StudyInformation");
             Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
             Click("StudyPin_study_contact");
             Click("StudyWorldMap");
             Assert.That(Find<Text>("StudyDestination").text, Is.Empty);
-            Assert.That(FindOrNull<Image>("StudyHomeNode"), Is.Not.Null);
+            Assert.That(FindOrNull<Image>("StudyHomeNode"), Is.Null);
         }
 
         [Test]
@@ -130,7 +132,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             {
                 Click("StudyPin_" + study.Program.ProgramId);
                 RectTransform map = Find<RawImage>("StudyWorldMap").rectTransform;
-                RectTransform plane = Find<RawImage>("StudyPin_" + study.Program.ProgramId).rectTransform;
+                RectTransform plane = Find<Image>("StudyPin_" + study.Program.ProgramId).rectTransform;
                 var corners = new Vector3[4];
                 plane.GetWorldCorners(corners);
                 foreach (Vector3 corner in corners)
@@ -247,7 +249,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 source.Board,
                 source.DevelopmentPoints,
                 source.StudyCount,
-                source.StudyCapacity));
+                source.StudyCapacity, source.SkillPermission, source.SeasonPhase));
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpSkills);
 
             Assert.That(FindOrNull<Button>("Block_101"), Is.Not.Null);
@@ -321,6 +323,77 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
+        public void Skills_회전시슬롯과목록을유지하고네번회전후같은배치를보낸다()
+        {
+            Click("Block_1");
+            Button rotate = Find<Button>("Rotate");
+            Button cell = Find<Button>("BoardCell_0_0");
+            ScrollRect inventory = Find<ScrollRect>("SkillInventory");
+            inventory.verticalNormalizedPosition = .4f;
+            int rotation = -1;
+            _view.SkillPlacementRequested += (_, __, x, y, value) => rotation = value;
+            for (int index = 1; index <= 4; index++)
+            {
+                rotate.onClick.Invoke();
+                Assert.That(Find<Button>("BoardCell_0_0"), Is.SameAs(cell));
+                Assert.That(Find<Button>("Rotate"), Is.SameAs(rotate));
+                Assert.That(Find<ScrollRect>("SkillInventory"), Is.SameAs(inventory));
+                Assert.That(inventory.verticalNormalizedPosition, Is.EqualTo(.4f).Within(.01f));
+                Assert.That(Find<Text>("RotationState").text, Does.Contain((index % 4 * 90) + "°"));
+                Assert.That(cell.interactable, Is.True);
+                cell.onClick.Invoke();
+                Assert.That(rotation, Is.EqualTo(index % 4));
+            }
+        }
+
+        [TestCase(0f)]
+        [TestCase(.35f)]
+        [TestCase(.7f)]
+        public void Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(float position)
+        {
+            Canvas.ForceUpdateCanvases();
+            ScrollRect inventory = Find<ScrollRect>("SkillInventory");
+            inventory.verticalNormalizedPosition = position;
+            float offset = inventory.content.anchoredPosition.y;
+            Click("Block_10");
+            Canvas.ForceUpdateCanvases();
+            inventory = Find<ScrollRect>("SkillInventory");
+            Assert.That(inventory.verticalNormalizedPosition, Is.EqualTo(position).Within(.001f));
+            Assert.That(inventory.content.anchoredPosition.y, Is.EqualTo(offset).Within(.1f));
+            Assert.That(Find<Text>("RotationState").text, Does.Contain("0°"));
+            _view.Bind(CreateSnapshot());
+            Canvas.ForceUpdateCanvases();
+            Assert.That(Find<ScrollRect>("SkillInventory").verticalNormalizedPosition,
+                Is.EqualTo(position).Within(.001f));
+            Click("Rarity0");
+            Canvas.ForceUpdateCanvases();
+            // Viewport보다 짧은 목록은 정규화 좌표가 0/1 어느 쪽이든 가능하므로 실제 상단을 확인한다.
+            Assert.That(Find<ScrollRect>("SkillInventory").content.anchoredPosition.y,
+                Is.EqualTo(0f).Within(.1f));
+            Click("Rarity-1");
+            Canvas.ForceUpdateCanvases();
+            Assert.That(Find<ScrollRect>("SkillInventory").verticalNormalizedPosition,
+                Is.EqualTo(1f).Within(.001f));
+        }
+
+        [Test]
+        public void Skills_보관고코스트선수가장착선수보다먼저표시된다()
+        {
+            OwnerGrowthSnapshot source = CreateSnapshot();
+            var cards = new List<OwnerGrowthCardSnapshot>();
+            for (int index = 0; index < 3; index++)
+                cards.Add(new OwnerGrowthCardSnapshot(new OwnerCollectionCardSnapshot(
+                    "cost" + index, "person" + index, "선수" + index, 2025,
+                    PlayerPosition.Shortstop, 5 + index, PlayerCardEdition.Normal, 0, 0, false, false,
+                    isActiveRoster: index == 0), Array.Empty<PlacedSkillBlock>(), Array.Empty<OwnerStudyOption>()));
+            _view.Bind(new OwnerGrowthSnapshot(cards, source.Inventory, source.Definitions, source.Board, 250, 0, 2));
+            Assert.That(Find<ScrollRect>("PlayerInventory").content.GetChild(0).name, Is.EqualTo("Card_cost2"));
+            Assert.That(Find<Text>("SelectedName").text, Is.EqualTo("선수2"));
+            Click("RosterReserve");
+            Assert.That(Find<ScrollRect>("PlayerInventory").content.GetChild(0).name, Is.EqualTo("Card_cost2"));
+        }
+
+        [Test]
         public void Study_비용확인후확정해야명령을전달하고취소하면확인을폐기한다()
         {
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
@@ -384,9 +457,12 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = 1;
-                foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy, "StudySelected", "StudyPlayerPicker" })
+                foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy, "StudySelected", "StudyPlayerPicker", "StudyPitcher" })
                 {
+                    if (route == "StudyPitcher") _view.Bind(CreatePitcherStudySnapshot(), OwnerNavigationRoutes.PowerUpStudy);
                     _view.ShowRoute(route.StartsWith("Study") ? OwnerNavigationRoutes.PowerUpStudy : route);
+                    if (route == OwnerNavigationRoutes.PowerUpSkills) { Click("Block_1"); Click("Rotate"); }
+                    if (route == "StudyPitcher") Click("PitcherTab");
                     if (route == "StudySelected") Click("StudyPin_study_defense");
                     if (route == "StudyPlayerPicker") Click("ChooseStudyPlayer");
                     Canvas.ForceUpdateCanvases();
@@ -466,7 +542,42 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                         unlockText));
                 cards.Add(new OwnerGrowthCardSnapshot(card, Array.Empty<PlacedSkillBlock>(), studies));
             }
-            return new OwnerGrowthSnapshot(cards, inventory, definitions.ToArray(), SkillBoardDefinition.CreateDefault(), 250, 0, 2);
+            return new OwnerGrowthSnapshot(cards, inventory, definitions.ToArray(), SkillBoardDefinition.CreateDefault(), 250, 0, 2,
+                new OwnerSchedulePermission(true, string.Empty), OwnerSeasonPhase.Offseason);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Study_여덟목적지이름표가다른핀의입력을가리지않는다(bool pitcher)
+        {
+            _view.Bind(pitcher ? CreatePitcherStudySnapshot() : CreateSnapshot(), OwnerNavigationRoutes.PowerUpStudy);
+            if (pitcher) Click("PitcherTab");
+            Button[] buttons = _root.GetComponentsInChildren<Button>();
+            foreach (Button label in buttons)
+            {
+                if (!label.name.StartsWith("StudyPinLabel_")) continue;
+                Bounds labelBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(_root.transform, label.transform);
+                foreach (Button pin in buttons)
+                {
+                    if (!pin.name.StartsWith("StudyPin_")) continue;
+                    Bounds pinBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(_root.transform, pin.transform);
+                    Assert.That(labelBounds.Intersects(pinBounds), Is.False, label.name + " / " + pin.name);
+                }
+            }
+        }
+
+        private static OwnerGrowthSnapshot CreatePitcherStudySnapshot()
+        {
+            OwnerGrowthSnapshot source = CreateSnapshot();
+            var card = new OwnerCollectionCardSnapshot("pitcher", "pitcher", "김투수", 2024,
+                PlayerPosition.StartingPitcher, 5, PlayerCardEdition.Normal, 0, 0, false, false);
+            var studies = new List<OwnerStudyOption>();
+            foreach (var program in OwnerCardGrowthBalanceTable.CreateDefault().StudyPrograms)
+                if (program.PlayerType == PlayerType.Pitcher)
+                    studies.Add(new OwnerStudyOption(program, "투구 성장", "", true, "기본 개방"));
+            return new OwnerGrowthSnapshot(new[] { new OwnerGrowthCardSnapshot(card,
+                Array.Empty<PlacedSkillBlock>(), studies) }, source.Inventory, source.Definitions,
+                source.Board, 3000, 0, 2);
         }
 
         private static CardStudyProgramDefinition FindProgram(

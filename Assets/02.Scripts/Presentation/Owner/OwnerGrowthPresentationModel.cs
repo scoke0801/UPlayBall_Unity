@@ -20,6 +20,7 @@ namespace Baseball.Presentation.Owner
         public string BlockedReason { get; }
         public bool IsUnlocked { get; }
         public bool CanStart => IsUnlocked && BlockedReason.Length == 0;
+        public string CostText => Program.MoneyCost > 0 ? Program.MoneyCost.ToString("N0") + " PT" : "육성 포인트 " + Program.DevelopmentPointCost.ToString("N0");
 
         public OwnerStudyOption(
             CardStudyProgramDefinition program,
@@ -45,6 +46,8 @@ namespace Baseball.Presentation.Owner
         public OwnerCollectionCardSnapshot DetailCard => _detailCard.Value;
         public PlacedSkillBlock[] Placements { get; }
         public OwnerStudyOption[] Studies => _studies.Value;
+        public int UnlockedMask { get; private set; } = OwnedCardSkillBoardState.CompleteUnlockedMask;
+        public bool IsCellUnlocked(int x, int y) => x >= 0 && x < 4 && y >= 0 && y < 4 && (UnlockedMask & (1 << (y * 4 + x))) != 0;
 
         public OwnerGrowthCardSnapshot(OwnerCollectionCardSnapshot card,
             IReadOnlyList<PlacedSkillBlock> placements, IReadOnlyList<OwnerStudyOption> studies)
@@ -59,12 +62,13 @@ namespace Baseball.Presentation.Owner
         /// <summary>선수 목록은 요약만 읽고 선택한 선수의 상세·유학 과정만 한 번 조회한다.</summary>
         public OwnerGrowthCardSnapshot(OwnerCollectionCardSnapshot card,
             IReadOnlyList<PlacedSkillBlock> placements, Func<OwnerStudyOption[]> studies,
-            Func<OwnerCollectionCardSnapshot> detailCard)
+            Func<OwnerCollectionCardSnapshot> detailCard, int unlockedMask = OwnedCardSkillBoardState.CompleteUnlockedMask)
         {
             Card = card ?? throw new ArgumentNullException(nameof(card));
             Placements = OwnerPowerUpSnapshotCopy.Copy(placements);
             _studies = new Lazy<OwnerStudyOption[]>(studies);
             _detailCard = new Lazy<OwnerCollectionCardSnapshot>(detailCard);
+            UnlockedMask = unlockedMask;
         }
     }
 
@@ -78,10 +82,17 @@ namespace Baseball.Presentation.Owner
         public int DevelopmentPoints { get; }
         public int StudyCount { get; }
         public int StudyCapacity { get; }
+        public OwnerSchedulePermission SkillPermission { get; }
+        public OwnerSeasonPhase SeasonPhase { get; }
+        public int OffseasonCompletedWeeks { get; }
+        public OwnerOffseasonPresentationModel Offseason { get; }
 
         public OwnerGrowthSnapshot(IReadOnlyList<OwnerGrowthCardSnapshot> cards,
             IReadOnlyList<SkillBlockInstance> inventory, SkillBlockDefinition[] definitions,
-            SkillBoardDefinition board, int developmentPoints, int studyCount, int studyCapacity)
+            SkillBoardDefinition board, int developmentPoints, int studyCount, int studyCapacity,
+            OwnerSchedulePermission? skillPermission = null,
+            OwnerSeasonPhase seasonPhase = OwnerSeasonPhase.RegularSeason, int offseasonCompletedWeeks = 0,
+            OwnerOffseasonPresentationModel offseason = null)
         {
             Cards = OwnerPowerUpSnapshotCopy.Copy(cards);
             Inventory = OwnerPowerUpSnapshotCopy.Copy(inventory);
@@ -90,6 +101,10 @@ namespace Baseball.Presentation.Owner
             DevelopmentPoints = developmentPoints;
             StudyCount = studyCount;
             StudyCapacity = studyCapacity;
+            SkillPermission = skillPermission ?? new OwnerSchedulePermission(false, "시즌 일정을 확인해 주세요.");
+            SeasonPhase = seasonPhase;
+            OffseasonCompletedWeeks = offseasonCompletedWeeks;
+            Offseason = offseason ?? new OwnerOffseasonPresentationModel(seasonPhase, offseasonCompletedWeeks, null);
         }
 
         /// <summary>다른 카드의 장착 상태까지 포함해 공유 블록의 소유자를 조회한다.</summary>
@@ -129,7 +144,8 @@ namespace Baseball.Presentation.Owner
             OwnerGrowthSnapshot snapshot,
             bool isPitcher,
             OwnerGrowthRosterFilter filter,
-            string query = null)
+            string query = null,
+            bool sortByCost = false)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
             string normalizedQuery = query?.Trim() ?? string.Empty;
@@ -149,6 +165,17 @@ namespace Baseball.Presentation.Owner
             var cards = new List<OwnerGrowthCardSnapshot>(activeRosterCards.Count + reserveCards.Count);
             cards.AddRange(activeRosterCards);
             cards.AddRange(reserveCards);
+            if (sortByCost)
+            {
+                // 같은 코스트는 기존 등록 우선·보유 순서를 유지한다.
+                var order = new Dictionary<OwnerGrowthCardSnapshot, int>();
+                for (int index = 0; index < cards.Count; index++) order[cards[index]] = index;
+                cards.Sort((left, right) =>
+                {
+                    int cost = right.Card.Cost.CompareTo(left.Card.Cost);
+                    return cost != 0 ? cost : order[left].CompareTo(order[right]);
+                });
+            }
             return cards;
         }
 
@@ -211,11 +238,14 @@ namespace Baseball.Presentation.Owner
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
                 cards.Add(new OwnerGrowthCardSnapshot(card, owned.SkillBoard.Placements,
                     () => CreateStudyOptions(manager, card, owned, season, capacity),
-                    () => detailResolver == null ? card : detailResolver(card.CardId)));
+                    () => detailResolver == null ? card : detailResolver(card.CardId), owned.SkillBoard.UnlockedMask));
             }
             return new OwnerGrowthSnapshot(cards, runtime.PlayerGrowth.Inventory.Blocks,
                 manager.Balance.Growth.SkillBlocks, manager.Balance.Growth.SkillBoard,
-                runtime.Economy.DevelopmentPoints, runtime.PlayerGrowth.StudyProjects.Count, capacity);
+                runtime.Economy.DevelopmentPoints, runtime.PlayerGrowth.StudyProjects.Count, capacity,
+                OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock),
+                OwnerScheduleGateService.GetPhase(runtime), runtime.PlayerGrowth.Offseason.CompletedWeeks,
+                OwnerOffseasonPresentationModel.Build(manager));
         }
 
         private static OwnerStudyOption[] CreateStudyOptions(OwnerModeManager manager,
@@ -241,16 +271,23 @@ namespace Baseball.Presentation.Owner
                 }
                 bool isUnlocked = unlockProgress.IsUnlocked(program.UnlockRequirement);
                 string unlockText = FormatUnlockText(program.UnlockRequirement);
-                string reason = !isUnlocked ? FormatUnlockBlockedReason(program.UnlockRequirement)
+                OwnerSchedulePermission permission = OwnerScheduleGateService.Evaluate(
+                    runtime, OwnerGrowthAction.OverseasTraining, program.DurationWeeks);
+                bool isCamping = false;
+                foreach (var camp in runtime.PlayerGrowth.Camps) if (camp.CardId == owned.CardId) isCamping = true;
+                string reason = !permission.IsAllowed ? permission.Reason
+                    : isCamping ? "전지훈련을 마친 뒤 유학을 시작하세요."
+                    : !isUnlocked ? FormatUnlockBlockedReason(program.UnlockRequirement)
                     : card.IsActiveRoster ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
                     : owned.LastStudySeason == runtime.ManagerMode.LiveSeason.SeasonNumber ? "이번 시즌 유학을 이미 사용했습니다."
                     : runtime.PlayerGrowth.StudyProjects.Count >= capacity ? "유학 정원이 가득 찼습니다. 훈련 시설과 복귀 일정을 확인하세요."
                     : totalGain == 0 ? "이 과정의 성장 상한에 도달했습니다."
-                    : runtime.Economy.DevelopmentPoints < program.DevelopmentPointCost ? "육성 포인트가 부족합니다."
+                    : runtime.Economy.DevelopmentPoints < program.DevelopmentPointCost || runtime.Economy.Money < program.MoneyCost ? "유학에 필요한 자원이 부족합니다."
                     : string.Empty;
                 studies.Add(new OwnerStudyOption(
                     program,
-                    rewards.ToString().TrimEnd(),
+                    rewards.ToString().TrimEnd() + (program.GreatSuccessBonus > 0
+                        ? "\n대성공 " + (program.GreatSuccessProbability * 100).ToString("0") + "% · 주 능력 추가 +" + program.GreatSuccessBonus : ""),
                     reason,
                     isUnlocked,
                     unlockText));

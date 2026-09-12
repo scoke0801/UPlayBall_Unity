@@ -74,11 +74,14 @@ namespace Baseball.Core.Historical
             string destinationName = "해외 훈련 거점",
             int mapXPermille = 500,
             int mapYPermille = 500,
-            CardStudyUnlockRequirement unlockRequirement = default)
+            CardStudyUnlockRequirement unlockRequirement = default, long moneyCost = 0,
+            double greatSuccessProbability = 0, int greatSuccessBonus = 0)
         {
             if (string.IsNullOrWhiteSpace(programId)) throw new ArgumentException("ProgramId가 필요합니다.", nameof(programId));
             if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("표시 이름이 필요합니다.", nameof(displayName));
-            if (developmentPointCost <= 0 || durationWeeks <= 0) throw new ArgumentOutOfRangeException(nameof(developmentPointCost));
+            if (developmentPointCost < 0 || moneyCost < 0 || developmentPointCost == 0 && moneyCost == 0 || durationWeeks <= 0
+                || greatSuccessProbability < 0 || greatSuccessProbability > 1 || double.IsNaN(greatSuccessProbability) || greatSuccessBonus < 0)
+                throw new ArgumentOutOfRangeException(nameof(developmentPointCost));
             if (rewards == null || rewards.Count == 0) throw new ArgumentException("유학 성장 보상이 필요합니다.", nameof(rewards));
             if (string.IsNullOrWhiteSpace(destinationName)) throw new ArgumentException("유학지 이름이 필요합니다.", nameof(destinationName));
             if (mapXPermille < 0 || mapXPermille > 1000 || mapYPermille < 0 || mapYPermille > 1000)
@@ -92,6 +95,7 @@ namespace Baseball.Core.Historical
             MapXPermille = mapXPermille;
             MapYPermille = mapYPermille;
             UnlockRequirement = unlockRequirement;
+            MoneyCost = moneyCost; GreatSuccessProbability = greatSuccessProbability; GreatSuccessBonus = greatSuccessBonus;
             _rewards = new AbilityChange[rewards.Count];
             for (int index = 0; index < rewards.Count; index++)
             {
@@ -105,6 +109,9 @@ namespace Baseball.Core.Historical
         public string DestinationName { get; }
         public PlayerType PlayerType { get; }
         public int DevelopmentPointCost { get; }
+        public long MoneyCost { get; }
+        public double GreatSuccessProbability { get; }
+        public int GreatSuccessBonus { get; }
         public int DurationWeeks { get; }
         public int MapXPermille { get; }
         public int MapYPermille { get; }
@@ -112,7 +119,7 @@ namespace Baseball.Core.Historical
         public IReadOnlyList<AbilityChange> Rewards => _rewards;
     }
 
-    /// <summary>구단주 카드 훈련 12종과 유학 8종을 한 밸런스 계약으로 제공한다.</summary>
+    /// <summary>구단주 카드 훈련과 야수·투수 유학 과정을 한 밸런스 계약으로 제공한다.</summary>
     public sealed class OwnerCardGrowthBalanceTable
     {
         private readonly CardTrainingProgramDefinition[] _trainingPrograms;
@@ -123,7 +130,13 @@ namespace Baseball.Core.Historical
             IReadOnlyList<CardStudyProgramDefinition> studyPrograms)
         {
             _trainingPrograms = Copy(trainingPrograms, PlayerAbilityCatalog.AbilityCount, nameof(trainingPrograms));
-            _studyPrograms = Copy(studyPrograms, 8, nameof(studyPrograms));
+            if (studyPrograms == null || studyPrograms.Count == 0)
+                throw new ArgumentException("유학 과정이 필요합니다.", nameof(studyPrograms));
+            _studyPrograms = Copy(studyPrograms, studyPrograms.Count, nameof(studyPrograms));
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            foreach (CardStudyProgramDefinition program in _studyPrograms)
+                if (!ids.Add(program.ProgramId))
+                    throw new ArgumentException("유학 과정 ID가 중복되었습니다.", nameof(studyPrograms));
         }
 
         public IReadOnlyList<CardTrainingProgramDefinition> TrainingPrograms => _trainingPrograms;
@@ -176,7 +189,49 @@ namespace Baseball.Core.Historical
                     PlayerType.Pitcher, PlayerAbility.Breaking, PlayerAbility.Stuff,
                     CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
                 Study("study_stamina", "선발 체력 리그", "시드니", 820, 745,
-                    PlayerType.Pitcher, PlayerAbility.Stamina, PlayerAbility.PitcherMental)
+                    PlayerType.Pitcher, PlayerAbility.Stamina, PlayerAbility.PitcherMental),
+                // 추가 과정도 100포인트·4주·총 +3을 유지해 보상 규모보다 성장 방향을 선택하게 한다.
+                Study("study_baserunning", "주루 판단 캠프", "밴쿠버", 140, 150,
+                    PlayerType.Batter, PlayerAbility.Speed, PlayerAbility.BatterMental),
+                Study("study_bunt", "번트 기술 아카데미", "아바나", 300, 500,
+                    PlayerType.Batter, PlayerAbility.Bunt, PlayerAbility.Contact),
+                Study("study_batter_mental", "타석 집중 훈련", "상파울루", 335, 770,
+                    PlayerType.Batter, PlayerAbility.BatterMental, PlayerAbility.Power,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_range", "수비 범위 캠프", "나이로비", 660, 600,
+                    PlayerType.Batter, PlayerAbility.Defense, PlayerAbility.Speed,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_stuff", "구위 강화 캠프", "밴쿠버", 140, 150,
+                    PlayerType.Pitcher, PlayerAbility.Stuff, PlayerAbility.Control,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_pitcher_mental", "투구 운영 학교", "암스테르담", 485, 220,
+                    PlayerType.Pitcher, PlayerAbility.PitcherMental, PlayerAbility.Stamina),
+                Study("study_pitch_mix", "완급 조절 아카데미", "로마", 490, 460,
+                    PlayerType.Pitcher, PlayerAbility.Control, PlayerAbility.Breaking,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_pitcher_endurance", "투구 지구력 캠프", "케이프타운", 540, 820,
+                    PlayerType.Pitcher, PlayerAbility.Stamina, PlayerAbility.Stuff,
+                    CardStudyUnlockRequirement.WinPostseason()),
+                Study("study_gap_hitting", "갭 타격 캠프", "뉴욕", 320, 170,
+                    PlayerType.Batter, PlayerAbility.Contact, PlayerAbility.Power),
+                Study("study_power_focus", "장타 집중 아카데미", "로마", 490, 460,
+                    PlayerType.Batter, PlayerAbility.Power, PlayerAbility.BatterMental,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_small_ball", "작전 주루 학교", "타이베이", 820, 120,
+                    PlayerType.Batter, PlayerAbility.Speed, PlayerAbility.Bunt),
+                Study("study_clutch", "승부 집중 캠프", "두바이", 660, 180,
+                    PlayerType.Batter, PlayerAbility.BatterMental, PlayerAbility.Contact,
+                    CardStudyUnlockRequirement.WinPostseason()),
+                Study("study_power_pitching", "파워 피칭 캠프", "뉴욕", 320, 170,
+                    PlayerType.Pitcher, PlayerAbility.Stuff, PlayerAbility.Velocity,
+                    CardStudyUnlockRequirement.Reach(LeagueGrade.Minor)),
+                Study("study_breaking_command", "변화구 제구 학교", "타이베이", 820, 120,
+                    PlayerType.Pitcher, PlayerAbility.Breaking, PlayerAbility.Control),
+                Study("study_velocity_endurance", "구속 유지 아카데미", "두바이", 660, 180,
+                    PlayerType.Pitcher, PlayerAbility.Velocity, PlayerAbility.Stamina,
+                    CardStudyUnlockRequirement.WinPostseason()),
+                Study("study_pressure_pitching", "위기 관리 캠프", "나이로비", 660, 560,
+                    PlayerType.Pitcher, PlayerAbility.PitcherMental, PlayerAbility.Control)
             });
         }
 
@@ -208,6 +263,31 @@ namespace Baseball.Core.Historical
     /// <summary>한 선수 카드의 4×4 성장판에 장착된 블록만 저장한다.</summary>
     public sealed class OwnedCardSkillBoardState
     {
+        public const int InitialUnlockedMask = 0x77;
+        public const int CompleteUnlockedMask = 0xffff;
+        public int UnlockedMask { get; private set; }
+        public int SlotExperience { get; private set; }
+        public OwnedCardSkillBoardState(int unlockedMask = InitialUnlockedMask, int slotExperience = 0)
+        {
+            if ((unlockedMask & ~CompleteUnlockedMask) != 0 || (unlockedMask & InitialUnlockedMask) != InitialUnlockedMask || slotExperience < 0)
+                throw new ArgumentException("성장판 개방 상태가 올바르지 않습니다.");
+            UnlockedMask = unlockedMask; SlotExperience = slotExperience;
+        }
+        public bool IsCellUnlocked(int x, int y) => x >= 0 && x < 4 && y >= 0 && y < 4 && (UnlockedMask & (1 << (y * 4 + x))) != 0;
+        public bool CanUnlock(int x, int y) => x >= 0 && x < 4 && y >= 0 && y < 4 && !IsCellUnlocked(x, y)
+            && (IsCellUnlocked(x - 1, y) || IsCellUnlocked(x + 1, y) || IsCellUnlocked(x, y - 1) || IsCellUnlocked(x, y + 1));
+        public void AddSlotExperience(int amount)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
+            SlotExperience = checked(SlotExperience + amount);
+        }
+        public void UnlockCell(int x, int y, int requiredExperience)
+        {
+            if (requiredExperience <= 0) throw new ArgumentOutOfRangeException(nameof(requiredExperience));
+            if (!CanUnlock(x, y)) throw new InvalidOperationException("열린 칸과 인접한 잠금 칸을 선택하세요.");
+            if (SlotExperience < requiredExperience) throw new InvalidOperationException("칸 개방 경험치가 부족합니다.");
+            SlotExperience -= requiredExperience; UnlockedMask |= 1 << (y * 4 + x);
+        }
         private readonly List<PlacedSkillBlock> _placements = new List<PlacedSkillBlock>();
 
         public IReadOnlyList<PlacedSkillBlock> Placements => _placements;
@@ -240,12 +320,41 @@ namespace Baseball.Core.Historical
     {
         private readonly List<SkillBlockInstance> _blocks = new List<SkillBlockInstance>();
         private int _nextInstanceId = 1;
+        public int NextInstanceId => _nextInstanceId;
+        public void RestoreNextInstanceId(int value)
+        {
+            if (value < _nextInstanceId) throw new ArgumentOutOfRangeException(nameof(value));
+            _nextInstanceId = value;
+        }
 
         public IReadOnlyList<SkillBlockInstance> Blocks => _blocks;
         public int PityEliteCount { get; private set; }
         public int PityUniqueCount { get; private set; }
         public int PityLegendaryCount { get; private set; }
         public int TotalPullCount { get; private set; }
+        public int ResearchCount { get; private set; }
+        public int SelectionBoxes { get; private set; }
+        public void RestoreResearch(int researchCount, int selectionBoxes)
+        {
+            if (researchCount < 0 || selectionBoxes < 0 || selectionBoxes > researchCount / 10) throw new ArgumentOutOfRangeException(nameof(researchCount));
+            ResearchCount = researchCount; SelectionBoxes = selectionBoxes;
+        }
+        public void RecordResearch()
+        {
+            ResearchCount = checked(ResearchCount + 1);
+            if (ResearchCount % 10 == 0) SelectionBoxes++;
+        }
+        public void ConsumeSelectionBox()
+        {
+            if (SelectionBoxes < 1) throw new InvalidOperationException("S 선택 상자가 없습니다.");
+            SelectionBoxes--;
+        }
+        public void Remove(int instanceId)
+        {
+            for (int i = 0; i < _blocks.Count; i++)
+                if (_blocks[i].InstanceId == instanceId) { _blocks.RemoveAt(i); return; }
+            throw new InvalidOperationException("보유 블록이 없습니다.");
+        }
 
         public SkillBlockInstance Add(string definitionId)
         {
@@ -296,7 +405,8 @@ namespace Baseball.Core.Historical
     /// <summary>진행 중인 카드 유학 한 건을 주 단위로 저장한다.</summary>
     public sealed class CardStudyProjectState
     {
-        public CardStudyProjectState(string cardId, string programId, int startedSeason, int remainingWeeks)
+        public CardStudyProjectState(string cardId, string programId, int startedSeason, int remainingWeeks,
+            int durationWeeks = 0, long paidMoney = 0, int paidDevelopmentPoints = 0, ulong resultSeed = 0, int resultBonus = 0)
         {
             if (string.IsNullOrWhiteSpace(cardId) || string.IsNullOrWhiteSpace(programId)) throw new ArgumentException("유학 식별자가 필요합니다.");
             if (remainingWeeks <= 0) throw new ArgumentOutOfRangeException(nameof(remainingWeeks));
@@ -304,12 +414,21 @@ namespace Baseball.Core.Historical
             ProgramId = programId.Trim();
             StartedSeason = startedSeason;
             RemainingWeeks = remainingWeeks;
+            DurationWeeks = durationWeeks == 0 ? remainingWeeks : durationWeeks;
+            if (DurationWeeks < remainingWeeks || paidMoney < 0 || paidDevelopmentPoints < 0 || resultBonus < 0)
+                throw new ArgumentException("유학 비용·결과 상태가 올바르지 않습니다.");
+            PaidMoney = paidMoney; PaidDevelopmentPoints = paidDevelopmentPoints; ResultSeed = resultSeed; ResultBonus = resultBonus;
         }
 
         public string CardId { get; }
         public string ProgramId { get; }
         public int StartedSeason { get; }
         public int RemainingWeeks { get; private set; }
+        public int DurationWeeks { get; }
+        public long PaidMoney { get; }
+        public int PaidDevelopmentPoints { get; }
+        public ulong ResultSeed { get; }
+        public int ResultBonus { get; }
         public bool AdvanceWeek() => --RemainingWeeks == 0;
     }
 
@@ -318,9 +437,24 @@ namespace Baseball.Core.Historical
     {
         private readonly List<CardStudyProjectState> _studyProjects = new List<CardStudyProjectState>();
 
-        public OwnerPlayerGrowthState(OwnerSkillBlockInventoryState inventory = null) =>
+        public OwnerPlayerGrowthState(OwnerSkillBlockInventoryState inventory = null,
+            OwnerOffseasonState offseason = null)
+        {
             Inventory = inventory ?? new OwnerSkillBlockInventoryState();
+            Offseason = offseason ?? new OwnerOffseasonState();
+        }
 
+        public OwnerOffseasonState Offseason { get; }
+        public OwnerSupportState Support { get; set; } = new OwnerSupportState();
+        public List<OwnerCampProject> Camps { get; } = new List<OwnerCampProject>();
+        public OwnerSloganState Slogan { get; set; }
+        public int StudySequence { get; private set; }
+        public void RestoreStudySequence(int value)
+        {
+            if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+            StudySequence = value;
+        }
+        public void RecordStudyStarted() => StudySequence = checked(StudySequence + 1);
         public OwnerSkillBlockInventoryState Inventory { get; }
         public IReadOnlyList<CardStudyProjectState> StudyProjects => _studyProjects;
         public void AddStudy(CardStudyProjectState project) => _studyProjects.Add(project ?? throw new ArgumentNullException(nameof(project)));

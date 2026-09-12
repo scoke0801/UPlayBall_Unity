@@ -16,6 +16,79 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class ManagerOwnerProductionE2ETests
     {
         [Test]
+        public void StudyReset_지정선수만초기화하고결제와구매이력을저장한다()
+        {
+            CreateRuntime(out var runtime, out var adapter, out _);
+            var card = runtime.OwnedCards[0];
+            var other = runtime.OwnedCards[1];
+            int direct = card.Training.GetDirectTrainingBonus(PlayerAbility.Contact);
+            int otherStudy = other.Training.GetStudyBonus(PlayerAbility.Power);
+            card.Training.AddBonus(PlayerAbility.Contact, 4);
+            card.Training.AddStudyBonus(PlayerAbility.Contact, 3);
+            card.RecordStudySeason(runtime.ManagerMode.LiveSeason.SeasonNumber);
+            other.Training.AddStudyBonus(PlayerAbility.Power, 2);
+            runtime.Economy.AddDevelopmentPoints(500);
+            int before = runtime.Economy.DevelopmentPoints;
+            int purchases = runtime.ShopPurchaseHistory.TotalPurchaseCount;
+            var shop = CreateStudyResetShop(runtime);
+            Assert.That(shop.Purchase(Baseball.Game.Shop.StudyResetFulfillment.ProductId, card.CardId).IsSuccess, Is.True);
+            Assert.That(card.Training.GetBonus(PlayerAbility.Contact), Is.EqualTo(direct + 4));
+            Assert.That(card.LastStudySeason, Is.EqualTo(-1));
+            Assert.That(other.Training.GetStudyBonus(PlayerAbility.Power), Is.EqualTo(otherStudy + 2));
+            Assert.That(runtime.Economy.DevelopmentPoints, Is.EqualTo(before - 200));
+            Assert.That(shop.Purchase(Baseball.Game.Shop.StudyResetFulfillment.ProductId, card.CardId).IsSuccess, Is.False);
+            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            restored.TryGetOwnedCard(card.CardId, out var restoredCard);
+            Assert.That(restoredCard.Training.GetStudyBonus(PlayerAbility.Contact), Is.Zero);
+            Assert.That(restoredCard.Training.GetBonus(PlayerAbility.Contact), Is.EqualTo(direct + 4));
+            Assert.That(restoredCard.LastStudySeason, Is.EqualTo(-1));
+            Assert.That(restored.Economy.DevelopmentPoints, Is.EqualTo(before - 200));
+            Assert.That(restored.ShopPurchaseHistory.TotalPurchaseCount, Is.EqualTo(purchases + 1));
+        }
+
+        [TestCase("missing")]
+        [TestCase("unowned")]
+        [TestCase("active")]
+        [TestCase("empty")]
+        [TestCase("funds")]
+        public void StudyReset_구매불가시재화와성장과이력을보존한다(string scenario)
+        {
+            CreateRuntime(out var runtime, out _, out _);
+            var card = runtime.OwnedCards[0];
+            card.ResetStudy();
+            if (scenario != "empty")
+            {
+                card.Training.AddStudyBonus(PlayerAbility.Contact, 3);
+                card.RecordStudySeason(runtime.ManagerMode.LiveSeason.SeasonNumber);
+            }
+            if (scenario == "active") runtime.PlayerGrowth.AddStudy(new CardStudyProjectState(card.CardId, "study_contact", 0, 4));
+            if (scenario == "funds") runtime.Economy.TrySpendDevelopmentPoints(runtime.Economy.DevelopmentPoints);
+            else runtime.Economy.AddDevelopmentPoints(500);
+            int before = runtime.Economy.DevelopmentPoints;
+            int bonus = card.Training.GetStudyBonus(PlayerAbility.Contact);
+            int season = card.LastStudySeason;
+            int purchases = runtime.ShopPurchaseHistory.TotalPurchaseCount;
+            string target = scenario == "missing" ? null : scenario == "unowned" ? "not_owned" : card.CardId;
+            Assert.That(CreateStudyResetShop(runtime).Purchase(Baseball.Game.Shop.StudyResetFulfillment.ProductId, target).IsSuccess, Is.False);
+            Assert.That(runtime.Economy.DevelopmentPoints, Is.EqualTo(before));
+            Assert.That(card.Training.GetStudyBonus(PlayerAbility.Contact), Is.EqualTo(bonus));
+            Assert.That(card.LastStudySeason, Is.EqualTo(season));
+            Assert.That(runtime.ShopPurchaseHistory.TotalPurchaseCount, Is.EqualTo(purchases));
+        }
+
+        private static Baseball.Game.Shop.ShopService CreateStudyResetShop(ManagerHistoricalRuntimeState runtime)
+        {
+            var wallet = new Baseball.Core.Shop.ManagerEconomyShopWallet(runtime.Economy);
+            var product = new Baseball.Core.Shop.ShopProductDefinition(Baseball.Game.Shop.StudyResetFulfillment.ProductId,
+                Baseball.Core.Shop.ShopProductKind.StudyReset, Baseball.Game.Shop.StudyResetFulfillment.ProductId,
+                "유학 초기화권", "지정 선수", "즉시 적용", Baseball.Core.Shop.ShopCurrency.DevelopmentPoint, 200);
+            return new Baseball.Game.Shop.ShopService(new Baseball.Core.Shop.ShopCatalog(new[] { product }),
+                Baseball.Core.Shop.ShopAvailabilityTable.AllUnlocked(), wallet,
+                new Baseball.Core.Shop.IShopProductFulfillment[] { new Baseball.Game.Shop.StudyResetFulfillment(wallet, () => runtime, 200) },
+                runtime.ShopPurchaseHistory);
+        }
+
+        [Test]
         public void ScheduledTactics_다음경기준비와실제경기가같은계획을사용한다()
         {
             CreateRuntime(
@@ -452,13 +525,22 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(runtime.Economy.Money, Is.EqualTo(123L));
         }
 
-        [Test]
-        public void AdvanceSeason_TwentySeasonsWithoutCash_RenewalAndSalaryRemainPayableAsArrears()
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(3)]
+        public void AdvanceSeason_TwentySeasonsWithoutRenewal_PreservesRosterAndSettlesOnlySalary(int remainingSeasons)
         {
             CreateRuntime(out ManagerHistoricalRuntimeState runtime, out ManagerHistoricalSaveAdapter adapter, out _);
             var balance = BalanceTable.CreateDefault();
             var coordinator = new ManagerModeCoordinator(balance);
-            var market = new OwnerPlayerMarketService(balance);
+            var originalCardIds = new List<string>();
+            foreach (var entry in runtime.GetRoster(runtime.PlayerTeamSeasonKey).Entries)
+                originalCardIds.Add(entry.CardId);
+            var contracts = new List<OwnerPlayerContractState>();
+            foreach (var contract in runtime.ManagerMode.PlayerContracts)
+                contracts.Add(new OwnerPlayerContractState(contract.ContractId, contract.CardId,
+                    contract.StartSeason, remainingSeasons, contract.AnnualSalary, contract.LastSalaryPaidSeason));
+            runtime.ManagerMode.ReplacePlayerContractState(contracts);
             runtime.Economy.TrySpendMoney(runtime.Economy.Money);
             long expectedArrears = 0L;
             for (int season = 1; season <= 20; season++)
@@ -466,16 +548,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 for (int group = 0; group < runtime.LeagueWorld.Groups.Count; group++)
                     CompleteSeasonSchedule(runtime.LeagueWorld.Groups[group].Season);
                 CompleteOwnerPostseason(runtime, balance);
-                if (runtime.ManagerMode.HasExpiringPlayerContracts())
-                {
-                    OwnerContractBatchPreview preview = market.PreviewExpiringRenewals(runtime, 1);
-                    Assert.That(preview.CanCommit, Is.True, preview.Reason);
-                    Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
-                    Assert.That(preview.DeferredSigningCost, Is.EqualTo(preview.SigningCost));
-                    expectedArrears += preview.SigningCost;
-                    Assert.That(market.RenewExpiringContracts(runtime, 1).CanCommit, Is.True);
-                    Assert.That(market.RenewExpiringContracts(runtime, 1).CanCommit, Is.False);
-                }
                 long salary = runtime.ManagerMode.GetAnnualPlayerSalaryTotal();
                 ManagerSeasonAdvanceResult result = coordinator.AdvanceSeason(runtime);
                 Assert.That(result.IsApplied, Is.True, $"시즌 {season}: {result.Status}");
@@ -483,6 +555,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
                 Assert.That(runtime.Economy.Money, Is.Zero);
                 Assert.That(runtime.ManagerMode.LiveSeason.SeasonNumber, Is.EqualTo(season + 1));
+                var roster = runtime.GetRoster(runtime.PlayerTeamSeasonKey);
+                Assert.That(roster.Entries.Count, Is.EqualTo(originalCardIds.Count));
+                foreach (var entry in roster.Entries) Assert.That(originalCardIds, Does.Contain(entry.CardId));
+                foreach (var contract in runtime.ManagerMode.PlayerContracts)
+                    Assert.That(contract.LastSalaryPaidSeason, Is.EqualTo(season));
                 runtime = adapter.Restore(adapter.CreateSaveData(runtime));
                 Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(expectedArrears));
             }
@@ -504,30 +581,6 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(runtime.Economy.Money, Is.Zero);
         }
 
-        [Test]
-        public void RenewalArrears_OnlyCompletedSeasonExpiringContracts_CanDeferAndCannotBorrowTwice()
-        {
-            CreateRuntime(out ManagerHistoricalRuntimeState runtime, out ManagerHistoricalSaveAdapter adapter, out _);
-            var balance = BalanceTable.CreateDefault();
-            var market = new OwnerPlayerMarketService(balance);
-            OwnerPlayerContractState contract = runtime.ManagerMode.PlayerContracts[0];
-            contract.Renew(1, 1, contract.AnnualSalary);
-            runtime.Economy.TrySpendMoney(runtime.Economy.Money - 123L);
-            Assert.That(market.Renew(runtime, contract.CardId, 1).CanCommit, Is.False);
-            Assert.That(runtime.Economy.ContractArrears, Is.Zero);
-            CompleteSeasonSchedule(runtime.ManagerMode.LiveSeason);
-            CompleteOwnerPostseason(runtime, balance);
-            var preview = market.PreviewRenewal(runtime, contract.CardId, 1);
-            Assert.That(preview.CanCommit, Is.True);
-            Assert.That(preview.DeferredSigningCost, Is.EqualTo(preview.SigningCost - 123L));
-            Assert.That(runtime.Economy.Money, Is.EqualTo(123L));
-            Assert.That(market.Renew(runtime, contract.CardId, 1).CanCommit, Is.True);
-            Assert.That(runtime.Economy.ContractArrears, Is.EqualTo(preview.DeferredSigningCost));
-            Assert.That(market.Renew(runtime, contract.CardId, 1).CanCommit, Is.False);
-            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
-            Assert.That(restored.Economy.ContractArrears, Is.EqualTo(preview.DeferredSigningCost));
-            Assert.That(restored.ManagerMode.GetPlayerContract(contract.CardId).RemainingSeasons, Is.EqualTo(2));
-        }
 
         /// <summary>결산 주차 계산이 쓰는 구단 완료 경기 수를 정확히 count만큼 늘린다.</summary>
         private static void PlayPlayerGames(ManagerHistoricalRuntimeState runtime, int count)
@@ -675,9 +728,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 OwnerPostseasonState postseason = runtime.LeagueWorld.Groups[groupIndex].Postseason;
                 while (!postseason.IsCompleted)
                 {
-                    OwnerPostseasonSeriesState series = postseason.EnsureCurrentSeries(
-                        balance.Postseason.SemifinalSeriesGames,
-                        balance.Postseason.ChampionshipSeriesGames);
+                    OwnerPostseasonSeriesState series = postseason.EnsureCurrentSeries();
                     while (!series.IsCompleted)
                     {
                         ScheduledGameState game = series.AppendNextGame(gameId, (ulong)gameId);

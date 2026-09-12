@@ -24,7 +24,6 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerPregame _pregameView;
         private UI_Scene_OwnerStaffOffice _staffView;
         private UI_Scene_OwnerClubOperations _clubView;
-        private UI_Scene_OwnerPlayerMarket _playerMarketView;
         private UI_Scene_OwnerConditionChemistry _conditionView;
         private UI_Scene_OwnerRosterLineup _rosterLineupView;
         private UI_Scene_OwnerRosterLineup _rosterPitchingView;
@@ -42,6 +41,8 @@ namespace Baseball.Presentation.Owner
         public event Action<string, int, int, int, int> CardSkillPlacementRequested;
         public event Action<string, int> CardSkillRemovalRequested;
         public event Action GrowthShopRequested;
+        public event Action<int> OffseasonWeekAdvanceRequested;
+        public void ShowOffseasonError() => _growthView?.ShowOffseasonError();
         private UI_Scene_OwnerDugout _dugoutView;
         private UI_Scene_OwnerTeamColor _teamColorView;
         private UI_Scene_OwnerTactics _tacticsView;
@@ -51,7 +52,6 @@ namespace Baseball.Presentation.Owner
         private RectTransform _lockedWorkspaceRoot;
         private OwnerPregamePresentationModel _pregameModel;
         private OwnerStaffOfficePresentationModel _staffModel;
-        private OwnerContractSnapshot _contractSnapshot;
         private OwnerRosterLineupPresentationModel _rosterLineupModel;
         private string _rosterLineupPreviewMessage = string.Empty;
         private bool _hasRosterLineupPreview;
@@ -62,9 +62,6 @@ namespace Baseball.Presentation.Owner
         public event Action MatchStartRequested;
         public event Action<string> StaffOfferSelected;
         public event Action<string> SignStaffRequested;
-        public event Action<string, int> ContractPreviewRequested;
-        public event Action<string, int> ContractRenewalRequested;
-        public event Action<int> ContractBatchRenewalRequested;
         public event Action<TicketPriceTier> TicketPolicyRequested;
         public event Action<FacilityType> FacilityUpgradeRequested;
         public event Action StadiumUpgradeRequested;
@@ -179,14 +176,6 @@ namespace Baseball.Presentation.Owner
             _clubView.Bind(OwnerClubOperationPresentationBuilder.Build(snapshot));
         }
 
-        public void BindPlayerContracts(OwnerContractSnapshot snapshot)
-        {
-            RequireInitialized();
-            _contractSnapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
-            EnsurePlayerMarketView();
-            if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal))
-                _playerMarketView.BindContract(_contractSnapshot);
-        }
 
         public void BindConditionChemistry(
             System.Collections.Generic.IReadOnlyList<OwnerConditionPlayerSnapshot> players,
@@ -259,6 +248,14 @@ namespace Baseball.Presentation.Owner
             _encyclopediaView.SelectCard(cardId);
         }
 
+        public string SelectedShopTargetCardId => _shopView?.SelectedTargetCardId;
+
+        public void BindShopTargets(System.Collections.Generic.IReadOnlyList<Shop.ShopTargetSnapshot> targets)
+        {
+            EnsureShopView();
+            _shopView.BindTargets(targets);
+        }
+
         public void BindShop(Shop.ShopScreenSnapshot snapshot)
         {
             RequireInitialized();
@@ -273,10 +270,13 @@ namespace Baseball.Presentation.Owner
             if (_growthView == null)
             {
                 _growthView = UI_Scene_OwnerGrowth.CreateRuntime(_shell.MainWorkspaceHost);
+                _growthView.SetPopupHost(_shell.PopupHost);
+                _growthView.SetDevelopmentManager(_specialRecruitManager);
                 _growthView.StudyRequested += HandleCardStudyRequested;
                 _growthView.SkillPlacementRequested += HandleSkillPlacementRequested;
                 _growthView.SkillRemovalRequested += HandleSkillRemovalRequested;
                 _growthView.ShopRequested += HandleGrowthShopRequested;
+                _growthView.OffseasonWeekAdvanceRequested += week => OffseasonWeekAdvanceRequested?.Invoke(week);
                 _growthView.SetVisible(false);
             }
             _growthView.Bind(snapshot, routeId);
@@ -376,12 +376,6 @@ namespace Baseball.Presentation.Owner
             if (OwnerManagementRoutes.IsClubOperation(ActiveRouteId) && _clubView != null)
             {
                 _clubView.SetFeedback(message, isError);
-                return true;
-            }
-            if (string.Equals(ActiveRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal) &&
-                _playerMarketView != null)
-            {
-                _playerMarketView.SetFeedback(message, isError);
                 return true;
             }
             if ((string.Equals(ActiveRouteId, CollectionRouteId, StringComparison.Ordinal) ||
@@ -495,7 +489,8 @@ namespace Baseball.Presentation.Owner
                 _wishlistView,
                 _powerUpView,
                 _specialRecruitView,
-                _growthView,
+                  _growthView,
+                  _supportCardsView,
                 _dugoutView,
                 _teamColorView,
                 _tacticsView,
@@ -628,10 +623,11 @@ namespace Baseball.Presentation.Owner
                 EnsureSupportCardsView();
                 SetAllViewsVisible(false);
                 _supportCardsView.SetVisible(true);
+                _supportCardsView.Bind(_specialRecruitManager);
                 BindRosterContext(
                     navigationRouteId,
                     "서포트 카드",
-                    "서포트 카드는 준비 중입니다.");
+                    "다음 두 경기의 영향 선수와 변화량을 비교하고 서포트를 사용합니다.");
                 return true;
             }
             if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.DugoutManagerPolicy, StringComparison.Ordinal) &&
@@ -756,22 +752,6 @@ namespace Baseball.Presentation.Owner
                 ActiveRouteId = navigationRouteId;
                 return true;
             }
-            if (string.Equals(workspaceRouteId, OwnerNavigationRoutes.ClubContract, StringComparison.Ordinal) &&
-                _playerMarketView != null)
-            {
-                SetAllViewsVisible(false);
-                _playerMarketView.SetVisible(true);
-                _shell.SetInspectorVisible(true);
-                _shell.SetActionBarVisible(true);
-                if (_contractSnapshot != null) _playerMarketView.BindContract(_contractSnapshot);
-                _shell.BindContext(new SharedUI.ShellContextModel(
-                    navigationRouteId,
-                    "선수 계약",
-                    "잔여 계약과 연봉 부담을 비교하고 갱신안을 확정합니다.",
-                    "구단"));
-                ActiveRouteId = navigationRouteId;
-                return true;
-            }
             if (OwnerManagementRoutes.IsClubOperation(workspaceRouteId) && _clubView != null)
             {
                 SetAllViewsVisible(false);
@@ -871,13 +851,6 @@ namespace Baseball.Presentation.Owner
                 _clubView.StadiumUpgradeRequested -= HandleStadiumUpgradeRequested;
                 _clubView.WeekAdvanceRequested -= HandleWeekAdvanceRequested;
                 DestroyView(_clubView);
-            }
-            if (_playerMarketView != null)
-            {
-                _playerMarketView.ContractPreviewRequested -= HandleContractPreviewRequested;
-                _playerMarketView.ContractRenewalRequested -= HandleContractRenewalRequested;
-                _playerMarketView.ContractBatchRenewalRequested -= HandleContractBatchRenewalRequested;
-                DestroyView(_playerMarketView);
             }
             if (_conditionView != null)
             {
@@ -1001,18 +974,6 @@ namespace Baseball.Presentation.Owner
             _clubView.SetVisible(false);
         }
 
-        private void EnsurePlayerMarketView()
-        {
-            if (_playerMarketView != null) return;
-            _playerMarketView = UI_Scene_OwnerPlayerMarket.CreateRuntime(
-                _shell.MainWorkspaceHost,
-                _shell.RightInspectorHost,
-                _shell.ContextActionBarHost);
-            _playerMarketView.ContractPreviewRequested += HandleContractPreviewRequested;
-            _playerMarketView.ContractRenewalRequested += HandleContractRenewalRequested;
-            _playerMarketView.ContractBatchRenewalRequested += HandleContractBatchRenewalRequested;
-            _playerMarketView.SetVisible(false);
-        }
 
         private void EnsureConditionView()
         {
@@ -1216,7 +1177,6 @@ namespace Baseball.Presentation.Owner
             if (_pregameView != null) _pregameView.SetVisible(visible);
             if (_staffView != null) _staffView.SetVisible(visible);
             if (_clubView != null) _clubView.SetVisible(visible);
-            if (_playerMarketView != null) _playerMarketView.SetVisible(visible);
             if (_conditionView != null) _conditionView.SetVisible(visible);
             if (_rosterLineupView != null) _rosterLineupView.SetVisible(visible);
             if (_rosterPitchingView != null) _rosterPitchingView.SetVisible(visible);
@@ -1262,11 +1222,6 @@ namespace Baseball.Presentation.Owner
         private void HandleMatchStartRequested() => MatchStartRequested?.Invoke();
         private void HandleStaffOfferSelected(string offerId) => StaffOfferSelected?.Invoke(offerId);
         private void HandleSignStaffRequested(string offerId) => SignStaffRequested?.Invoke(offerId);
-        private void HandleContractPreviewRequested(string cardId, int seasons) =>
-            ContractPreviewRequested?.Invoke(cardId, seasons);
-        private void HandleContractBatchRenewalRequested(int seasons) => ContractBatchRenewalRequested?.Invoke(seasons);
-        private void HandleContractRenewalRequested(string cardId, int seasons) =>
-            ContractRenewalRequested?.Invoke(cardId, seasons);
         private void HandleTicketPolicyRequested(TicketPriceTier tier) => TicketPolicyRequested?.Invoke(tier);
         private void HandleFacilityUpgradeRequested(FacilityType type) => FacilityUpgradeRequested?.Invoke(type);
         private void HandleStadiumUpgradeRequested() => StadiumUpgradeRequested?.Invoke();

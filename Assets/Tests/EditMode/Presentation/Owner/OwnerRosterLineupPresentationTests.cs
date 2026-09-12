@@ -363,9 +363,9 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                         "MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard/PlayerOrderStatusStrip/PreviewState")
                     .GetComponent<Text>();
                 Assert.That(instruction.text, Does.Contain("교체할 보유 선수를 선택"));
-                FindButton(shell.transform,
-                    "MainWorkspaceHost/OwnerRosterLineupWorkspace/PlayerOrderBoard/OwnedPlayerPanel/ContentSafeRect/RoleScroll/Viewport/Content/OwnedGrid/Owned_1")
-                    .onClick.Invoke();
+                Array.Find(shell.GetComponentsInChildren<PlayerMiniCardView>(),
+                    card => card.name.StartsWith("Owned_", StringComparison.Ordinal) && card.Model.PlayerId == "NEW")
+                    .GetComponent<Button>().onClick.Invoke();
 
                 Assert.That(requestedGroup, Is.EqualTo(OwnerLineupSwapGroup.BattingOrder));
                 Assert.That(requestedIndex, Is.EqualTo(0));
@@ -786,8 +786,10 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     if (index < 25) players.Add(new OwnerRosterPlayerSnapshot(id, name, 2008, position,
                         PitcherRole.Starter, edition, 5 + index % 5, RegistrationType.Domestic,
                         ActiveRosterRole.StartingCatcher, PlayerAvailabilityStatus.Available, 80, 8, "양호"));
+                    var ratings = new Baseball.Core.Growth.AbilityRatings(60 + index % 25);
+                    ratings.AddClamped(Baseball.Core.Growth.PlayerAbility.Power, index % 3 * 10);
                     cards.Add(new OwnerCollectionCardSnapshot(id, "person" + index, name, 2008, position,
-                        5 + index % 5, edition, 0, 0, false, false));
+                        5 + index % 5, edition, 0, 0, false, false, abilities: ratings));
                 }
                 var issue = new LineupPresetValidationIssue(LineupPresetValidationIssueCode.OffPositionAssignment,
                     LineupPresetIssueSeverity.Warning, LineupPresetAssignmentGroup.StartingLineup, 0, "H0", "익숙하지 않은 수비 위치", 6, 1.35d);
@@ -866,8 +868,22 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 if (!string.IsNullOrEmpty(output)) CapturePositionView(camera, target, System.IO.Path.Combine(output, "selected"), width, height);
                 selectedCard.GetComponent<Button>().onClick.Invoke();
                 FindButton(board, "PrimaryAssignedPanel/ContentSafeRect/RoleScroll/Viewport/Content/AssignedGrid/BattingOrder_0").onClick.Invoke();
-                Array.Find(board.GetComponentsInChildren<PlayerMiniCardView>(), c => c.name == "Owned_1").GetComponent<Button>().onClick.Invoke();
+                Array.Find(board.GetComponentsInChildren<PlayerMiniCardView>(),
+                    c => c.name.StartsWith("Owned_", StringComparison.Ordinal) && c.Model.PlayerId == "H1").GetComponent<Button>().onClick.Invoke();
                 Assert.That(board.Find("ConditionAnalysisPanel/HeaderSlot").GetComponent<Text>().text, Is.EqualTo("교체 전후 비교"));
+                layout();
+                Transform comparisonPanel = board.Find("ConditionAnalysisPanel/ContentSafeRect");
+                Assert.That(comparisonPanel.Find("ComparisonScroll").gameObject.activeSelf, Is.True);
+                Assert.That(comparisonPanel.GetComponentInChildren<UIOpponentRadar>(), Is.Not.Null);
+                if (!string.IsNullOrEmpty(output)) CapturePositionView(camera, target, System.IO.Path.Combine(output, "comparison"), width, height);
+                ScrollRect comparisonScroll = comparisonPanel.Find("ComparisonScroll").GetComponent<ScrollRect>();
+                comparisonScroll.verticalNormalizedPosition = 0f;
+                layout();
+                if (!string.IsNullOrEmpty(output)) CapturePositionView(camera, target, System.IO.Path.Combine(output, "comparison-stats"), width, height);
+                FindButton(comparisonPanel, "AnalysisSubTabs/ConditionAnalysisTab").onClick.Invoke();
+                Assert.That(comparisonPanel.Find("RoleScroll").gameObject.activeSelf, Is.True);
+                FindButton(comparisonPanel, "AnalysisSubTabs/PlayerComparisonTab").onClick.Invoke();
+                Assert.That(comparisonPanel.GetComponentInChildren<UIOpponentRadar>(), Is.Not.Null);
                 Assert.That(save.interactable, Is.True);
                 InputField search = Array.Find(board.GetComponentsInChildren<InputField>(true), field => field.name == "PlayerSearch");
                 search.onEndEdit.Invoke("없는 선수");

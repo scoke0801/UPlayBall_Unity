@@ -9,8 +9,11 @@ namespace Baseball.Presentation.Owner
     [DisallowMultipleComponent]
     public sealed class UI_Scene_OwnerHome : MonoBehaviour
     {
-        private const float DockWidth = 704f;
-        private const float DockHeight = 292f;
+        private const float DockWidth = 744f;
+        private const float DockHeight = 176f;
+        private RectTransform _guideHost, _matchPanel, _seasonPanel;
+        private int _dashboardState;
+        public RectTransform ManagerHost => _guideHost;
         private RectTransform _workspaceRoot;
         private RectTransform _dashboardBackplate;
         private Text _teamNameText;
@@ -43,8 +46,8 @@ namespace Baseball.Presentation.Owner
         public event Action PlayNextGameRequested;
         public event Action CompleteSeasonRequested;
         public event Action AdvanceSeasonRequested;
-        public event Action<string> NavigationRequested;
-        public event Action SaveRequested;
+        public event Action PracticeRequested;
+        public event Action OutsideSuggestionPressed;
 
         /// <summary>공용 셸의 Workspace 안에 홈을 생성한다.</summary>
         public static UI_Scene_OwnerHome CreateRuntime(RectTransform workspaceHost, RectTransform actionBarHost)
@@ -119,10 +122,12 @@ namespace Baseball.Presentation.Owner
                     ? "우리 조 결과는 확정됐습니다. 남은 리그 결과를 마감하면 시즌 결산이 열립니다."
                     : "최종 순위와 대진을 확인한 뒤 포스트시즌을 진행하세요."
                 : !isSeasonReviewAcknowledged ? "시즌 성과와 다음 등급을 결산에서 확인하세요."
-                : "만료 임박 계약을 갱신하세요. 부족한 급여·갱신비는 이월됩니다.";
+                : "시즌 기록을 확인하고 다음 시즌을 준비하세요.";
             if (snapshot.IsRosterValid && snapshot.ContractArrears > 0L)
                 _feedbackText.text = $"미지급 급여·계약금 {OwnerMoneyFormatter.Format(snapshot.ContractArrears)} · 수입에서 우선 상환합니다.";
-            _feedbackText.color = snapshot.IsRosterValid ? CareerUiTheme.ReferenceTextSecondary : CareerUiTheme.Loss;
+            _feedbackText.color = snapshot.IsRosterValid ? CareerUiTheme.TextSecondary : CareerUiTheme.Loss;
+            LayoutSeasonAction();
+            ResizeDashboard();
         }
 
         /// <summary>저장과 경기 준비 결과를 정보창에 표시한다.</summary>
@@ -146,56 +151,130 @@ namespace Baseball.Presentation.Owner
         private void Build(RectTransform workspaceHost)
         {
             _workspaceRoot = OwnerWorkspaceUiFactory.CreateRoot(workspaceHost, "OwnerHomeWorkspace", false);
+            var practice = OwnerWorkspaceUiFactory.CreateButton(_workspaceRoot, "LegendaryPractice", "연습경기 · 역대 강팀",
+                () => PracticeRequested?.Invoke());
+            var practiceRect = (RectTransform)practice.transform;
+            practiceRect.anchorMin = practiceRect.anchorMax = new Vector2(0, 1);
+            practiceRect.pivot = new Vector2(0, 1);
+            practiceRect.anchoredPosition = new Vector2(32, -28);
+            practiceRect.sizeDelta = new Vector2(304, 68);
+            OwnerUiButtonSkin.Apply(practice, OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.SetDashboardStyle(practice);
+            practice.GetComponentInChildren<Text>().fontSize = 22;
             _workspaceRoot.gameObject.AddComponent<CareerUiPreserveTextColor>();
-            RectTransform dock = OwnerWorkspaceUiFactory.CreateRoot(_workspaceRoot, "DashboardColumns", false);
-            dock.anchorMin = dock.anchorMax = new Vector2(1f, 0f);
-            dock.pivot = new Vector2(1f, 0f);
-            dock.anchoredPosition = Vector2.zero;
-            dock.sizeDelta = new Vector2(DockWidth, DockHeight + 116f);
-            _dashboardBackplate = dock;
-
-            RectTransform match = Surface(dock, "NextMatchPanel", CareerUiTheme.ShellHeader, 0f, 304f, DockWidth, 408f);
-            _matchStateText = Label(match, "MatchState", "", 20, FontStyle.Bold, CareerUiTheme.Number,
-                new Vector2(16f, 66f), new Vector2(300f, 96f));
-            _nextMatchText = Label(match, "NextMatchValue", "", 20, FontStyle.Bold, CareerUiTheme.TextPrimary,
-                new Vector2(16f, 34f), new Vector2(490f, 66f));
-            _opponentText = Label(match, "OpponentStrength", "", 16, FontStyle.Normal, CareerUiTheme.TextSecondary,
-                new Vector2(16f, 8f), new Vector2(490f, 34f));
-            _playNextGameButton = CreateAction(match, "PlayNextGameButton", "다음 경기",
-                () => PlayNextGameRequested?.Invoke(), new Vector2(516f, 22f), new Vector2(600f, 82f), true);
-            _completeSeasonButton = CreateAction(match, "CompleteSeasonButton", "시즌 완료",
-                HandleSeasonActionRequested, new Vector2(604f, 22f), new Vector2(688f, 82f), true);
+            _dashboardBackplate = OwnerWorkspaceUiFactory.CreateRoot(_workspaceRoot, "MainDashboard", false);
+            _dashboardBackplate.anchorMin = _dashboardBackplate.anchorMax = new Vector2(1f, 0f);
+            _dashboardBackplate.pivot = new Vector2(1f, 0f);
+            _matchPanel = Surface(_dashboardBackplate, "NextMatchPanel", OwnerDashboardStyle.Surface, 0, 0, DockWidth, 320);
+            BuildMatchDiamond(_matchPanel);
+            UIOwnerPanelFrame.Attach(_matchPanel, true);
+            OwnerDashboardStyle.Rule(_matchPanel, "MatchAccent", Vector2.zero, Vector2.zero,
+                new Vector2(24, 279), new Vector2(58, 282), OwnerDashboardStyle.Gold);
+            Label(_matchPanel, "MatchHeading", "오늘의 경기", 22, FontStyle.Normal, OwnerDashboardStyle.Gold,
+                new Vector2(74, 258), new Vector2(350, 304));
+            _matchStateText = Label(_matchPanel, "MatchState", "오늘의 경기", 22, FontStyle.Bold, CareerUiTheme.AccentGold,
+                new Vector2(24, 208), new Vector2(480, 248));
+            _nextMatchText = Label(_matchPanel, "NextMatchValue", "", 32, FontStyle.Bold, OwnerDashboardStyle.Ivory,
+                new Vector2(24, 156), new Vector2(720, 208));
+            _opponentText = Label(_matchPanel, "OpponentStrength", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
+                new Vector2(24, 104), new Vector2(720, 148));
+            _playNextGameButton = CreateAction(_matchPanel, "PlayNextGameButton", "경기 시작",
+                () => PlayNextGameRequested?.Invoke(), new Vector2(24, 24), new Vector2(384, 92), true);
+            _matchPreparationButton = CreateAction(_matchPanel, "MatchPreparationButton", "경기 준비",
+                () => MatchPreparationRequested?.Invoke(), new Vector2(392, 24), new Vector2(552, 92));
+            _opponentAnalysisButton = CreateAction(_matchPanel, "OpponentAnalysisButton", "상대 분석",
+                () => OpponentAnalysisRequested?.Invoke(), new Vector2(560, 24), new Vector2(720, 92));
+            _completeSeasonButton = CreateAction(_matchPanel, "CompleteSeasonButton", "시즌 완료",
+                HandleSeasonActionRequested, new Vector2(572, 24), new Vector2(720, 92));
             _completeSeasonButtonText = _completeSeasonButton.transform.Find("Label").GetComponent<Text>();
-
-            RectTransform info = Surface(dock, "ClubInformationPanel", CareerUiTheme.ReferencePanel, 0f, 0f, DockWidth, DockHeight);
-            RectTransform teamHeader = Surface(info, "TeamHeader", CareerUiTheme.ShellHeader, 2f, 234f, DockWidth - 2f, 290f);
-            _teamNameText = Label(teamHeader, "TeamName", "", 23, FontStyle.Bold, CareerUiTheme.TextPrimary,
-                new Vector2(16f, 6f), new Vector2(450f, 50f));
-            _leagueText = Label(teamHeader, "League", "", 18, FontStyle.Bold, CareerUiTheme.TextPrimary,
-                new Vector2(460f, 6f), new Vector2(682f, 50f));
-            _leagueText.alignment = TextAnchor.MiddleRight;
-            _seasonText = Row(info, "Season", "페넌트레이스", 200f, true);
-            _recordText = Row(info, "Record", "시즌 성적", 168f);
-            _rosterText = Row(info, "Roster", "선수단", 136f, true);
-            _evaluationText = Row(info, "Evaluation", "전력 / 비용", 104f);
-            _feedbackText = Label(info, "Feedback", "", 16, FontStyle.Normal, CareerUiTheme.ReferenceTextSecondary,
-                new Vector2(14f, 52f), new Vector2(690f, 102f));
-
-            RectTransform actions = Surface(info, "QuickActions", CareerUiTheme.ReferencePanelHeader, 2f, 2f, DockWidth - 2f, 50f);
-            _opponentAnalysisButton = CreateAction(actions, "OpponentAnalysisButton", "상대 분석",
-                () => OpponentAnalysisRequested?.Invoke(), new Vector2(8f, 6f), new Vector2(138f, 42f));
-            _matchPreparationButton = CreateAction(actions, "MatchPreparationButton", "경기 준비",
-                () => MatchPreparationRequested?.Invoke(), new Vector2(146f, 6f), new Vector2(276f, 42f));
-            CreateAction(actions, "ScheduleButton", "일정·결과",
-                () => NavigationRequested?.Invoke(OwnerSharedInformationWorkspaceCoordinator.ScheduleRouteId),
-                new Vector2(284f, 6f), new Vector2(414f, 42f));
-            CreateAction(actions, "ClubButton", "구단 정보",
-                () => NavigationRequested?.Invoke(OwnerNavigationRoutes.ClubInformation),
-                new Vector2(422f, 6f), new Vector2(552f, 42f));
-            CreateAction(actions, "SaveButton", "저장", () => SaveRequested?.Invoke(),
-                new Vector2(560f, 6f), new Vector2(690f, 42f));
+            _guideHost = OwnerWorkspaceUiFactory.CreateRoot(_dashboardBackplate, "ManagerHost", false);
+            var hitArea = _workspaceRoot.gameObject.AddComponent<Image>();
+            hitArea.color = Color.clear; hitArea.raycastTarget = true;
+            _workspaceRoot.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            _workspaceRoot.gameObject.AddComponent<UIOwnerDashboardDismissArea>().Initialize(_guideHost,
+                () => OutsideSuggestionPressed?.Invoke());
+            _seasonPanel = Surface(_dashboardBackplate, "ClubInformationPanel", CareerUiTheme.ShellHeader, 0, 0, DockWidth, DockHeight);
+            OwnerDashboardStyle.Rule(_seasonPanel, "SeasonDivider", Vector2.zero, Vector2.zero,
+                new Vector2(24, 128), new Vector2(720, 129), OwnerDashboardStyle.Line);
+            _teamNameText = Label(_seasonPanel, "TeamName", "", 22, FontStyle.Bold, CareerUiTheme.TextPrimary,
+                new Vector2(24, 130), new Vector2(390, 166));
+            _leagueText = Label(_seasonPanel, "League", "", 22, FontStyle.Bold, CareerUiTheme.AccentGold,
+                new Vector2(400, 130), new Vector2(720, 166));
+            _seasonText = Label(_seasonPanel, "Season", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
+                new Vector2(24, 90), new Vector2(430, 126));
+            _recordText = Label(_seasonPanel, "Record", "", 22, FontStyle.Normal, CareerUiTheme.TextPrimary,
+                new Vector2(440, 90), new Vector2(720, 126));
+            _rosterText = Label(_seasonPanel, "Roster", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
+                new Vector2(24, 50), new Vector2(720, 86));
+            _evaluationText = Label(_seasonPanel, "Evaluation", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
+                new Vector2(24, 10), new Vector2(720, 46));
+            _feedbackText = Label(_dashboardBackplate, "Feedback", "", 22, FontStyle.Normal, CareerUiTheme.TextPrimary,
+                new Vector2(24, 0), new Vector2(720, 72));
+            SetDashboardState(0);
         }
 
+        /// <summary>추천·리포트를 홈의 단일 대시보드 내부에 재배치한다.</summary>
+        public void SetDashboardState(int state)
+        {
+            _dashboardState = state;
+            bool reports = state == 2;
+            float guideHeight = reports ? 620 : state == 1 ? 352 : 280;
+            float seasonHeight = reports ? 0 : DockHeight + 12;
+            float matchHeight = reports ? 140 : 320;
+            _dashboardBackplate.sizeDelta = new Vector2(DockWidth, 80 + seasonHeight + guideHeight + 12 + matchHeight);
+            SetRect(_seasonPanel, new Vector2(0, 80), new Vector2(DockWidth, 80 + DockHeight));
+            _seasonPanel.gameObject.SetActive(!reports);
+            SetRect(_guideHost, new Vector2(0, 80 + seasonHeight), new Vector2(DockWidth, 80 + seasonHeight + guideHeight));
+            SetRect(_matchPanel, new Vector2(0, 92 + seasonHeight + guideHeight),
+                new Vector2(DockWidth, 92 + seasonHeight + guideHeight + matchHeight));
+            _matchStateText.gameObject.SetActive(!reports);
+            _matchPanel.Find("MatchHeading").gameObject.SetActive(!reports);
+            _matchPanel.Find("MatchAccent").gameObject.SetActive(!reports);
+            _matchPanel.Find("BaseballDiamond").gameObject.SetActive(!reports);
+            _opponentText.gameObject.SetActive(!reports);
+            _matchPreparationButton.gameObject.SetActive(!reports);
+            _opponentAnalysisButton.gameObject.SetActive(!reports);
+            SetRect(_nextMatchText.rectTransform, new Vector2(24, reports ? 88 : 156), new Vector2(720, reports ? 136 : 208));
+            _nextMatchText.fontSize = reports ? 26 : 32;
+            ResizeDashboard();
+            LayoutSeasonAction();
+        }
+
+        private void LayoutSeasonAction()
+        {
+            if (_playNextGameButton == null) return;
+            _playNextGameButton.gameObject.SetActive(_hasRemainingGames);
+            _matchPreparationButton.gameObject.SetActive(_hasRemainingGames && _dashboardState != 2);
+            _opponentAnalysisButton.gameObject.SetActive(_hasRemainingGames && _dashboardState != 2);
+            SetRect((RectTransform)_completeSeasonButton.transform,
+                new Vector2(_hasRemainingGames ? 540 : 24, _hasRemainingGames && _dashboardState != 2 ? 248 : 24),
+                new Vector2(_hasRemainingGames ? 720 : 384, _hasRemainingGames && _dashboardState != 2 ? 316 : 92));
+            OwnerUiButtonSkin.Apply(_completeSeasonButton, _hasRemainingGames ? OwnerButtonRole.Quiet : OwnerButtonRole.Primary);
+        }
+
+        private void LateUpdate() => ResizeDashboard();
+
+        private static void BuildMatchDiamond(RectTransform panel)
+        {
+            var diamond = OwnerWorkspaceUiFactory.CreateRoot(panel, "BaseballDiamond", false);
+            SetRect(diamond, new Vector2(530, 140), new Vector2(674, 284));
+            diamond.localRotation = Quaternion.Euler(0, 0, 45);
+            Color line = new Color32(218, 187, 123, 16);
+            OwnerDashboardStyle.Rule(diamond, "FirstBaseLine", Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 2), line);
+            OwnerDashboardStyle.Rule(diamond, "ThirdBaseLine", Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(2, 0), line);
+            OwnerDashboardStyle.Rule(diamond, "RightFieldLine", new Vector2(1, 0), Vector2.one, new Vector2(-2, 0), Vector2.zero, line);
+            OwnerDashboardStyle.Rule(diamond, "LeftFieldLine", new Vector2(0, 1), Vector2.one, new Vector2(0, -2), Vector2.zero, line);
+        }
+
+        private void ResizeDashboard()
+        {
+            if (_dashboardBackplate == null || _workspaceRoot == null) return;
+            // 화면의 40% 이내에서 동일 카드 비율을 유지한다. 720p에서도 본문 14px·버튼 44px을 확보한다.
+            float scale = Mathf.Min(1f, _workspaceRoot.rect.width * .40f / DockWidth,
+                Mathf.Max(0, _workspaceRoot.rect.height - 24) / _dashboardBackplate.sizeDelta.y);
+            _dashboardBackplate.localScale = Vector3.one * scale;
+            _dashboardBackplate.anchoredPosition = new Vector2(-24, 12);
+        }
         private static RectTransform Surface(Transform parent, string name, Color color, float left, float bottom, float right, float top)
         {
             Image image = OwnerRuntimeUiFactory.CreateImage(name, parent, color);
@@ -204,6 +283,7 @@ namespace Baseball.Presentation.Owner
             var outline = image.gameObject.AddComponent<Outline>();
             outline.effectColor = CareerUiTheme.ReferenceBorder;
             outline.effectDistance = new Vector2(1f, -1f);
+            OwnerDashboardStyle.ApplySurface(image.rectTransform);
             return image.rectTransform;
         }
 
@@ -222,6 +302,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, name, value, size, style, TextAnchor.MiddleLeft, color);
             text.color = color;
+            OwnerDashboardStyle.SetTypography(text, style == FontStyle.Bold);
             SetRect(text.rectTransform, min, max);
             return text;
         }
@@ -233,10 +314,11 @@ namespace Baseball.Presentation.Owner
             button.GetComponent<Image>().color = primary ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceButton;
             Text text = button.transform.Find("Label").GetComponent<Text>();
             text.color = primary ? CareerUiTheme.TextPrimary : CareerUiTheme.ReferenceText;
-            text.fontSize = primary ? 18 : 17;
+            text.fontSize = 22;
             text.resizeTextForBestFit = false;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            OwnerUiButtonSkin.Apply(button, primary ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.Apply(button, primary ? OwnerButtonRole.Primary : OwnerButtonRole.Quiet);
+            OwnerUiButtonSkin.SetDashboardStyle(button);
             return button;
         }
 

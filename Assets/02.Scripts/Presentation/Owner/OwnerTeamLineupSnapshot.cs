@@ -90,36 +90,36 @@ namespace Baseball.Presentation.Owner
                 string position = "야수";
                 foreach (var slot in plan.StartingLineupSlots)
                     if (string.Equals(slot.CardId, id, StringComparison.Ordinal)) position = FormatPosition(slot.Position);
-                hitters.Add(CreatePublicLineupCard(runtime, roster, id, (i + 1) + "번", position));
+                hitters.Add(CreatePublicLineupCard(manager, roster, id, (i + 1) + "번", position));
                 hitterDetails.Add(CreateLineupDetail(
                     manager, runtime, roster, id, teamSeasonKey, isOwnTeam, teamColorBonuses));
             }
             for (int i = 0; i < plan.BenchPriorityCardIds.Count; i++)
             {
-                hitters.Add(CreatePublicLineupCard(runtime, roster, plan.BenchPriorityCardIds[i], (i + 1) + "번", "벤치"));
+                hitters.Add(CreatePublicLineupCard(manager, roster, plan.BenchPriorityCardIds[i], (i + 1) + "번", "벤치"));
                 hitterDetails.Add(CreateLineupDetail(
                     manager, runtime, roster, plan.BenchPriorityCardIds[i], teamSeasonKey,
                     isOwnTeam, teamColorBonuses));
             }
             for (int i = 0; i < plan.StarterRotationCardIds.Count; i++)
             {
-                pitchers.Add(CreatePublicLineupCard(runtime, roster, plan.StarterRotationCardIds[i], (i + 1) + "선발", "선발"));
+                pitchers.Add(CreatePublicLineupCard(manager, roster, plan.StarterRotationCardIds[i], (i + 1) + "선발", "선발"));
                 pitcherDetails.Add(CreateLineupDetail(
                     manager, runtime, roster, plan.StarterRotationCardIds[i], teamSeasonKey,
                     isOwnTeam, teamColorBonuses));
             }
             for (int i = 0; i < plan.BullpenAssignmentCardIds.Count; i++)
             {
-                pitchers.Add(CreatePublicLineupCard(runtime, roster, plan.BullpenAssignmentCardIds[i], (i + 1) + "번", "중계"));
+                pitchers.Add(CreatePublicLineupCard(manager, roster, plan.BullpenAssignmentCardIds[i], (i + 1) + "번", "중계"));
                 pitcherDetails.Add(CreateLineupDetail(
                     manager, runtime, roster, plan.BullpenAssignmentCardIds[i], teamSeasonKey,
                     isOwnTeam, teamColorBonuses));
             }
-            pitchers.Add(CreatePublicLineupCard(runtime, roster, plan.SetupPitcherCardId, "셋업", "셋업"));
+            pitchers.Add(CreatePublicLineupCard(manager, roster, plan.SetupPitcherCardId, "셋업", "셋업"));
             pitcherDetails.Add(CreateLineupDetail(
                 manager, runtime, roster, plan.SetupPitcherCardId, teamSeasonKey,
                 isOwnTeam, teamColorBonuses));
-            pitchers.Add(CreatePublicLineupCard(runtime, roster, plan.CloserPitcherCardId, "마무리", "마무리"));
+            pitchers.Add(CreatePublicLineupCard(manager, roster, plan.CloserPitcherCardId, "마무리", "마무리"));
             pitcherDetails.Add(CreateLineupDetail(
                 manager, runtime, roster, plan.CloserPitcherCardId, teamSeasonKey,
                 isOwnTeam, teamColorBonuses));
@@ -212,10 +212,11 @@ namespace Baseball.Presentation.Owner
             return result;
         }
 
-        private static PlayerMiniCardModel CreatePublicLineupCard(ManagerHistoricalRuntimeState runtime,
+        private static PlayerMiniCardModel CreatePublicLineupCard(OwnerModeManager manager,
             CurrentRosterState roster, string cardId, string order, string role)
         {
             if (string.IsNullOrEmpty(cardId)) return null;
+            var runtime = manager.Runtime;
             ActiveRosterEntry entry = null;
             foreach (var candidate in roster.Entries)
                 if (string.Equals(candidate.CardId, cardId, StringComparison.Ordinal)) { entry = candidate; break; }
@@ -223,7 +224,9 @@ namespace Baseball.Presentation.Owner
             var season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
             return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 order, (season.OriginYear % 100).ToString("00"), "C " + season.Cost,
-                string.Empty, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost);
+                string.Empty, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost,
+                growthBadges: roster.TeamSeasonKey == runtime.PlayerTeamSeasonKey
+                    ? OwnerCardGrowthBadgeBuilder.Build(runtime, cardId, manager.Balance.Growth) : PlayerCardGrowthBadgeModel.Empty);
         }
 
         private static OwnerCollectionCardSnapshot CreateLineupDetail(
