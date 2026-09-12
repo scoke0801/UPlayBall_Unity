@@ -29,11 +29,13 @@ namespace Baseball.Simulation.Growth
 
         private readonly SkillBoardDefinition _boardDefinition;
         private readonly SkillBlockDefinition[] _blockDefinitions;
+        private readonly bool _hasAdjacencySets;
 
         public SkillBoardService(SkillBoardDefinition boardDefinition, SkillBlockDefinition[] blockDefinitions)
         {
             _boardDefinition = boardDefinition ?? throw new ArgumentNullException(nameof(boardDefinition));
             _blockDefinitions = blockDefinitions ?? throw new ArgumentNullException(nameof(blockDefinitions));
+            foreach (var block in blockDefinitions) if (block.AdjacencySetBonus > 0) _hasAdjacencySets = true;
         }
 
         public void PlaceBlock(
@@ -316,6 +318,10 @@ namespace Baseball.Simulation.Growth
                 }
             }
 
+            // 구단주 세트도 기존 능력치별·전체 블록 상한을 함께 소비한다.
+            if (_hasAdjacencySets && applied.Count >= 3)
+                for (int i = 0; i < result.Length; i++) result[i] = Math.Min(MaximumBonusPerAbility, result[i]
+                    + Baseball.Simulation.Historical.OwnerSkillSetResolver.GetBonus(applied, this, _blockDefinitions, (PlayerAbility)i));
             ApplyTotalBonusCap(result);
             return result;
         }

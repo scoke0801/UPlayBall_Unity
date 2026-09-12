@@ -8,6 +8,23 @@ namespace Baseball.Presentation.UI
     /// <summary>ShapeCells의 크기와 회전을 유지하며 공용 테트로미노 Sprite를 Tint해 표시한다.</summary>
     internal static class SkillBlockVisual
     {
+        private static Texture2D _circleTile;
+        private static Texture2D _starTile;
+
+        /// <summary>작은 목록과 카드 뒷면 모두 같은 원형·상위 등급 별 문양을 사용한다.</summary>
+        public static void ApplyTile(RawImage image, SkillBlockRarity rarity)
+        {
+            bool hasStar = rarity == SkillBlockRarity.Elite || rarity == SkillBlockRarity.Unique ||
+                           rarity == SkillBlockRarity.Legendary;
+            if (hasStar && _starTile == null)
+                _starTile = Resources.Load<Texture2D>("UI/OwnerPowerUp/skill_tile_star_v3");
+            if (!hasStar && _circleTile == null)
+                _circleTile = Resources.Load<Texture2D>("UI/OwnerPowerUp/skill_tile_circle_v3");
+            image.texture = hasStar ? _starTile : _circleTile;
+            image.color = GetRarityColor(rarity);
+            image.raycastTarget = false;
+        }
+
         /// <summary>구단주 카드와 카드훈련에서 같은 등급 색상을 사용한다.</summary>
         public static Color GetRarityColor(SkillBlockRarity rarity) => rarity switch
         {

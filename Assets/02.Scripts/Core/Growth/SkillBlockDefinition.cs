@@ -157,11 +157,13 @@ namespace Baseball.Core.Growth
             AbilityChange[] abilityBonuses,
             long sellValue,
             string traitId = "",
-            bool isUniqueReward = false)
+            bool isUniqueReward = false,
+            bool allowCompactShape = false,
+            int adjacencySetBonus = 0)
         {
             if (string.IsNullOrWhiteSpace(blockId))
                 throw new ArgumentException("BlockId는 비어 있을 수 없습니다.", nameof(blockId));
-            if (shapeCells == null || shapeCells.Length != TetrominoShapeCatalog.CellCount)
+            if (shapeCells == null || (allowCompactShape ? shapeCells.Length < 1 || shapeCells.Length > 4 : shapeCells.Length != TetrominoShapeCatalog.CellCount))
                 throw new ArgumentException("블록은 정사각형 네 칸으로 구성된 테트로미노여야 합니다.", nameof(shapeCells));
             if (sellValue < 0L)
                 throw new ArgumentOutOfRangeException(nameof(sellValue));
@@ -176,6 +178,8 @@ namespace Baseball.Core.Growth
             SellValue = sellValue;
             TraitId = traitId?.Trim() ?? string.Empty;
             IsUniqueReward = isUniqueReward;
+            if (adjacencySetBonus < 0) throw new ArgumentOutOfRangeException(nameof(adjacencySetBonus));
+            AdjacencySetBonus = adjacencySetBonus;
         }
 
         public string BlockId { get; }
@@ -187,6 +191,7 @@ namespace Baseball.Core.Growth
         public long SellValue { get; }
         public string TraitId { get; }
         public bool IsUniqueReward { get; }
+        public int AdjacencySetBonus { get; }
 
         private static void ValidateShape(BoardCell[] cells)
         {

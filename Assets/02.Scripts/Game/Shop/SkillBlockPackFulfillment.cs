@@ -131,6 +131,7 @@ namespace Baseball.Game.Shop
     /// <summary>구단주 지갑을 한 번 결제하고 공유 스킬 블록 인벤토리에 결과를 지급한다.</summary>
     public sealed class OwnerSkillBlockPackFulfillment : IShopProductFulfillment
     {
+        private readonly Func<Baseball.Game.Historical.OwnerSchedulePermission> _permissionProvider;
         private readonly OwnerSkillGachaResolver _resolver;
         private readonly SkillBlockDefinition[] _definitions;
         private readonly IShopWallet _wallet;
@@ -142,12 +143,14 @@ namespace Baseball.Game.Shop
             SkillBlockDefinition[] definitions,
             IShopWallet wallet,
             Func<OwnerSkillBlockInventoryState> inventoryProvider,
-            Func<IRandomSource> randomFactory)
+            Func<IRandomSource> randomFactory,
+            Func<Baseball.Game.Historical.OwnerSchedulePermission> permissionProvider)
         {
             _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
             _definitions = definitions ?? throw new ArgumentNullException(nameof(definitions));
             _wallet = wallet ?? throw new ArgumentNullException(nameof(wallet));
             _inventoryProvider = inventoryProvider ?? throw new ArgumentNullException(nameof(inventoryProvider));
+            _permissionProvider = permissionProvider ?? throw new ArgumentNullException(nameof(permissionProvider));
             _randomFactory = randomFactory ?? throw new ArgumentNullException(nameof(randomFactory));
         }
 
@@ -156,6 +159,8 @@ namespace Baseball.Game.Shop
         public ShopFulfillmentResult Fulfill(ShopProductDefinition product)
         {
             if (product == null) throw new ArgumentNullException(nameof(product));
+            var permission = _permissionProvider();
+            if (!permission.IsAllowed) return ShopFulfillmentResult.Failure(permission.Reason);
             if (product.Currency != ShopCurrency.Money ||
                 !Enum.TryParse(product.SourceId, out SkillGachaPurchaseTier tier))
                 return ShopFulfillmentResult.Failure("스킬 블록 상품 정의가 올바르지 않습니다.");
