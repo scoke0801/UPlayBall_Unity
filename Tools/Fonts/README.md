@@ -4,6 +4,7 @@
 
 - TMP 기본: `TMP Settings` → `esamanru Medium SDF`
 - 기존 uGUI Text 기본: `UIProjectFonts.Default` → `Fonts/DefaultFonts` → `esamanru Medium.ttf`
+- uGUI 생성 컴포넌트: `UIProjectText` (`Text` 상속). 부모 패널의 확대 배율을 동적 아틀라스 생성 밀도에 반영한다. 기본 Medium TTF는 작은 글자의 획 정렬을 위해 Hinted Smooth를 사용한다.
 - SDF: 90pt, padding 9, 2048×2048, Dynamic, Multi Atlas. 생성 시 ASCII와 대표 한글의 추가를 검증한다. Unity의 동적 데이터 정리 이후에도 원본 TTF에서 필요한 글자를 다시 추가한다.
 - Light/Medium/Bold는 TMP의 300/400·500/700 굵기에 연결한다.
 

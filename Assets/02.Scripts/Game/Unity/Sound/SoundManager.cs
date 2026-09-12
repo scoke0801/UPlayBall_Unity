@@ -34,6 +34,24 @@ namespace Baseball.Game.Sound
 
         private AudioSource _sourceA;
         private AudioSource _sourceB;
+        private AudioSource _uiSource;
+
+        /// <summary>기존 Master·SFX 볼륨 설정을 따르는 짧은 UI 전환음을 재생한다.</summary>
+        public void PlayInterfaceConfirm()
+        {
+            if (_configuration == null || _configuration.UiConfirm == null) return;
+            if (_uiSource == null)
+            {
+                var child = new GameObject("InterfaceAudio"); child.transform.SetParent(transform, false);
+                _uiSource = child.AddComponent<AudioSource>(); _uiSource.playOnAwake = false;
+                if (_configuration.Mixer != null)
+                {
+                    var groups = _configuration.Mixer.FindMatchingGroups("SFX");
+                    if (groups.Length > 0) _uiSource.outputAudioMixerGroup = groups[0];
+                }
+            }
+            _uiSource.PlayOneShot(_configuration.UiConfirm);
+        }
 
         /// <summary>가장 최근에 재생을 시작한 소스. 다음 곡은 반대쪽 소스로 넘어간다.</summary>
         private AudioSource _currentSource;
@@ -338,6 +356,7 @@ namespace Baseball.Game.Sound
 
             StopSource(_sourceA);
             StopSource(_sourceB);
+            StopSource(_uiSource);
         }
 
         private static void StopSource(AudioSource source)

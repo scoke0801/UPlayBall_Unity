@@ -66,6 +66,7 @@ namespace Baseball.Presentation.SharedUI
 
         /// <summary>전역 설정 진입을 요청하면 현재 모드 Coordinator에 알린다.</summary>
         public event Action SettingsRequested;
+        public event Action SaveRequested;
 
         /// <summary>
         /// 화면별 Workspace가 들어갈 공용 콘텐츠 슬롯이다.
@@ -353,6 +354,8 @@ namespace Baseball.Presentation.SharedUI
             var layout = rect.gameObject.AddComponent<LayoutElement>();
             layout.preferredWidth = isSubTab ? 128f : 132f;
             layout.minWidth = isSubTab ? 106f : 108f;
+            if (!isSubTab && _profile.Mode == UiGameMode.OwnerCareer)
+                layout.preferredWidth = layout.minWidth = 156f;
             layout.flexibleHeight = 1f;
 
             Image background = rect.gameObject.AddComponent<Image>();
@@ -386,6 +389,8 @@ namespace Baseball.Presentation.SharedUI
                 Vector2.zero,
                 new Vector2(0f, 3f));
             selectionAccent.gameObject.SetActive(false);
+            if (!isSubTab && _profile.Mode == UiGameMode.OwnerCareer)
+                selectionAccent.GetComponent<Image>().color = CareerUiTheme.AccentGold;
 
             var outline = rect.gameObject.AddComponent<Outline>();
             outline.effectColor = isSubTab
@@ -422,6 +427,13 @@ namespace Baseball.Presentation.SharedUI
                 Image surface = slotRect.gameObject.AddComponent<Image>();
                 surface.color = StatusSurface;
                 surface.raycastTarget = false;
+                bool ownerStatus = _profile != null && _profile.Mode == UiGameMode.OwnerCareer;
+                if (ownerStatus)
+                {
+                    surface.raycastTarget = true;
+                    slotRect.gameObject.AddComponent<Selectable>();
+                    slotRect.gameObject.AddComponent<UIStatusHint>().Initialize(TooltipHost, slot.Label + " · " + slot.Value);
+                }
 
                 Text label = CreateText(
                     "Label", slotRect, slot.Label.ToUpperInvariant(), 11, FontStyle.Bold,
@@ -432,6 +444,15 @@ namespace Baseball.Presentation.SharedUI
                     "Value", slotRect, slot.Value, 16, FontStyle.Bold,
                     TextAnchor.LowerCenter, GetEmphasisColor(slot.Emphasis));
                 SetAnchors(value.rectTransform, Vector2.zero, Vector2.one, new Vector2(4f, 4f), new Vector2(-4f, -18f));
+                if (ownerStatus)
+                {
+                    label.font = UIProjectFonts.Body;
+                    label.fontStyle = FontStyle.Normal;
+                    label.fontSize = 12;
+                    value.font = UIProjectFonts.Default;
+                    value.fontStyle = FontStyle.Normal;
+                    surface.color = Color.clear;
+                }
                 // 금액처럼 긴 핵심 상태는 칸을 넓혀 보존하되 비정상적으로 긴 공급 값은 인접 UI를 침범하지 않는다.
                 layout.preferredWidth = Mathf.Clamp(
                     Mathf.Max(layout.preferredWidth, value.preferredWidth + 12f),
@@ -441,6 +462,10 @@ namespace Baseball.Presentation.SharedUI
                 value.resizeTextForBestFit = true;
                 value.resizeTextMinSize = 12;
                 value.resizeTextMaxSize = 16;
+                if (ownerStatus && Screen.width <= 1280 && slot.SlotId != "Money")
+                {
+                    label.text = slot.SlotId == "SP" ? "탐색" : slot.SlotId == "DP" ? "육성" : slot.Label;
+                }
             }
         }
 

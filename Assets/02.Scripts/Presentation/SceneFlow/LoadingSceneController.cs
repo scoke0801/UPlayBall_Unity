@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using Baseball.Game.Historical;
+using Baseball.Game.Career;
+using Baseball.Game.Unity.Persistence;
 using Baseball.Game.Manager;
 using Baseball.Game.SceneFlow;
 using Baseball.Presentation.UI;
@@ -24,6 +26,8 @@ namespace Baseball.Presentation.SceneFlow
         private HistoricalWarmupManager _warmup;
         private bool _activationRequested;
         private bool _isPersistent;
+        private int _preparedSaveSlots;
+        private bool _areSaveSlotsReady;
 
         private void Awake()
         {
@@ -38,14 +42,15 @@ namespace Baseball.Presentation.SceneFlow
             CareerUiSkin.ApplySlider(_progressBar);
         }
 
-        private void Start()
+        private IEnumerator Start()
         {
             _sceneLoadManager = GameManager.EnsureExists()
                 .EnsureManager<SceneLoadManager>("SceneLoadManager");
             _warmup = HistoricalWarmupManager.Instance;
-
-            if (_sceneLoadManager.StartPendingLoad())
-                return;
+            bool hasPendingLoad = _sceneLoadManager.StartPendingLoad();
+            yield return PrepareSaveSlots();
+            if (hasPendingLoad)
+                yield break;
 
             Debug.LogWarning("[LoadingSceneController] 보류 중인 요청이 없어 Management Scene으로 복구합니다.");
             _sceneLoadManager.LoadScene(
@@ -59,20 +64,40 @@ namespace Baseball.Presentation.SceneFlow
             if (_sceneLoadManager == null || _activationRequested)
                 return;
 
-            // 둘 중 느린 쪽이 곧 "들어갈 준비"이므로 최소값을 표시한다.
+            // 씬·월드·저장 슬롯이 모두 준비돼야 진입할 수 있으므로 최소값을 표시한다.
             UpdateStatusLabel();
-            float readiness = Mathf.Min(_sceneLoadManager.LoadProgress, GetWarmupProgress());
+            float readiness = Mathf.Min(Mathf.Min(_sceneLoadManager.LoadProgress, GetWarmupProgress()),
+                (float)_preparedSaveSlots / (SaveSlotPaths.SlotCount * 2));
             float nextValue = Mathf.MoveTowards(
                 _progressBar.value,
                 readiness,
                 Time.unscaledDeltaTime * ProgressAnimationSpeed);
             _progressBar.SetValueWithoutNotify(nextValue);
 
-            if (!_sceneLoadManager.IsReadyToActivate || !IsWarmupSettled() || nextValue < 0.999f)
+            if (!_sceneLoadManager.IsReadyToActivate || !IsWarmupSettled() || !_areSaveSlotsReady || nextValue < 0.999f)
                 return;
 
             PreserveUntilTargetReady();
             _activationRequested = _sceneLoadManager.ActivatePendingScene();
+        }
+
+        private IEnumerator PrepareSaveSlots()
+        {
+            // 첫 프레임에 로딩 화면을 표시한 뒤 슬롯마다 양보해 진행 상태를 보여준다.
+            yield return null;
+            GameManager game = GameManager.EnsureExists();
+            CareerManager career = game.EnsureManager<CareerManager>("CareerManager");
+            OwnerModeManager owner = game.EnsureManager<OwnerModeManager>("OwnerModeManager");
+            for (int slot = 1; slot <= SaveSlotPaths.SlotCount; slot++)
+            {
+                career.InspectCareerSave(slot);
+                _preparedSaveSlots++;
+                yield return null;
+                owner.InspectSave(slot);
+                _preparedSaveSlots++;
+                yield return null;
+            }
+            _areSaveSlotsReady = true;
         }
 
         /// <summary>
@@ -99,7 +124,9 @@ namespace Baseball.Presentation.SceneFlow
             if (_statusLabel == null)
                 return;
 
-            string message = _warmup == null || _warmup.IsSettled
+            string message = !_areSaveSlotsReady
+                ? "저장 슬롯을 준비하는 중…"
+                : _warmup == null || _warmup.IsSettled
                 ? "화면을 준비하는 중…"
                 : _warmup.StatusMessage;
             if (!string.Equals(_statusLabel.text, message, StringComparison.Ordinal))
@@ -214,7 +241,7 @@ namespace Baseball.Presentation.SceneFlow
         /// <summary>진행률 막대 아래에 단계 문구 한 줄을 둔다.</summary>
         private static Text CreateStatusLabel(Transform parent)
         {
-            var labelObject = new GameObject("StatusLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var labelObject = new GameObject("StatusLabel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Baseball.Presentation.UI.UIProjectText));
             labelObject.transform.SetParent(parent, false);
             var rect = labelObject.GetComponent<RectTransform>();
             Stretch(rect, new Vector2(0.2f, 0.4f), new Vector2(0.8f, 0.46f), Vector2.zero, Vector2.zero);

@@ -8,9 +8,10 @@ namespace Baseball.Presentation.SharedUI
     public sealed partial class SharedGameShellView
     {
         private const float OwnerTopBarHeight = 52f;
-        private const float OwnerNavigationHeight = 68f;
+        private const float OwnerNavigationHeight = 52f;
         private const float HeaderSecondaryRowRatio = 0.38f;
         private RectTransform _ownerStatusPlate;
+        private Button _globalSave;
 
         private float ApplyReferenceChrome(bool isOwner)
         {
@@ -19,7 +20,7 @@ namespace Baseball.Presentation.SharedUI
             float chromeHeight = headerHeight + navigationHeight;
             SetAnchors(_globalTopBar, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -headerHeight), Vector2.zero);
-            _globalTopBar.GetComponent<Image>().color = isOwner ? CareerUiTheme.ReferencePanelHeader : TopBar;
+            _globalTopBar.GetComponent<Image>().color = TopBar;
             _globalTopBar.Find("BottomBorder").GetComponent<Image>().color = isOwner ? CareerUiTheme.ReferenceBorder : GoldAccent;
             if (_ownerStatusPlate == null)
             {
@@ -33,7 +34,7 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(20f, 0f), new Vector2(isOwner ? -12f : 250f, 0f));
             Text logo = brand.Find("GameName").GetComponent<Text>();
             logo.fontSize = isOwner ? 20 : 25;
-            logo.color = isOwner ? DarkText : TextPrimary;
+            logo.color = TextPrimary;
             ConfigureHeaderTextRows(logo, _modeNameText, isOwner, -20f);
             if (brand.Find("GameLogo") != null)
             {
@@ -57,25 +58,44 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(isOwner ? .94f : 1f, 1f), new Vector2(0f, isOwner ? 1f : 7f),
                 new Vector2(isOwner ? -8f : -78f, isOwner ? -1f : -7f));
             RectTransform settings = (RectTransform)_globalTopBar.Find("GlobalSettings");
+            if (_globalSave == null)
+            {
+                _globalSave = OwnerWorkspaceUiFactory.CreateButton(_globalTopBar, "GlobalSave", "저장", () => SaveRequested?.Invoke());
+                SetAnchors((RectTransform)_globalSave.transform, new Vector2(1, 0), Vector2.one,
+                    new Vector2(-130, 4), new Vector2(-70, -4));
+                OwnerUiButtonSkin.Apply(_globalSave, OwnerButtonRole.Quiet);
+            }
+            _globalSave.gameObject.SetActive(isOwner);
+            if (isOwner)
+            {
+                SetAnchors(_statusSlotHost, new Vector2(.40f, 0), new Vector2(1, 1),
+                    new Vector2(0, 1), new Vector2(-142, -1));
+                SetAnchors(settings, new Vector2(1, 0), Vector2.one, new Vector2(-66, 4), new Vector2(-8, -4));
+            }
             settings.GetComponent<Image>().color = isOwner ? CareerUiTheme.ReferenceButton : StatusSurface;
             settings.Find("Label").GetComponent<Text>().color = isOwner ? DarkText : TextSecondary;
             if (isOwner)
             {
-                OwnerUiButtonSkin.Apply(settings.GetComponent<Button>(), OwnerButtonRole.Detail);
+                OwnerUiButtonSkin.Apply(settings.GetComponent<Button>(), OwnerButtonRole.Quiet);
                 OwnerUiButtonSkin.Apply(_backButton, OwnerButtonRole.Detail);
             }
             else
             {
+                SetAnchors(settings, new Vector2(1, 0), Vector2.one, new Vector2(-66, 9), new Vector2(-14, -9));
                 OwnerUiButtonSkin.Restore(settings.GetComponent<Button>());
                 OwnerUiButtonSkin.Restore(_backButton);
                 settings.Find("Label").GetComponent<Text>().color = TextSecondary;
                 _backButtonLabel.color = TextPrimary;
             }
-            SetAnchors(_primaryNavigation, new Vector2(isOwner ? .18f : 0f, 1f),
-                new Vector2(isOwner ? .82f : 1f, 1f),
+            SetAnchors(_primaryNavigation, new Vector2(0f, 1f),
+                new Vector2(1f, 1f),
                 new Vector2(0f, -chromeHeight), new Vector2(0f, -headerHeight));
             _navigationEntryHost.GetComponent<HorizontalLayoutGroup>().childAlignment =
                 isOwner ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
+            if (isOwner)
+                SetAnchors(_navigationEntryHost, Vector2.zero, Vector2.one, new Vector2(24, 0), new Vector2(-24, 0));
+            else
+                SetAnchors(_navigationEntryHost, Vector2.zero, Vector2.one, new Vector2(18, 5), new Vector2(-18, -5));
             SetAnchors(_contextHeader, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -(chromeHeight + ContextHeaderHeight)), new Vector2(0f, -chromeHeight));
             return chromeHeight;
@@ -108,6 +128,10 @@ namespace Baseball.Presentation.SharedUI
                 Vector2.zero, new Vector2(1f, HeaderSecondaryRowRatio),
                 new Vector2(0f, 2f), Vector2.zero);
             secondary.alignment = TextAnchor.MiddleLeft;
+            primary.font = UIProjectFonts.Default;
+            primary.fontStyle = FontStyle.Normal;
+            secondary.font = UIProjectFonts.Body;
+            secondary.fontStyle = FontStyle.Normal;
         }
 
         private static void AddOwnerNavigationIcon(RectTransform parent, string routeId, Text label)
@@ -118,14 +142,16 @@ namespace Baseball.Presentation.SharedUI
                 if (shopIcon == null) return;
                 RectTransform shopRect = CreateRect("Icon", parent);
                 // 원본의 4:3 Canvas 비율만 보존한다. FitInParent는 메뉴 셀 전체로 확대되어 하단 라벨을 침범한다.
-                SetAnchors(shopRect, new Vector2(.5f, 1f), new Vector2(.5f, 1f),
-                    new Vector2(-24f, -38f), new Vector2(24f, -2f));
+                SetAnchors(shopRect, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(12f, -40f), new Vector2(44f, -12f));
                 RawImage shopImage = shopRect.gameObject.AddComponent<RawImage>();
                 shopImage.texture = shopIcon;
                 shopImage.raycastTarget = false;
-                SetAnchors(label.rectTransform, Vector2.zero, new Vector2(1f, 0f),
-                    new Vector2(8f, 2f), new Vector2(-8f, 20f));
-                label.fontSize = 16;
+                SetAnchors(label.rectTransform, Vector2.zero, Vector2.one,
+                    new Vector2(46f, 2f), new Vector2(-8f, -2f));
+                label.fontSize = 22;
+                label.font = Baseball.Presentation.UI.UIProjectFonts.Default;
+                label.fontStyle = FontStyle.Normal;
                 return;
             }
 
@@ -143,16 +169,20 @@ namespace Baseball.Presentation.SharedUI
             Texture2D atlas = Resources.Load<Texture2D>("UI/Generated/owner_navigation_atlas_v1");
             if (atlas == null) return;
             RectTransform rect = CreateRect("Icon", parent);
-            SetAnchors(rect, new Vector2(.5f, 1f), new Vector2(.5f, 1f),
-                new Vector2(-18f, -38f), new Vector2(18f, -2f));
+            SetAnchors(rect, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(12f, -40f), new Vector2(40f, -12f));
             RawImage image = rect.gameObject.AddComponent<RawImage>();
             image.texture = atlas;
             // 셀을 UV로 참조해 별도 Texture 복사와 런타임 Sprite 할당을 피한다.
             image.uvRect = new Rect((index % 3) / 3f, index < 3 ? .5f : 0f, 1f / 3f, .5f);
             image.raycastTarget = false;
-            SetAnchors(label.rectTransform, Vector2.zero, new Vector2(1f, 0f),
-                new Vector2(8f, 2f), new Vector2(-8f, 20f));
-            label.fontSize = 16;
+            // Medium 폰트의 행 높이가 기존 18px 영역을 넘으면 Truncate가 라벨 전체를 숨긴다.
+            // 24px 텍스트 영역과 28px 아이콘을 분리해 버튼 안에서 두 요소를 보존한다.
+            SetAnchors(label.rectTransform, Vector2.zero, Vector2.one,
+                    new Vector2(46f, 2f), new Vector2(-8f, -2f));
+            label.fontSize = 22;
+            label.font = UIProjectFonts.Default;
+            label.fontStyle = FontStyle.Normal;
         }
     }
 }

@@ -183,6 +183,7 @@ namespace Baseball.Presentation.SharedScreens
             _content.anchoredPosition = Vector2.zero;
             _scrollRect.horizontalNormalizedPosition = 0f;
             _scrollRect.verticalNormalizedPosition = 1f;
+            SyncHeaderPosition();
             RefreshVisibleRows();
         }
 
@@ -261,14 +262,14 @@ namespace Baseball.Presentation.SharedScreens
             _bodyViewport.gameObject.AddComponent<Mask>().showMaskGraphic = true;
 
             _content = CreateTopLeftRect("Content", _bodyViewport);
-            _scrollRect = _tableRoot.gameObject.AddComponent<ScrollRect>();
+            _scrollRect = _tableRoot.gameObject.AddComponent<UIRecordTableScrollRect>();
             _scrollRect.viewport = _bodyViewport;
             _scrollRect.content = _content;
             _scrollRect.horizontal = true;
             _scrollRect.vertical = true;
             _scrollRect.movementType = ScrollRect.MovementType.Clamped;
-            _scrollRect.inertia = true;
-            _scrollRect.decelerationRate = 0.12f;
+            // 기록 열을 읽는 표에서는 손을 놓은 위치에 바로 멈춘다.
+            _scrollRect.inertia = false;
             _scrollRect.scrollSensitivity = DefaultRowHeight;
             _scrollRect.onValueChanged.AddListener(HandleScrollChanged);
 
@@ -667,7 +668,7 @@ namespace Baseball.Presentation.SharedScreens
             Color color)
         {
             RectTransform rect = CreateRect(name, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
+            Text text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = DefaultFont;
             text.fontSize = fontSize;
             text.fontStyle = style;

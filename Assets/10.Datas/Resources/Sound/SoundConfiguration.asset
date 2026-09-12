@@ -19,3 +19,4 @@ MonoBehaviour:
   - situation: 1
     playlist: {fileID: 11400000, guid: aa00000000000000000000000000003a, type: 2}
   _situationFadeSeconds: 1.5
+  _uiConfirm: {fileID: 8300000, guid: a2bb6319f74641529f7100bc28c8c260, type: 3}

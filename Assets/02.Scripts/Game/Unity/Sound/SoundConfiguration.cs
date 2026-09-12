@@ -32,6 +32,9 @@ namespace Baseball.Game.Sound
         [Min(0f)][SerializeField] private float _situationFadeSeconds = 1.5f;
 
         public AudioMixer Mixer => _mixer;
+        [Tooltip("메뉴와 매니저 카드 전환에 쓰는 짧은 확인음. SFX 버스로 재생한다.")]
+        [SerializeField] private AudioClip _uiConfirm;
+        public AudioClip UiConfirm => _uiConfirm;
         public float SituationFadeSeconds => Mathf.Max(0f, _situationFadeSeconds);
 
         public bool TryGetPlaylist(BgmSituation situation, out BgmPlaylistDefinition playlist)

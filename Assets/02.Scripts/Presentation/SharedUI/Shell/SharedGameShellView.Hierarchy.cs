@@ -288,8 +288,7 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(16f, 8f), new Vector2(-16f, ActionBarHeight));
             _contextActionBarHost.GetComponent<Image>().color = isOwnerHome
                 ? new Color(0.025f, 0.045f, 0.075f, 0.94f) : ActionSurface;
-            _primaryNavigation.GetComponent<Image>().color = isOwnerHome
-                ? new Color(0.055f, 0.075f, 0.10f, 0.82f) : NavigationSurface;
+            _primaryNavigation.GetComponent<Image>().color = isOwner ? TopBar : NavigationSurface;
             if (_modeBackground != null && _modeBackground.sprite != null)
                 _modeBackground.color = isOwnerHome ? Color.white : CareerUiTheme.ShellBackdropTint;
 
@@ -341,7 +340,7 @@ namespace Baseball.Presentation.SharedUI
             Color color)
         {
             RectTransform rect = CreateRect(name, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
+            Text text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = DefaultFont;
             text.text = value;
             text.fontSize = fontSize;

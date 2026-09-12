@@ -6,7 +6,11 @@ namespace Baseball.Presentation.UI
     public sealed class UIProjectFonts : ScriptableObject
     {
         [SerializeField] private Font _medium;
+        [SerializeField] private Font _light;
         private static UIProjectFonts _instance;
+
+        /// <summary>정보가 많은 본문은 가벼운 실제 서체를 사용해 제목과 위계를 구분한다.</summary>
+        public static Font Body => Default != null && _instance._light != null ? _instance._light : Default;
 
         /// <summary>플랫폼의 설치 폰트에 의존하지 않는 Medium 폰트를 반환한다.</summary>
         public static Font Default

@@ -371,7 +371,7 @@ namespace Baseball.Presentation.SharedScreens
             Color color)
         {
             RectTransform rect = CreateRect(name, parent);
-            Text text = rect.gameObject.AddComponent<Text>();
+            Text text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = DefaultFont;
             text.fontSize = fontSize;
             text.fontStyle = style;
