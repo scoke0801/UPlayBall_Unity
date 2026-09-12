@@ -13,7 +13,7 @@
   "useLowerSpreadLimit": true,
   "lowerSpreadEnd": 65,
   "lowerSlope": 0.45,
-  "softCap": 120,
-  "hardCap": 140,
+  "softCap": 150,
+  "hardCap": 250,
   "postSoftCapSlope": 0.5
 }

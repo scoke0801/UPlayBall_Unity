@@ -107,7 +107,7 @@ namespace Baseball.Simulation.Match
 
             int selectedIndex = SelectPitchIndex(request, approach);
             PitchType pitchType = request.AvailablePitches[selectedIndex].PitchType;
-            PlatePoint target = SelectTarget(request, pitchType, approach);
+            PlatePoint target = SelectTarget(request, pitchType, approach, request.AvailablePitches[selectedIndex].EffectiveQuality);
             return new PitchSelectionCommand(request.RequestId, pitchType, target, approach);
         }
 
@@ -161,8 +161,10 @@ namespace Baseball.Simulation.Match
         private PlatePoint SelectTarget(
             in PitchSelectionAiContext request,
             PitchType pitchType,
-            PitchingApproach approach)
+            PitchingApproach approach,
+            double quality)
         {
+            double wasteScale = 1d / (1d + Math.Max(0d, quality - _balance.HighStuffStart) * _balance.HighQualityChallengeWeight);
             double choice = _random.NextDouble();
             double side = _random.NextDouble() < 0.5d ? -1d : 1d;
             bool breakingPitch = PitchTypeProfileCatalog.Get(pitchType).VerticalBreak < -0.1d;
@@ -171,13 +173,13 @@ namespace Baseball.Simulation.Match
             // 고의적인 승부 회피를 제외하면 볼넷 직전에는 카운트가 기본 접근법보다 우선한다.
             if (request.Balls == 3)
             {
-                return choice < _balance.AiThreeBallChallengeProbability
+                return choice < 1d - (1d - _balance.AiThreeBallChallengeProbability) * wasteScale
                     ? new PlatePoint(side * _balance.AiThreeBallTargetHorizontal, -0.18d)
                     : CreateWasteTarget(side, breakingPitch);
             }
             // 고제구 투수의 존 공략도 2스트라이크 유인구를 생략하지 않는다.
             // 접근법 분기가 앞서면 AttackZone의 사사구가 사실상 0으로 붕괴한다.
-            if (request.Strikes == 2 && choice < _balance.AiTwoStrikeWasteProbability)
+            if (request.Strikes == 2 && choice < _balance.AiTwoStrikeWasteProbability * wasteScale)
                 return CreateWasteTarget(side, breakingPitch);
             if (approach == PitchingApproach.Nibble)
                 return new PlatePoint(side * 0.96d, breakingPitch ? -0.72d : 0.58d);
@@ -189,7 +191,7 @@ namespace Baseball.Simulation.Match
                 return new PlatePoint(side * 0.52d, -0.73d);
             if (approach == PitchingApproach.AttackZone)
                 return new PlatePoint(side * 0.55d, choice < 0.5d ? -0.48d : 0.48d);
-            if (choice < _balance.AiWastePitchProbability)
+            if (choice < _balance.AiWastePitchProbability * wasteScale)
                 return CreateWasteTarget(side, breakingPitch);
             return new PlatePoint(side * 0.72d, breakingPitch ? -0.55d : 0.42d);
         }
@@ -276,6 +278,8 @@ namespace Baseball.Simulation.Match
             }
 
             double pitchDifficulty = (request.Pitch.Quality - 50d) * _balance.MiniGame.AiPitchQualityDifficultyWeight +
+                                     Math.Max(0d, matchup.EffectiveStuff - _balance.MiniGame.HighStuffStart) *
+                                         _balance.MiniGame.HighStuffLocationWeight +
                                      (matchup.EffectiveStuff - 50d) * _balance.MiniGame.AiStuffLocationWeight +
                                      (request.Pitch.VelocityMph - 88d) * 0.006d;
             double contactAbility = request.DefaultIntent == BattingApproach.Bunt ? matchup.BuntAbility : matchup.EffectiveContact;
@@ -284,7 +288,7 @@ namespace Baseball.Simulation.Match
             double locationScale = Clamp(
                 _balance.MiniGame.AiLocationErrorScale + pitchDifficulty - recognition,
                 0.38d,
-                1.35d);
+                1.35d + Math.Max(0d, matchup.EffectiveStuff - _balance.MiniGame.HighStuffStart) * _balance.MiniGame.HighStuffLocationWeight);
             locationScale *= 1d -
                              repeatRecognition * _balance.MiniGame.RepeatExecutionErrorReduction;
             double horizontalError = NextGaussian() * _balance.MiniGame.BaseBatRadiusX * locationScale;

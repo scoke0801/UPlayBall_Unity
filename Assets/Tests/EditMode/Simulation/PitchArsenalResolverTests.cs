@@ -12,6 +12,21 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class PitchArsenalResolverTests
     {
         [Test]
+        public void 실전구종품질은100이후에도성장하지만표시등급은100을유지한다()
+        {
+            var entry = new PitchRepertoireEntry(PitchType.Slider, 95, true);
+            var balance = PitchArsenalBalance.CreateDefault();
+            double lower = PitchEffectivenessResolver.ResolveQuality(entry, 150, 150, 150, balance);
+            double higher = PitchEffectivenessResolver.ResolveQuality(entry, 250, 250, 250, balance);
+            Assert.That(lower, Is.GreaterThan(100d));
+            Assert.That(higher, Is.GreaterThan(lower));
+            Assert.That(higher, Is.LessThanOrEqualTo(250d));
+            Assert.That(PitchEffectivenessResolver.ResolveStableQuality(entry,
+                new PitcherAttributes(250, 250, 250, 250, 250, 250), balance,
+                new PitcherAttributes(50, 50, 50, 50, 50, 50)), Is.EqualTo(100d));
+        }
+
+        [Test]
         public void 경기곡선은원본을보존하고상한이후에효과분산만줄인다()
         {
             // 상한·원본 보존 계약은 기획 기본값 변경과 독립된 명시적 곡선으로 검증한다.
@@ -19,8 +34,8 @@ namespace Baseball.Tests.EditMode.Simulation
             Assert.That(MatchRatingCurve.ResolveMatchInput(30, curve), Is.EqualTo(44));
             Assert.That(MatchRatingCurve.ResolveMatchInput(100, curve), Is.EqualTo(65));
             Assert.That(MatchRatingCurve.ResolveMatchInput(120, curve), Is.EqualTo(71));
-            Assert.That(MatchRatingCurve.ResolveMatchInput(140, curve), Is.EqualTo(74));
-            Assert.That(MatchRatingCurve.ResolveMatchInput(200, curve), Is.EqualTo(74));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(140, curve), Is.EqualTo(77));
+            Assert.That(MatchRatingCurve.ResolveMatchInput(200, curve), Is.EqualTo(88));
             Player source = new Player(1, "가상 곡선 선수", PlayerPosition.StartingPitcher,
                 Handedness.Right, Handedness.Right, new BatterAttributes(100, 30, 50, 50, 50, 50),
                 Ratings(100, 30));

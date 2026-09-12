@@ -42,7 +42,7 @@ namespace Baseball.Core.Growth
         }
 
         /// <summary>
-        /// 영구 성장·노쇠 결과를 1~100 범위에서 적용하고 실제 변화량을 반환한다.
+        /// 영구 성장·노쇠 결과를 공통 능력치 범위에서 적용하고 실제 변화량을 반환한다.
         /// </summary>
         public int AddClamped(PlayerAbility ability, int delta, int minimum = Minimum, int maximum = Maximum)
         {
@@ -100,7 +100,7 @@ namespace Baseball.Core.Growth
         private static void ValidateRating(int value, string parameterName)
         {
             if (value < Minimum || value > Maximum)
-                throw new ArgumentOutOfRangeException(parameterName, value, "능력치는 1~100 범위여야 합니다.");
+                throw new ArgumentOutOfRangeException(parameterName, value, $"능력치는 {Minimum}~{Maximum} 범위여야 합니다.");
         }
 
         private static int Clamp(int value, int minimum, int maximum)

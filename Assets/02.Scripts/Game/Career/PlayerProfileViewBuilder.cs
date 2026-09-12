@@ -68,7 +68,7 @@ namespace Baseball.Game.Career
                 TeamEmblemId = team.EmblemId,
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,
-                Overall = Clamp(overall, 0, 100),
+                Overall = Clamp(overall, 0, AttributeRating.Maximum),
                 Condition = player.Condition,
                 Fatigue = growthState?.Fatigue ?? 0,
                 ManagerEvaluation = player.ManagerEvaluation,

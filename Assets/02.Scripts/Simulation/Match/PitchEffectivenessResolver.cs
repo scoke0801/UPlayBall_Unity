@@ -36,7 +36,7 @@ namespace Baseball.Simulation.Match
                 (permanent.Control - baked.Control) * type.ControlInfluence;
             return Clamp(balance.RatingCenter + (entry.BaseMastery - balance.RatingCenter) *
                 balance.QualityMasteryWeight + ResolveAbilityContribution(entry.PitchType, stuff, breaking, control, balance) +
-                permanentContribution * (growth - 1d));
+                permanentContribution * (growth - 1d), AttributeRating.Maximum);
         }
 
         /// <summary>사용 우선순위로 주무기 두 개를 안정적으로 보호한다.</summary>
@@ -62,7 +62,7 @@ namespace Baseball.Simulation.Match
         {
             if (balance == null) throw new ArgumentNullException(nameof(balance));
             return Clamp(balance.RatingCenter + (entry.BaseMastery - balance.RatingCenter) *
-                balance.QualityMasteryWeight + ResolveAbilityContribution(entry.PitchType, stuff, breaking, control, balance));
+                balance.QualityMasteryWeight + ResolveAbilityContribution(entry.PitchType, stuff, breaking, control, balance), AttributeRating.Maximum);
         }
 
         /// <summary>직구보다 변화구의 구속 성장 기울기를 작게 유지하는 실제 km/h를 반환한다.</summary>
@@ -95,7 +95,7 @@ namespace Baseball.Simulation.Match
                 (control - balance.RatingCenter) * type.ControlInfluence + type.IntrinsicValue;
         }
 
-        private static double Clamp(double value) => Math.Max(0d, Math.Min(100d, value));
+        private static double Clamp(double value, double maximum = 100d) => Math.Max(0d, Math.Min(maximum, value));
     }
 
     /// <summary>구종의 현재 성능은 유지하고 보조 구종의 영구 능력 성장 효율만 분산한다.</summary>

@@ -10,6 +10,35 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MatchRatingCurveTests
     {
         [Test]
+        public void 성장상한까지타석과수비입력에100초과능력치를보존한다()
+        {
+            var source = new Baseball.Core.Players.Player(1, "상한 검증", Baseball.Core.Players.PlayerPosition.Catcher,
+                Baseball.Core.Players.Handedness.Right, Baseball.Core.Players.Handedness.Right,
+                new Baseball.Core.Players.BatterAttributes(150, 150, 150, 150, 150, 150),
+                new Baseball.Core.Players.PitcherAttributes(150, 150, 150, 150, 150, 150));
+            var curve = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
+            var player = MatchRatingCurve.ProjectPlayer(source, curve);
+            Assert.That(player.BatterAttributes.Contact, Is.EqualTo(MatchRatingCurve.ResolveMatchInput(150, curve)));
+            Assert.That(player.PitcherAttributes.Control, Is.GreaterThan(100));
+            var fatigue = new PitcherFatigueResolver(Baseball.Core.Balance.MatchBalanceTable.CreateDefault());
+            var pitcher = new Baseball.Core.Players.Player(2, "투수 상한 검증", Baseball.Core.Players.PlayerPosition.StartingPitcher,
+                Baseball.Core.Players.Handedness.Right, Baseball.Core.Players.Handedness.Right,
+                player.BatterAttributes, player.PitcherAttributes);
+            var state = fatigue.CreateState(new PitcherRosterEntry(pitcher, Baseball.Core.Teams.PitcherRole.Starter));
+            Assert.That(fatigue.Resolve(state, Baseball.Core.Players.PitchingApproach.Balanced).Control, Is.GreaterThan(100));
+            Assert.That(MatchRatingCurve.ProjectPlayer(player, curve), Is.SameAs(player));
+            var matchup = new Baseball.Simulation.PlateAppearance.PlateAppearanceMatchup(player, player, 150, false);
+            Assert.That(matchup.EffectiveContact, Is.GreaterThan(150));
+            Assert.That(matchup.BuntAbility, Is.GreaterThan(150));
+            var defense = FieldingProfile.Derive(player, Baseball.Core.Players.PlayerPosition.Catcher);
+            Assert.That(defense.Range, Is.InRange(150, 250));
+            Assert.That(defense.PositionProficiency, Is.EqualTo(100));
+            foreach (var ability in new[] { Baseball.Core.Growth.PlayerAbility.Contact, Baseball.Core.Growth.PlayerAbility.Control })
+                Assert.That(MatchRatingCurve.ResolveMatchInput(150, ability, curve),
+                    Is.GreaterThan(MatchRatingCurve.ResolveMatchInput(140, ability, curve)));
+        }
+
+        [Test]
         public void LowerSpread_저능력동급대결의입력을보존하고경계에서역전하지않는다()
         {
             var curve = Baseball.Core.Balance.MatchRatingCurveBalance.CreateDefault();
@@ -31,19 +60,19 @@ namespace Baseball.Tests.EditMode.Simulation
             foreach (var ability in new[] { Baseball.Core.Growth.PlayerAbility.Contact, Baseball.Core.Growth.PlayerAbility.Stuff })
             {
                 int previous = 0;
-                for (int rating = 1; rating <= 140; rating++)
+                for (int rating = 1; rating <= 250; rating++)
                 {
                     int input = MatchRatingCurve.ResolveMatchInput(rating, ability, curve);
                     Assert.That(input, Is.GreaterThanOrEqualTo(previous));
                     previous = input;
                 }
-                Assert.That(MatchRatingCurve.ResolveMatchInput(120, ability, curve), Is.LessThan(100));
-                Assert.That(MatchRatingCurve.ResolveMatchInput(140, ability, curve), Is.EqualTo(100));
+                Assert.That(MatchRatingCurve.ResolveMatchInput(120, ability, curve), Is.LessThan(150));
+                Assert.That(MatchRatingCurve.ResolveMatchInput(250, ability, curve), Is.EqualTo(250));
                 Assert.That(MatchRatingCurve.ResolveMatchInput(100, ability, curve),
                     Is.GreaterThan(MatchRatingCurve.ResolveMatchInput(90, ability, curve)));
             }
             Assert.Throws<ArgumentOutOfRangeException>(() => new Baseball.Core.Balance.MatchRatingCurveBalance(
-                45, 2, upperSpreadStart: 90));
+                45, 2, upperSpreadStart: 250));
         }
 
         [Test]
@@ -99,12 +128,13 @@ namespace Baseball.Tests.EditMode.Simulation
         public void CurvePreservesNormalRatingsAndDiminishesOnlyBeyondSoftCap()
         {
             var caps = EffectiveRatingCapTable.CreateInitial();
-            for (int rating = 1; rating <= 120; rating++)
+            for (int rating = 1; rating <= 150; rating++)
                 Assert.That(MatchRatingCurve.Resolve(rating, caps), Is.EqualTo(rating));
-            Assert.That(MatchRatingCurve.Resolve(121, caps), Is.EqualTo(120.5d));
-            Assert.That(MatchRatingCurve.Resolve(140, caps), Is.EqualTo(130d));
-            Assert.That(MatchRatingCurve.Resolve(1000, caps), Is.EqualTo(130d));
-            Assert.That(MatchRatingCurve.Resolve(120.001d, caps), Is.EqualTo(120.0005d).Within(1e-9));
+            Assert.That(MatchRatingCurve.Resolve(151, caps), Is.EqualTo(150.5d));
+            Assert.That(MatchRatingCurve.Resolve(180, caps), Is.EqualTo(165d));
+            Assert.That(MatchRatingCurve.Resolve(250, caps), Is.EqualTo(200d));
+            Assert.That(MatchRatingCurve.Resolve(1000, caps), Is.EqualTo(200d));
+            Assert.That(MatchRatingCurve.Resolve(150.001d, caps), Is.EqualTo(150.0005d).Within(1e-9));
         }
 
         [Test]

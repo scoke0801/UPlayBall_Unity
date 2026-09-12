@@ -38,7 +38,9 @@ namespace Baseball.Core.Players
             if (!Enum.IsDefined(typeof(PitchType), pitchType))
                 throw new ArgumentOutOfRangeException(nameof(pitchType));
             PitchType = pitchType;
-            Proficiency = AttributeRating.Validate(proficiency, nameof(proficiency));
+            if (proficiency < 0 || proficiency > 100)
+                throw new ArgumentOutOfRangeException(nameof(proficiency));
+            Proficiency = proficiency;
             IsPrimary = isPrimary;
             if (double.IsNaN(developmentAffinity) || double.IsInfinity(developmentAffinity) || developmentAffinity <= 0d)
                 throw new ArgumentOutOfRangeException(nameof(developmentAffinity));

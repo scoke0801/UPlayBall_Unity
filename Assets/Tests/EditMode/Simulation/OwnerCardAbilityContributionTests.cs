@@ -11,8 +11,11 @@ namespace Baseball.Tests.EditMode.Simulation
     /// <summary>카드 능력치 결과와 표시용 성장 출처 합계가 일치하는지 검증한다.</summary>
     public sealed class OwnerCardAbilityContributionTests
     {
-        [Test]
-        public void ResolveContribution_훈련과유학을분리하고영구능력치합계를보존한다()
+        [TestCase(50, 80)]
+        [TestCase(98, 150)]
+        [TestCase(145, 150)]
+        [TestCase(245, 250)]
+        public void ResolveContribution_훈련과유학을분리하고영구능력치합계를보존한다(int baseRating, int ceiling)
         {
             var training = new CardTrainingState();
             training.AddBonus(PlayerAbility.Contact, 3);
@@ -28,9 +31,9 @@ namespace Baseball.Tests.EditMode.Simulation
                 PitcherRole.Starter,
                 PlayerType.Batter,
                 RegistrationType.Domestic,
-                new AbilityRatings(50),
+                new AbilityRatings(baseRating),
                 5,
-                new AbilityRatings(80));
+                new AbilityRatings(ceiling));
             var modifiers = new int[PlayerAbilityCatalog.AbilityCount];
             modifiers[(int)PlayerAbility.Contact] = 1;
             var card = new PlayerCardDefinition(
@@ -39,12 +42,15 @@ namespace Baseball.Tests.EditMode.Simulation
             OwnerCardAbilityContribution result = new OwnerCardAbilityResolver(BalanceTable.CreateDefault().Growth)
                 .ResolveContribution(season, card, owned, PlayerAbility.Contact);
 
-            Assert.That(result.BaseCard, Is.EqualTo(51));
+            Assert.That(result.BaseCard, Is.EqualTo(baseRating + 1));
             Assert.That(result.Training, Is.EqualTo(3));
             Assert.That(result.Study, Is.EqualTo(2));
             Assert.That(result.SkillBlock, Is.Zero);
             Assert.That(result.Enhancement, Is.EqualTo(2));
-            Assert.That(result.Total, Is.EqualTo(58));
+            Assert.That(result.Total, Is.EqualTo(baseRating + 8));
+            var permanent = new OwnerCardAbilityResolver(BalanceTable.CreateDefault().Growth)
+                .ResolvePermanent(season, card, owned);
+            Assert.That(permanent.Get(PlayerAbility.Contact), Is.EqualTo(System.Math.Min(250, baseRating + 8)));
         }
     }
 }

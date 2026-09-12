@@ -35,14 +35,14 @@ namespace Baseball.Simulation.Match
             double? upperSpreadStart = isPitcherAbility ? balance.PitcherUpperSpreadStart : balance.UpperSpreadStart;
             if (upperSpreadStart.HasValue && curved > upperSpreadStart.Value)
             {
-                // 일반 카드의 격차를 넓혀도 강화·성장이 중도에 100으로 포화되지 않게 한다.
+                // 성장 상한까지 늘어난 입력 범위를 사용해 높은 카드의 격차가 100에서 소실되지 않게 한다.
                 double pivot = upperSpreadStart.Value;
                 double pivotInput = balance.Center + (pivot - balance.Center) * slope + offset;
                 double maximum = Resolve(balance.Caps.HardCap, balance.Caps);
-                double upperSlope = Math.Min(slope, Math.Max(0d, 100d - pivotInput) / (maximum - pivot));
+                double upperSlope = Math.Min(slope, Math.Max(0d, AttributeRating.Maximum - pivotInput) / (maximum - pivot));
                 input = pivotInput + (curved - pivot) * upperSlope;
             }
-            return (int)Math.Round(Math.Max(0d, Math.Min(100d,
+            return (int)Math.Round(Math.Max(0d, Math.Min(AttributeRating.Maximum,
                 input)), MidpointRounding.AwayFromZero);
         }
 

@@ -55,8 +55,23 @@ namespace Baseball.Core.Balance
             double hitByPitchContactProbability = .18d,
             double aiMentalChaseWeight = .0045d,
             // 구위별 3만 경기와 역사 44년 대조 근거: docs/reports/pitch-batting-balance-20260912.md.
-            double aiStuffLocationWeight = .008d)
+            double aiStuffLocationWeight = .008d,
+            // 150~250 동급 대결의 득점 폭증을 억제한 상세 9천 경기 근거: overstat-offense-20260912 보고서.
+            double highStuffStart = 80d,
+            double highStuffLocationWeight = .004d,
+            double highStuffExitVelocityWeight = .25d,
+            double highQualityChallengeWeight = .02d)
         {
+            if (!(highStuffStart >= 50d) || highStuffStart >= Baseball.Core.Players.AttributeRating.Maximum ||
+                !(highStuffLocationWeight >= 0d) || highStuffLocationWeight > .05d ||
+                !(highStuffExitVelocityWeight >= 0d) || highStuffExitVelocityWeight > 1d)
+                throw new System.ArgumentOutOfRangeException(nameof(highStuffStart));
+            HighStuffStart = highStuffStart;
+            HighStuffLocationWeight = highStuffLocationWeight;
+            HighStuffExitVelocityWeight = highStuffExitVelocityWeight;
+            if (!(highQualityChallengeWeight >= 0d) || highQualityChallengeWeight > .1d)
+                throw new System.ArgumentOutOfRangeException(nameof(highQualityChallengeWeight));
+            HighQualityChallengeWeight = highQualityChallengeWeight;
             if (!(aiMentalChaseWeight >= 0d) || aiMentalChaseWeight > .05d)
                 throw new System.ArgumentOutOfRangeException(nameof(aiMentalChaseWeight));
             AiMentalChaseWeight = aiMentalChaseWeight;
@@ -158,6 +173,12 @@ namespace Baseball.Core.Balance
         public double AiPitchQualityDifficultyWeight { get; }
         /// <summary>구종 품질의 상한과 별개로 현재 구위가 스윙 위치 오차에 기여한다.</summary>
         public double AiStuffLocationWeight { get; }
+        /// <summary>고능력 구위가 정타와 타구 속도를 추가 억제하기 시작하는 경기 입력이다.</summary>
+        public double HighStuffStart { get; }
+        public double HighStuffLocationWeight { get; }
+        public double HighStuffExitVelocityWeight { get; }
+        /// <summary>품질이 높은 구종은 유인구 비중을 줄여 선구안이 좋은 타자와도 승부한다.</summary>
+        public double HighQualityChallengeWeight { get; }
         public double ContactPitchQualityWeight { get; }
         public double ContactBatterQualityWeight { get; }
         public double AiWastePitchDistance { get; }

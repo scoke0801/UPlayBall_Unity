@@ -6,7 +6,7 @@ namespace Baseball.Core.Players
     public readonly struct BatterAttributes
     {
         /// <summary>
-        /// 0~100 범위의 타자 능력치를 생성한다.
+        /// 0~250 범위의 원시 타자 능력치를 생성한다. 150 초과 감쇠는 경기 투영이 소유한다.
         /// </summary>
         public BatterAttributes(int contact, int power, int speed, int bunt, int defense, int mental)
         {

@@ -134,10 +134,13 @@ namespace Baseball.Simulation.Match
                 contact.LaunchAngleDegrees >= _miniGame.HomeRunMinimumLaunchAngle &&
                 contact.LaunchAngleDegrees <= _miniGame.HomeRunMaximumLaunchAngle &&
                 contact.ExitVelocityMph >= _miniGame.HomeRunMinimumExitVelocity;
+            // 동급 고능력 대결에서 Power의 큰 가중치만 누적되어 홈런이 늘지 않도록 변화구 억제를 보완한다.
             double homeRunProbability = Clamp(
                 (_balance.HomeRunProbability +
                  (batter.Power - 50d) * _balance.PowerHomeRunWeight -
-                 (matchup.EffectiveBreaking - 50d) * _balance.BreakingHomeRunWeight +
+                  (matchup.EffectiveBreaking - 50d) * _balance.BreakingHomeRunWeight -
+                  Math.Max(0d, matchup.EffectiveBreaking - _miniGame.HighStuffStart) *
+                     Math.Max(0d, _balance.PowerHomeRunWeight - _balance.BreakingHomeRunWeight) +
                  (quality - 50d) * 0.0012d) * _miniGame.HomeRunProbabilityMultiplier,
                 0.002d,
                 0.32d);

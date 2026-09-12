@@ -13,6 +13,26 @@ namespace Baseball.Tests.EditMode.Simulation
     public sealed class MiniGameSimulationTests
     {
         [Test]
+        public void 같은스윙에서도고구위는타구속도를억제한다()
+        {
+            var balance = BalanceTable.CreateDefault();
+            var resolver = new SwingContactResolver(balance);
+            var original = CreateMatchup(50, 50);
+            PlateAppearanceMatchup WithStuff(double stuff) => new PlateAppearanceMatchup(
+                original.Batter, original.Pitcher, 50d, false, 50d, stuff, 50d, 50d, 50d,
+                0d, 0d, PitchingApproach.Balanced);
+            var pitch = CreatePitch(new PlatePoint(0d, 0d));
+            var swing = new SwingCommand(0, true, pitch.PlatePoint,
+                resolver.GetIdealSwingTime01(pitch), BattingApproach.Balanced);
+            var before = resolver.Resolve(WithStuff(balance.MiniGame.HighStuffStart), pitch, swing, 1);
+            var after = resolver.Resolve(WithStuff(balance.MiniGame.HighStuffStart + 20d), pitch, swing, 1);
+            Assert.That(before.ExitVelocityMph - after.ExitVelocityMph,
+                Is.EqualTo(20d * balance.MiniGame.HighStuffExitVelocityWeight).Within(1e-9));
+            Assert.That(resolver.Resolve(WithStuff(50d), pitch, swing, 1).ExitVelocityMph,
+                Is.EqualTo(before.ExitVelocityMph));
+        }
+
+        [Test]
         public void SwingContact_공도착이후큰시간오차는늦은헛스윙으로보존한다()
         {
             var resolver = new SwingContactResolver(BalanceTable.CreateDefault());

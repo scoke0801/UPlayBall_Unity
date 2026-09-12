@@ -36,6 +36,8 @@ namespace Baseball.Tools.SimulationDiagnostics
 
         private static int Run(string[] args)
         {
+            if (args.Length > 0 && args[0] == "rating-cap")
+                return RunRatingCap(args);
             if (args.Length > 0 && string.Equals(args[0], "bunt-audit", StringComparison.Ordinal))
                 return RunBuntAudit(args);
             if (args.Length > 0 && string.Equals(args[0], "verify-match-balance", StringComparison.Ordinal))
@@ -508,7 +510,7 @@ namespace Baseball.Tools.SimulationDiagnostics
         private static int ClampRating(int value)
         {
             if (value < 0) return 0;
-            if (value > 100) return 100;
+            if (value > AttributeRating.Maximum) return AttributeRating.Maximum;
             return value;
         }
 

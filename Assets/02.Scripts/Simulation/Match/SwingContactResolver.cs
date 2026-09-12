@@ -126,7 +126,8 @@ namespace Baseball.Simulation.Match
                 ? Clamp(28d + quality * 0.28d, 22d, 50d)
                 : Clamp(
                     _balance.BaseExitVelocity +
-                    (batter.Power - 50d) * _balance.PowerExitVelocityWeight +
+                    (batter.Power - 50d) * _balance.PowerExitVelocityWeight -
+                    Math.Max(0d, matchup.EffectiveStuff - _balance.HighStuffStart) * _balance.HighStuffExitVelocityWeight +
                     (quality - 50d) * 0.18d +
                     (pitch.VelocityMph - 88d) * 0.12d +
                     intentVelocity,

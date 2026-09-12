@@ -165,12 +165,12 @@ namespace Baseball.Tests.EditMode.Core
         }
 
         [Test]
-        public void EffectiveRatingCap_초기값은_Soft120_Hard140이다()
+        public void EffectiveRatingCap_초기값은_Soft150_Hard250이다()
         {
             EffectiveRatingCapTable table = EffectiveRatingCapTable.CreateInitial();
 
-            Assert.That(table.SoftCap, Is.EqualTo(120));
-            Assert.That(table.HardCap, Is.EqualTo(140));
+            Assert.That(table.SoftCap, Is.EqualTo(150));
+            Assert.That(table.HardCap, Is.EqualTo(250));
             Assert.That(table.PostSoftCapSlope, Is.LessThan(1d));
         }
     }

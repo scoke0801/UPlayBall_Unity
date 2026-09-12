@@ -1,5 +1,6 @@
 using System;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 
 namespace Baseball.Core.Balance
 {
@@ -26,13 +27,13 @@ namespace Baseball.Core.Balance
                 throw new ArgumentOutOfRangeException(nameof(pitcherSlope));
             if (upperSpreadStart.HasValue && (double.IsNaN(upperSpreadStart.Value) ||
                 upperSpreadStart.Value <= Center || upperSpreadStart.Value >= Caps.SoftCap ||
-                Center + (upperSpreadStart.Value - Center) * Slope + InputOffset >= 100d))
+                Center + (upperSpreadStart.Value - Center) * Slope + InputOffset >= AttributeRating.Maximum))
                 throw new ArgumentOutOfRangeException(nameof(upperSpreadStart));
             UpperSpreadStart = upperSpreadStart;
             PitcherUpperSpreadStart = pitcherUpperSpreadStart ?? upperSpreadStart;
             if (PitcherUpperSpreadStart.HasValue && (double.IsNaN(PitcherUpperSpreadStart.Value) ||
                 PitcherUpperSpreadStart.Value <= Center || PitcherUpperSpreadStart.Value >= Caps.SoftCap ||
-                Center + (PitcherUpperSpreadStart.Value - Center) * PitcherSlope + PitcherInputOffset >= 100d))
+                Center + (PitcherUpperSpreadStart.Value - Center) * PitcherSlope + PitcherInputOffset >= AttributeRating.Maximum))
                 throw new ArgumentOutOfRangeException(nameof(pitcherUpperSpreadStart));
             if (lowerSpreadEnd.HasValue && (double.IsNaN(lowerSpreadEnd.Value) ||
                 lowerSpreadEnd.Value <= Center || lowerSpreadEnd.Value >= Math.Min(

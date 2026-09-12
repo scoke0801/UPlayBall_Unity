@@ -455,15 +455,15 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void EffectiveRating은_BaseStat을_변조하지_않고_Hard140과_Soft120곡선을_적용한다()
+        public void EffectiveRating은_BaseStat을_변조하지_않고_Soft150이하를_보존한다()
         {
             const int baseStat = 99;
             EffectiveRatingResult result = EffectiveRatingResolver.Resolve(
                 baseStat, 5, 10, 5, 17, 4, 3, EffectiveRatingCapTable.CreateInitial());
 
             Assert.That(baseStat, Is.EqualTo(99));
-            Assert.That(result.Rating, Is.EqualTo(140));
-            Assert.That(result.CurveRating, Is.EqualTo(130d).Within(0.000001d));
+            Assert.That(result.Rating, Is.EqualTo(143));
+            Assert.That(result.CurveRating, Is.EqualTo(143d).Within(0.000001d));
         }
 
         [Test]

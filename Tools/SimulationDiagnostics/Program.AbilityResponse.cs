@@ -10,6 +10,35 @@ namespace Baseball.Tools.SimulationDiagnostics
 {
     internal static partial class Program
     {
+        /// <summary>확장된 능력치 구간의 동급·전력차 대결을 공통 상세 엔진으로 검증한다.</summary>
+        private static int RunRatingCap(string[] args)
+        {
+            int count = ParseCount(args, 1, 1000);
+            var balance = Baseball.Tools.CommonMatchBalanceInput.Load();
+            foreach (var pair in new[] { (50, 50), (80, 80), (100, 100), (120, 100), (150, 100), (150, 150), (200, 200), (250, 250), (250, 150) })
+            {
+                var team = CreateRoster(1, pair.Item1, pair.Item1, pair.Item1);
+                var opponent = CreateRoster(2, pair.Item2, pair.Item2, pair.Item2);
+                var totals = new AggregateStatistics();
+                int wins = 0, losses = 0, draws = 0;
+                for (int index = 0; index < count; index++)
+                {
+                    bool home = (index & 1) != 0;
+                    ulong seed = DeterministicSeed.Derive(0xCA9150UL, (ulong)(index / 2));
+                    var input = new MatchInput(1, index + 1, seed, home ? opponent : team,
+                        home ? team : opponent, MatchRules.CreateDefault(false));
+                    MatchResult result = new MatchSimulator(balance, MatchRandomStreams.Create(seed))
+                        .Simulate(input, NullMatchEventSink.Instance, MatchExecutionProfile.DetailedBackground);
+                    totals.Add(result);
+                    int margin = (result.HomeBoxScore.Runs - result.AwayBoxScore.Runs) * (home ? 1 : -1);
+                    if (margin > 0) wins++; else if (margin < 0) losses++; else draws++;
+                }
+                Console.WriteLine($"Rating={pair.Item1} Opponent={pair.Item2} W={wins} L={losses} D={draws} WinRate={(double)wins / Math.Max(1, wins + losses):F4}");
+                Console.WriteLine(totals.Format(count));
+            }
+            return 0;
+        }
+
         /// <summary>동일 상대·시드에서 한 선수의 한 능력치만 바꿔 경기 결과의 반응을 측정한다.</summary>
         private static int RunAbilityResponse(string[] args)
         {
@@ -22,7 +51,7 @@ namespace Baseball.Tools.SimulationDiagnostics
             {
                 if (args.Length > 2 && !string.Equals(args[2], attribute, StringComparison.OrdinalIgnoreCase)) continue;
                 bool pitcher = Array.IndexOf(attributes, attribute) >= 4;
-                foreach (int rating in new[] { 30, 50, 80 })
+                foreach (int rating in args.Length > 4 ? Array.ConvertAll(args[4].Split(','), int.Parse) : new[] { 30, 50, 80 })
                 {
                     int Value(string name) => attribute == name ? rating : 50;
                     int playerId = pitcher ? 1900 : 1002;

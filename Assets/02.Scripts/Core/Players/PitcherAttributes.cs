@@ -6,7 +6,7 @@ namespace Baseball.Core.Players
     public readonly struct PitcherAttributes
     {
         /// <summary>
-        /// 0~100 범위의 투수 능력치를 생성한다.
+        /// 0~250 범위의 원시 투수 능력치를 생성한다. 150 초과 감쇠는 경기 투영이 소유한다.
         /// </summary>
         public PitcherAttributes(int stamina, int velocity, int stuff, int breaking, int control, int mental)
         {

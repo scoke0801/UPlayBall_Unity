@@ -100,7 +100,7 @@ namespace Baseball.Simulation.Match
             double arrivalMilliseconds = 41250d / velocity;
             double quality = Clamp(PitchEffectivenessResolver.ResolvePlayerQuality(entry, matchup.Pitcher,
                 matchup.EffectiveStuff, matchup.EffectiveBreaking, matchup.EffectiveControl, _arsenal) -
-                Math.Sqrt(errorX * errorX + errorY * errorY) * 24d, 0d, 100d);
+                Math.Sqrt(errorX * errorX + errorY * errorY) * 24d, 0d, AttributeRating.Maximum);
             double releaseX = matchup.Pitcher.ThrowingHand == Handedness.Left ? -0.42d : 0.42d;
             bool isHitByPitch = IsHitByPitch(matchup.Batter, matchup.Pitcher.ThrowingHand, actual);
             return new PitchFlightDescriptor(

@@ -764,14 +764,14 @@ namespace Baseball.Simulation.Match
         private static int ClampRating(int value)
         {
             if (value < 0) return 0;
-            if (value > 100) return 100;
+            if (value > AttributeRating.Maximum) return AttributeRating.Maximum;
             return value;
         }
 
         private static double ClampRating(double value)
         {
             if (value < 0d) return 0d;
-            if (value > 100d) return 100d;
+            if (value > AttributeRating.Maximum) return AttributeRating.Maximum;
             return value;
         }
 

@@ -655,7 +655,7 @@ namespace Baseball.Core.Historical
         public int HardCap { get; }
         public double PostSoftCapSlope { get; }
 
-        public static EffectiveRatingCapTable CreateInitial() => new EffectiveRatingCapTable(120, 140, 0.5d);
+        public static EffectiveRatingCapTable CreateInitial() => new EffectiveRatingCapTable(150, AbilityRatings.Maximum, 0.5d);
     }
 
     /// <summary>HardCap 적용 수치와 확률 곡선 입력 수치를 함께 반환한다.</summary>

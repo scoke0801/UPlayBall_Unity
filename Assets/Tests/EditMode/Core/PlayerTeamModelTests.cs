@@ -11,6 +11,19 @@ namespace Baseball.Tests.EditMode.Core
     public sealed class PlayerTeamModelTests
     {
         [Test]
+        public void 능력치는250에서잘리고숙련도는100을유지한다()
+        {
+            var ratings = new Baseball.Core.Growth.AbilityRatings(100);
+            Assert.That(ratings.AddClamped(Baseball.Core.Growth.PlayerAbility.Contact, 200), Is.EqualTo(150));
+            Assert.That(ratings.ToBatterAttributes().Contact, Is.EqualTo(250));
+            Assert.That(new PitcherAttributes(250, 250, 250, 250, 250, 250).Control, Is.EqualTo(250));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new Baseball.Core.Growth.AbilityRatings(251));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BatterAttributes(251, 50, 50, 50, 50, 50));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PositionProficiency(PlayerPosition.Catcher, 101));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PitchRepertoireEntry(PitchType.Slider, 101, true));
+        }
+
+        [Test]
         public void Lineup_아홉포지션과선수를중복없이보관한다()
         {
             Lineup lineup = CreateLineup(100);

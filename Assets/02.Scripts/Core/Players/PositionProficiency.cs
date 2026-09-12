@@ -1,3 +1,5 @@
+using System;
+
 namespace Baseball.Core.Players
 {
     /// <summary>
@@ -11,7 +13,9 @@ namespace Baseball.Core.Players
         public PositionProficiency(PlayerPosition position, int proficiency)
         {
             Position = position;
-            Proficiency = AttributeRating.Validate(proficiency, nameof(proficiency));
+            if (proficiency < 0 || proficiency > 100)
+                throw new ArgumentOutOfRangeException(nameof(proficiency));
+            Proficiency = proficiency;
         }
 
         public PlayerPosition Position { get; }
