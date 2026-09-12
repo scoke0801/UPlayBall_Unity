@@ -140,15 +140,13 @@ namespace Baseball.Presentation.Owner
             RectTransform teamPlate = BuildTeamPlate(parent);
             if (!string.IsNullOrWhiteSpace(card.TeamDisplayName))
                 Label(teamPlate, "Team", card.TeamDisplayName, .04f, .02f, .96f, .98f, 14, Color.white);
-            RectTransform editionPlate = Gradient(parent, "EditionPlate", new Color32(58, 60, 63, 255),
-                new Color32(29, 30, 32, 255), .72f, .895f, .95f, .933f);
+            RectTransform editionPlate = ContentRect(parent, "EditionPlate", .72f, .895f, .95f, .933f);
             Label(editionPlate, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition),
                 .03f, 0, .97f, 1, 12, Gold);
             if (card.EnhancementLevel > 0)
                 Label(parent, "Enhancement", "+" + card.EnhancementLevel, .79f, .94f, .95f, .98f, 19, Gold);
             if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);
-            RectTransform positionPlate = Gradient(parent, "PositionPlate", new Color32(58, 60, 63, 255),
-                new Color32(29, 30, 32, 255), .04f, .91f, .24f, .94f);
+            RectTransform positionPlate = ContentRect(parent, "PositionPlate", .04f, .91f, .24f, .94f);
             Label(positionPlate, "Position",
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole, card.IsPositionEvidenceMissing),
                 .02f, 0, .98f, 1, 12, Color.white);
@@ -158,8 +156,7 @@ namespace Baseball.Presentation.Owner
             Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .79f, name.yMin, .91f, name.yMax, 20, nameColor);
             if (card.IsOwnedCard)
             {
-                RectTransform conditionPanel = Gradient(parent, "ConditionPanel", new Color32(37, 25, 30, 235),
-                    new Color32(15, 13, 17, 245), .045f, .548f, .195f, .647f);
+                RectTransform conditionPanel = ContentRect(parent, "ConditionPanel", .045f, .548f, .195f, .647f);
                 Label(conditionPanel, "Title", "컨디션", .05f, .68f, .95f, .98f, 11, Gold);
                 PlayerCardConditionSprites.Bind(conditionPanel, card.ConditionLevel,
                     new Vector2(.02f, .27f), new Vector2(.46f, .70f));
@@ -167,11 +164,7 @@ namespace Baseball.Presentation.Owner
                     card.ConditionLevel.HasValue ? .47f : .05f, .26f, .98f, .70f, 22, Color.white);
                 Label(conditionPanel, "State", card.ConditionLabel, .02f, .02f, .98f, .28f, 10, Gold);
             }
-            // 프레임과 독립된 표면에 실제 능력치만 그린다.
-            RectTransform statsPanel = Surface(
-                parent, "StatsPanel", new Color32(10, 10, 12, 255), .016f, .108f, .984f, .356f);
-            statsPanel.gameObject.AddComponent<CareerUiVisualElement>()
-                .Initialize(CareerUiVisualRole.DataImage);
+            // 기존 카드 프레임 위에 직접 표시해 사각 배경이 테두리를 덮지 않게 한다.
             CreateAbilityLegend(parent);
             string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" } :
                 new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
@@ -283,11 +276,10 @@ namespace Baseball.Presentation.Owner
             frame.preserveAspect = false;
         }
 
-        /// <summary>등급별 배경에 의존하지 않는 상단 구단 정보 표면이다.</summary>
+        /// <summary>기존 카드 프레임 안에 배경 없는 원본 구단명 영역을 배치한다.</summary>
         internal static RectTransform BuildTeamPlate(RectTransform parent)
         {
-            return Gradient(parent, "TeamPlate", new Color32(58, 60, 63, 255),
-                new Color32(29, 30, 32, 255), .28f, .944f, .73f, .985f);
+            return ContentRect(parent, "TeamPlate", .28f, .944f, .73f, .985f);
         }
 
         private static Button CreateNavigationButton(
@@ -308,6 +300,14 @@ namespace Baseball.Presentation.Owner
             button.onClick.AddListener(action);
             Label(rect, "Label", label, 0, 0, 1, 1, 34, Color.white);
             return button;
+        }
+
+        private static RectTransform ContentRect(Transform parent, string name,
+            float x0, float y0, float x1, float y1)
+        {
+            RectTransform rect = OwnerRuntimeUiFactory.CreateRect(name, parent);
+            OwnerRuntimeUiFactory.SetAnchors(rect, new Vector2(x0, y0), new Vector2(x1, y1), Vector2.zero, Vector2.zero);
+            return rect;
         }
 
         private static RectTransform Gradient(Transform parent, string name, Color top, Color bottom,
