@@ -160,9 +160,11 @@ namespace Baseball.Presentation.Owner
             {
                 // 경기 입력의 선수 번호는 SelectCards 순서에 대응하며 이름으로 선수를 매칭하지 않는다.
                 string cardId = cards[player.PlayerId - OwnerModeManager.PracticePlayerIdBase - 1].CardId;
-                (pitcher ? pitchers : hitters).Add(CreatePublicLineupCard(manager, roster, cardId, order, role, false));
+                var development = manager.GetPracticeCardDevelopment(challengeId,
+                    cards[player.PlayerId - OwnerModeManager.PracticePlayerIdBase - 1]);
+                (pitcher ? pitchers : hitters).Add(CreatePublicLineupCard(manager, roster, cardId, order, role, false, development));
                 (pitcher ? pitcherDetails : hitterDetails).Add(CreateLineupDetail(
-                    manager, runtime, roster, cardId, team.TeamSeasonKey, false, bonuses, true));
+                    manager, runtime, roster, cardId, team.TeamSeasonKey, false, bonuses, true, development));
             }
             var opponent = opponents[0];
             for (int i = 0; i < opponent.StartingLineup.Count; i++)
@@ -267,7 +269,8 @@ namespace Baseball.Presentation.Owner
         }
 
         private static PlayerMiniCardModel CreatePublicLineupCard(OwnerModeManager manager,
-            CurrentRosterState roster, string cardId, string order, string role, bool showOwnedGrowth = true)
+            CurrentRosterState roster, string cardId, string order, string role, bool showOwnedGrowth = true,
+            OwnedPlayerCardState development = null)
         {
             if (string.IsNullOrEmpty(cardId)) return null;
             var runtime = manager.Runtime;
@@ -278,9 +281,10 @@ namespace Baseball.Presentation.Owner
             var season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
             return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 order, (season.OriginYear % 100).ToString("00"), "C " + season.Cost,
-                string.Empty, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost,
-                growthBadges: showOwnedGrowth && roster.TeamSeasonKey == runtime.PlayerTeamSeasonKey
-                    ? OwnerCardGrowthBadgeBuilder.Build(runtime, cardId, manager.Balance.Growth) : PlayerCardGrowthBadgeModel.Empty);
+                development == null ? string.Empty : "+" + development.EnhancementLevel, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost,
+                growthBadges: development != null ? OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance)
+                    : showOwnedGrowth && roster.TeamSeasonKey == runtime.PlayerTeamSeasonKey
+                    ? OwnerCardGrowthBadgeBuilder.Build(runtime, cardId, manager.Balance.Growth, manager.TraitBalance) : PlayerCardGrowthBadgeModel.Empty);
         }
 
         private static OwnerCollectionCardSnapshot CreateLineupDetail(
@@ -291,7 +295,7 @@ namespace Baseball.Presentation.Owner
             string currentTeamSeasonKey,
             bool isOwnTeam,
             PerCardBonusMap teamColorBonuses,
-            bool isPractice = false)
+            bool isPractice = false, OwnedPlayerCardState development = null)
         {
             if (string.IsNullOrEmpty(cardId)) return null;
             ActiveRosterEntry entry = null;
@@ -305,20 +309,20 @@ namespace Baseball.Presentation.Owner
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             manager.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person);
             var abilityResolver = new OwnerCardAbilityResolver(manager.Balance.Growth);
-            AbilityRatings abilities = abilityResolver.ResolvePermanent(season, card, null);
+            AbilityRatings abilities = abilityResolver.ResolvePermanent(season, card, development);
             var abilityBreakdowns = new OwnerAbilityBreakdownSnapshot[PlayerAbilityCatalog.AbilityCount];
             for (int abilityIndex = 0; abilityIndex < abilityBreakdowns.Length; abilityIndex++)
             {
                 var ability = (PlayerAbility)abilityIndex;
                 OwnerCardAbilityContribution contribution = abilityResolver.ResolveContribution(
-                    season, card, null, ability);
+                    season, card, development, ability);
                 abilityBreakdowns[abilityIndex] = new OwnerAbilityBreakdownSnapshot(
                     contribution.BaseCard,
-                    0,
-                    0,
+                    contribution.Training,
+                    contribution.SkillBlock,
                     teamColorBonuses.Get(cardId, ability),
-                    0,
-                    0);
+                    contribution.Study,
+                    contribution.Enhancement);
             }
             return new OwnerCollectionCardSnapshot(
                 cardId,
@@ -328,7 +332,7 @@ namespace Baseball.Presentation.Owner
                 season.Position,
                 season.Cost,
                 card.Edition,
-                0,
+                development?.EnhancementLevel ?? 0,
                 0,
                 false,
                 false,
@@ -342,6 +346,10 @@ namespace Baseball.Presentation.Owner
                 isPractice ? null : CreateCurrentSeasonRecord(runtime, season, currentTeamSeasonKey),
                 teamDisplayName: manager.GetTeamIdentityName(season.OriginTeamSeasonKey),
                 conditionLabel: "비공개",
+                placedSkillBlockCount: development?.SkillBoard.Placements.Count ?? 0,
+                skillBlockPlacements: development == null ? null : CreateSkillBlockPlacements(manager, development),
+                studyStatus: development == null ? "" : "유학 완료",
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance),
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);

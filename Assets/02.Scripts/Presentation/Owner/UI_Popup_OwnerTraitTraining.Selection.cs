@@ -58,6 +58,7 @@ namespace Baseball.Presentation.Owner
                 _partnerValues.Add(Label(row.transform, "Value", "", .70f, .05f, .965f, .95f, 16));
                 _partnerValues[index].alignment = TextAnchor.MiddleRight;
                 _partnerRows.Add(row);
+                KeepFocusVisible(row,_partnerScroll);
             }
             for (int i = 0; i < _partnerRows.Count; i++)
             {
@@ -72,7 +73,7 @@ namespace Baseball.Presentation.Owner
                 _partnerNames[i].text = (selected ? "선택 · " : "보유 · ") + card.DisplayName + "  " + card.OriginYear
                     + "\n" + (reason.Length > 0 ? reason : OwnerCollectionPresentationBuilder.FormatPosition(card.Position) + " · " + card.TeamDisplayName);
                 _manager.Runtime.TryGetOwnedCard(id, out var owned);
-                _partnerValues[i].text = reason.Length > 0 ? "참여 불가" : $"+{experience} 경험치\n잔여 {OwnerTraitTrainingService.RemainingUses(owned, _seenSeason, _manager.TraitBalance)}회";
+                _partnerValues[i].text = reason.Length > 0 ? "참여 불가" : $"+{experience} 경험치\n잔여 {OwnerTraitTrainingService.RemainingUses(_manager.Runtime, id, _manager.TraitBalance)}회";
                 OwnerDashboardStyle.SetDataRow(row, selected, i % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate);
             }
             _partnerContent.sizeDelta = new Vector2(0, _partnerIds.Count * 58);
@@ -141,6 +142,7 @@ namespace Baseball.Presentation.Owner
                 if (!card.IsOwnedCard || !_originFilters.Matches(card) ||
                     !string.IsNullOrEmpty(_pickerQuery) && card.DisplayName.IndexOf(_pickerQuery, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
                 _manager.Runtime.TryGetOwnedCard(card.CardId, out var owned);
+                if (OwnerTraitTrainingService.ParticipantReason(_manager.Runtime,card.CardId).Length > 0) continue;
                 bool pitcher = card.Position >= PlayerPosition.StartingPitcher;
                 if (_typeFilter.value == 1 && pitcher || _typeFilter.value == 2 && !pitcher) continue;
                 if (_positionFilter.value != 0 && (int)card.Position != _positionFilter.value) continue;
@@ -161,6 +163,7 @@ namespace Baseball.Presentation.Owner
                 var view = PlayerMiniCardView.CreateRuntime(_pickerContent);
                 view.Selected += model => SelectTarget(model.PlayerId);
                 _pickerCards.Add(view);
+                KeepFocusVisible(view.GetComponent<Button>(),_pickerScroll);
             }
             for (int i = 0; i < _pickerCards.Count; i++)
             {
@@ -168,7 +171,7 @@ namespace Baseball.Presentation.Owner
                 if (active) _pickerCards[i].Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(_filteredCards[i], _filteredCards[i].CardId == _cardId));
             }
             _pickerEmpty.gameObject.SetActive(_filteredCards.Count == 0);
-            _pickerCount.text = $"보유 {_filteredCards.Count:N0}명 · 카드 선택 후 참여 가능 여부를 확인합니다.";
+            _pickerCount.text = $"참여 가능한 보유 선수 {_filteredCards.Count:N0}명 · 회복·유학·다른 훈련 참여 선수 제외";
             LayoutPicker(); _pickerScroll.verticalNormalizedPosition = 1; RefreshNavigation();
         }
 
@@ -198,7 +201,12 @@ namespace Baseball.Presentation.Owner
             if (_picker != null && _picker.gameObject.activeSelf) LayoutPicker();
             var focus = EventSystem.current?.currentSelectedGameObject;
             // 다른 상세 팝업이 포커스를 소유하는 동안에는 포커스를 빼앗지 않는다.
-            if (focus == null) _close?.Select();
+            if (focus == null)
+            {
+                Transform area = _help != null && _help.gameObject.activeSelf ? _help : _picker != null && _picker.gameObject.activeSelf ? _picker : transform;
+                foreach (var control in area.GetComponentsInChildren<Selectable>())
+                    if (control.IsInteractable()) { control.Select(); break; }
+            }
         }
         private void RefreshNavigation()
         {
@@ -210,6 +218,21 @@ namespace Baseball.Presentation.Owner
                 mode = Navigation.Mode.Explicit, selectOnUp = controls[(i + controls.Count - 1) % controls.Count],
                 selectOnLeft = controls[(i + controls.Count - 1) % controls.Count], selectOnDown = controls[(i + 1) % controls.Count], selectOnRight = controls[(i + 1) % controls.Count] };
         }
+        private static void KeepFocusVisible(Selectable selectable,ScrollRect scroll)
+        {
+            var trigger=selectable.GetComponent<EventTrigger>()??selectable.gameObject.AddComponent<EventTrigger>();
+            var entry=new EventTrigger.Entry{eventID=EventTriggerType.Select};
+            entry.callback.AddListener(_ => {
+                var corners=new Vector3[4]; ((RectTransform)selectable.transform).GetWorldCorners(corners);
+                float bottom=scroll.viewport.InverseTransformPoint(corners[0]).y;
+                float top=scroll.viewport.InverseTransformPoint(corners[1]).y;
+                float delta=top>scroll.viewport.rect.yMax?scroll.viewport.rect.yMax-top:
+                    bottom<scroll.viewport.rect.yMin?scroll.viewport.rect.yMin-bottom:0;
+                scroll.content.anchoredPosition+=new Vector2(0,delta);
+            });
+            trigger.triggers.Add(entry);
+        }
+
         private static ScrollRect Scroll(Transform parent, string name, float l,float b,float r,float t, out RectTransform content)
         {
             var root = Rect(parent,name,l,b,r,t); var image = root.gameObject.AddComponent<Image>();

@@ -223,14 +223,24 @@ namespace Baseball.Presentation.Owner
                 : "시즌 중 · 특성훈련 잠금", 13, 246, 42, 315, 28);
             Tab(_content, "TraitTraining", "특성훈련", () => {
                 if (_traitPopup != null && _traitPopup.IsVisible) return;
-                _traitPopup = UI_Popup_OwnerTraitTraining.Show(_popupHost != null ? _popupHost : _root,
-                    _developmentManager, _cardId, ShowOffseason);
+                OpenTraitTraining(_cardId);
             }, false, 588, 42, 152, 28);
             OwnerDashboardStyle.SetDataSurface(Surface(_content, "BlueRule", 20, 72, 1060, 1, OwnerDashboardStyle.Line), OwnerDashboardStyle.Line);
             if (_isStudy) RenderStudy(); else RenderSkills();
             _feedback.transform.SetAsLastSibling();
             if (!_isStudy && previousFocus != null) FocusRosterControl(previousFocus);
             Resize();
+        }
+
+        /// <summary>카드 상세에서 선택한 선수를 같은 특성훈련 화면으로 전달한다.</summary>
+        public void OpenTraitTraining(string cardId)
+        {
+            if (_traitPopup != null && _traitPopup.IsVisible) return;
+            _traitPopup = UI_Popup_OwnerTraitTraining.Show(_popupHost != null ? _popupHost : _root,
+                _developmentManager, cardId, ShowOffseason, () => {
+                    var button = _content != null ? _content.Find("TraitTraining")?.GetComponent<Button>() : null;
+                    if (button != null && button.gameObject.activeInHierarchy) button.Select();
+                });
         }
 
         private void SelectType(bool pitcher)
@@ -379,7 +389,7 @@ namespace Baseball.Presentation.Owner
             }
             if (count == 0) Label(_content, "NoBlocks", CountAvailableBlocks() == 0
                 ? "보유 블록이 없습니다.\n상점에서 스킬 블록을 획득하세요."
-                : "선택한 희귀도의 블록이 없습니다.\n전체 탭에서 보유 블록을 확인하세요.", 14, 630, 207, 410, 90);
+                : "선택한 희귀도의 블록이 없습니다.\n전체 탭에서 보유 블록을 확인하세요.", 16, 630, 207, 410, 90).alignment = TextAnchor.MiddleCenter;
             RenderSkillActions(card);
             _skillInventoryScroll = scroll;
             _displayedSkillRarity = _rarity;
@@ -632,6 +642,7 @@ namespace Baseball.Presentation.Owner
             foreach (SkillBlockInstance block in _snapshot.Inventory)
                 if (block.InstanceId == _instanceId) selected = FindDefinition(block.DefinitionId);
             string detail = selected == null ? "블록을 선택하면 능력치 효과가 표시됩니다." : DescribeBlock(selected) + "  ·  " + DescribeBonuses(selected);
+            OwnerDashboardStyle.ApplyInset(Surface(_content, "SkillActionSurface", 615, 395, 455, 97, OwnerDashboardStyle.InsetSurface));
             Label(_content, "SkillDescription", detail, 12, 724, 401, 340, 42);
             _rotationLabel = Label(_content, "RotationState", "", 11, 724, 438, 106, 16);
             _rotationTiles.Clear();
@@ -799,6 +810,7 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            if (_traitPopup != null) _traitPopup.Close();
             if (_offseasonPopup != null)
             {
                 if (Application.isPlaying) Destroy(_offseasonPopup.gameObject);

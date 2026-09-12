@@ -9,6 +9,7 @@ namespace Baseball.Presentation.Owner
     public static class OwnerCardGrowthBadgeBuilder
     {
         private static readonly OwnerTraitTrainingBalance DefaultTraits = new OwnerTraitTrainingBalance();
+        public static string TraitName(CardTraitKind kind) => kind == CardTraitKind.None ? "" : DefaultTraits.Get(kind).name;
         /// <summary>실제 보유 카드의 유학 시작 이력과 진행 프로젝트를 읽는다.</summary>
         public static PlayerCardGrowthBadgeModel Build(ManagerHistoricalRuntimeState runtime, string cardId, Baseball.Core.Balance.GrowthBalanceTable balance = null, OwnerTraitTrainingBalance traits = null)
         {

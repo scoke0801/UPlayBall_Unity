@@ -49,7 +49,7 @@ namespace Baseball.Presentation.Owner
                 {
                     representativeCards[entry.PlayerSeasonId] = entry;
                 }
-                EncyclopediaScreenEntry screenEntry = CreateCardScreenEntry(entry, identities, runtime, manager.Balance.Growth);
+                EncyclopediaScreenEntry screenEntry = CreateCardScreenEntry(entry, identities, runtime, manager.Balance.Growth, manager.TraitBalance);
                 screenEntry.SetDetailResolver(target => PopulateCardDetail(
                     target,
                     manager,
@@ -94,7 +94,7 @@ namespace Baseball.Presentation.Owner
         private static EncyclopediaScreenEntry CreateCardScreenEntry(
             EncyclopediaCardEntry entry,
             WorldIdentityRegistry identities,
-            ManagerHistoricalRuntimeState runtime, Baseball.Core.Balance.GrowthBalanceTable growth)
+            ManagerHistoricalRuntimeState runtime, Baseball.Core.Balance.GrowthBalanceTable growth, OwnerTraitTrainingBalance traits)
         {
             CardEditionPresentationMetadata metadata =
                 CardEditionPresentationMetadataCatalog.Resolve(entry.Edition);
@@ -138,7 +138,7 @@ namespace Baseball.Presentation.Owner
                     metadata.DisplayName,
                     portraitAssetKey: entry.PlayerSeasonId,
                     frameEdition: entry.Edition,
-                    cost: entry.Cost, growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, entry.CardId, growth)),
+                    cost: entry.Cost, growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, entry.CardId, growth, traits)),
                 CardInformation = CreateCardInformation(entry, metadata, franchiseDisplayName),
             };
         }

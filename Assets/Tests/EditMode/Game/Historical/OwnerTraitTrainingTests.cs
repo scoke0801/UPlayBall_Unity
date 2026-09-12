@@ -104,13 +104,68 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(OwnerTraitTrainingService.GrantOffseasonReward(state,balance),Is.True);
             state=adapter.CreateSimulationCopy(state);
             Assert.That(OwnerTraitTrainingService.GrantOffseasonReward(state,balance),Is.False);
-            Assert.That(state.PlayerGrowth.Traits.points,Is.EqualTo(balance.offseasonReward));
+            Assert.That(state.PlayerGrowth.Traits.points,Is.EqualTo(OwnerTraitTrainingService.OffseasonReward(state,balance)));
         }
 
         [TestCase(99,CardTraitRank.None)] [TestCase(100,CardTraitRank.C)] [TestCase(250,CardTraitRank.B)]
         [TestCase(500,CardTraitRank.A)] [TestCase(900,CardTraitRank.S)]
         public void 승급경계는_기획누적경험치를따른다(int experience,CardTraitRank expected) =>
             Assert.That(new OwnerTraitTrainingBalance().GetRank(experience),Is.EqualTo(expected));
+
+        [Test]
+        public void 파트너횟수소진과_오래된시즌명령은_차감없이거부한다()
+        {
+            var state=Create(out _); var balance=new OwnerTraitTrainingBalance();
+            string id=Target(state), partner=Partner(state,id,balance);
+            int season=state.ManagerMode.LiveSeason.SeasonNumber;
+            state.PlayerGrowth.Traits.points=1000;
+            state.TryGetOwnedCard(partner,out var mentor);
+            mentor.Trait.partnerSeason=season; mentor.Trait.partnerUses=balance.partnerUses;
+            long money=state.Economy.Money;
+            Assert.That(OwnerTraitTrainingService.RemainingUses(state,partner,balance),Is.Zero);
+            Assert.Throws<InvalidOperationException>(() => OwnerTraitTrainingService.Train(state,id,new[]{partner},balance,season,0,new Pcg32Random(7)));
+            mentor.Trait.partnerSeason=season-1;
+            Assert.That(OwnerTraitTrainingService.RemainingUses(state,partner,balance),Is.EqualTo(balance.partnerUses));
+            Assert.Throws<InvalidOperationException>(() => OwnerTraitTrainingService.Train(state,id,new[]{partner},balance,season-1,0,new Pcg32Random(7)));
+            Assert.That(state.Economy.Money,Is.EqualTo(money));
+            Assert.That(state.PlayerGrowth.Traits.points,Is.EqualTo(1000));
+        }
+
+        [Test]
+        public void 같은저장과시드는_동일후보와비용을만든다()
+        {
+            var state=Create(out var adapter); var balance=new OwnerTraitTrainingBalance();
+            string id=Target(state); state.TryGetOwnedCard(id,out var card);
+            card.Trait.experience=99; state.PlayerGrowth.Traits.points=1000;
+            string partner=Partner(state,id,balance);
+            var copy=adapter.CreateSimulationCopy(state);
+            typeof(ManagerHistoricalRuntimeState).GetProperty("LeagueWorld").SetValue(copy,null);
+            foreach(var runtime in new[]{state,copy})
+                OwnerTraitTrainingService.Train(runtime,id,new[]{partner},balance,runtime.ManagerMode.LiveSeason.SeasonNumber,0,new Pcg32Random(71));
+            copy.TryGetOwnedCard(id,out var copiedCard);
+            CollectionAssert.AreEqual(card.Trait.candidates,copiedCard.Trait.candidates);
+            Assert.That(state.Economy.Money,Is.EqualTo(copy.Economy.Money));
+            Assert.That(state.PlayerGrowth.Traits.points,Is.EqualTo(copy.PlayerGrowth.Traits.points));
+        }
+
+        [Test]
+        public void 경기능력환산은_카드특성을보존한다()
+        {
+            var source=new Player(1,"검증 선수",PlayerPosition.FirstBase,Handedness.Right,Handedness.Right,
+                default,default,cardTrait:new CardTraitEffect(CardTraitKind.Contact,3));
+            var projected=MatchRatingCurve.ProjectPlayer(source,new Baseball.Core.Balance.MatchRatingCurveBalance(50,.8));
+            Assert.That(projected.CardTrait.Kind,Is.EqualTo(CardTraitKind.Contact));
+            Assert.That(projected.CardTrait.Strength,Is.EqualTo(3));
+            Assert.That(MatchRatingCurve.ProjectPlayer(projected,new Baseball.Core.Balance.MatchRatingCurveBalance(50,.8)),Is.SameAs(projected));
+        }
+
+        [Test]
+        public void 중복후보와음수재화는_저장검증에서거부한다()
+        {
+            Assert.Throws<ArgumentException>(() => new PlayerTraitProgress {
+                candidates=new[]{CardTraitKind.Contact,CardTraitKind.Contact,CardTraitKind.Power} }.Validate());
+            Assert.Throws<ArgumentException>(() => new OwnerTraitTrainingState {points=-1}.Validate());
+        }
 
         [Test]
         public void 경기특성은_실제상황에서만_발동한다()

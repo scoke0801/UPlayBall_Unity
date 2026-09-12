@@ -82,6 +82,7 @@ namespace Baseball.Presentation.Owner
             _shell.SaveRequested += HandleSaveRequested;
             UIManager.Instance.NavigationBackRequested += HandleCancelRequested;
             _manager.RuntimeChanged += HandleRuntimeChanged;
+            UI_Popup_OwnerPlayerCard.TraitTrainingRequested += HandleTraitTrainingRequested;
             DevelopmentRealIdentitySettings.Changed += Refresh;
             FrontManagerGuideCtaRouter.OwnerRouteRequested -= HandleGuideRouteRequested;
             FrontManagerGuideCtaRouter.OwnerRouteRequested += HandleGuideRouteRequested;
@@ -306,6 +307,7 @@ namespace Baseball.Presentation.Owner
 
         private void OnDestroy()
         {
+            UI_Popup_OwnerPlayerCard.TraitTrainingRequested -= HandleTraitTrainingRequested;
             if (_practiceView != null)
             { if (Application.isPlaying) Destroy(_practiceView.gameObject); else DestroyImmediate(_practiceView.gameObject); }
             if (_practiceSpectator != null)
@@ -616,7 +618,13 @@ namespace Baseball.Presentation.Owner
             {
                 GuideManager.Instance.PublishOwnerFact(
                     "CardStudySlotAvailable",
-                    $"owner-study-slot:{_manager.Runtime.ManagerMode.LiveSeason.SeasonNumber}:{_manager.Runtime.PlayerGrowth.StudyProjects.Count}");
+                    $"owner-study-slot:{_manager.Runtime.ManagerMode.LiveSeason.SeasonNumber}:{_manager.Runtime.PlayerGrowth.StudyProjects.Count}",
+                    payload: null,
+                    runtimeContext: new Dictionary<string, string>
+                    {
+                        // 사건 ID와 별도로 가이드의 시즌별 중복 방지 키를 전달한다.
+                        ["seasonId"] = _manager.Runtime.ManagerMode.LiveSeason.SeasonId
+                    });
             }
             return isShown;
         }
@@ -1380,7 +1388,7 @@ namespace Baseball.Presentation.Owner
                     season.OriginYear.ToString(), "Cost " + season.Cost,
                     item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",
                 portraitAssetKey: season.PlayerSeasonId, isInteractable: false, frameEdition: card.Edition, cost: season.Cost,
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth));
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth, _manager.TraitBalance));
             }
             return models;
         }
@@ -1532,6 +1540,12 @@ namespace Baseball.Presentation.Owner
         }
 
         private void HandleGrowthShopRequested() => HandleNavigationRequested(OwnerNavigationRoutes.Shop);
+
+        private void HandleTraitTrainingRequested(string cardId)
+        {
+            HandleNavigationRequested(OwnerNavigationRoutes.PowerUpSkills);
+            _expansionWorkspace.OpenTraitTraining(cardId);
+        }
 
         private void HandleOffseasonWeekAdvanceRequested(int completedWeeks)
         {

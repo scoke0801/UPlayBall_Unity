@@ -117,7 +117,7 @@ namespace Baseball.Presentation.Owner
                 _materialButtons[i] = Button("ChooseMaterial", cell, "재료 선택", .04f, 0, .96f, 0, () => OpenPicker(slot));
                 ((RectTransform)_materialButtons[i].transform).offsetMax = new Vector2(0, 32);
             }
-            _status = Label("SelectionStatus", _content, "", 16, CareerUiTheme.ReferenceText, 0, 0, .55f, .10f, TextAnchor.MiddleLeft);
+            _status = Label("SelectionStatus", _content, "", 16, Ink, 0, 0, .55f, .10f, TextAnchor.MiddleLeft);
             _autoSelect = Button("AutoSelect", _content, "재료 자동 배치", .57f, .01f, .76f, .10f, AutoSelect);
             _confirm = Button("ConfirmRecruit", _content, "선수 영입", .78f, .01f, 1, .10f, ConfirmRecruit);
             OwnerUiButtonSkin.Apply(_confirm, OwnerButtonRole.Primary);
@@ -269,7 +269,7 @@ namespace Baseball.Presentation.Owner
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(season.Position, season.PitcherRole, season.IsPositionEvidenceMissing),
                 (season.OriginYear % 100).ToString("00"), "", "", portraitAssetKey: season.PlayerSeasonId,
                 isInteractable: !owned, frameEdition: card.Edition, cost: season.Cost,
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth)),
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth, _manager.TraitBalance)),
                 PlayerPortraitSprites.GetForPlayer(season.PlayerPersonId, season.Position));
             view.SetTeamIdentity(_manager.GetClubDisplayName(season.OriginTeamSeasonKey));
             view.SetVisualState(valid ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal);

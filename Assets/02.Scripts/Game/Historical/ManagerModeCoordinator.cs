@@ -565,6 +565,7 @@ namespace Baseball.Game.Historical
 
 
             int completedSeasonNumber = mode.LiveSeason.SeasonNumber;
+            OwnerTraitTrainingService.GrantOffseasonReward(runtime, _balance.TraitTraining);
             string salaryTransactionId =
                 $"staff-salary:{runtime.PlayerTeamSeasonKey}:{completedSeasonNumber:D4}";
             var salaryCommand = new StaffSalarySettlementCommand(

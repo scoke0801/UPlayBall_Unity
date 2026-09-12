@@ -32,6 +32,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_PlayerEncyclopedia _wishlistView;
         private UI_Scene_OwnerPowerUp _powerUpView;
         private UI_Scene_OwnerGrowth _growthView;
+        public void OpenTraitTraining(string cardId) => _growthView?.OpenTraitTraining(cardId);
         private UI_Scene_OwnerSpecialRecruit _specialRecruitView;
         private OwnerModeManager _specialRecruitManager;
 
@@ -492,6 +493,7 @@ namespace Baseball.Presentation.Owner
 
             IUiCancelHandler[] handlers =
             {
+                _staffView,
                 _rosterLineupView,
                 _rosterPitchingView,
                 _clubView,

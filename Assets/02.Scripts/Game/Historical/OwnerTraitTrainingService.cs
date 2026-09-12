@@ -34,18 +34,41 @@ namespace Baseball.Game.Historical
             if (OwnerScheduleGateService.GetPhase(runtime) != OwnerSeasonPhase.Offseason)
                 throw new InvalidOperationException("특성훈련은 오프시즌에 진행할 수 있습니다.");
             var card = OwnerPermanentGrowthService.RequireAvailable(runtime, cardId, OwnerGrowthAction.TraitTraining);
+            string reason = ParticipantReason(runtime,cardId);
+            if (reason.Length > 0) throw new InvalidOperationException(reason);
+            return card;
+        }
+
+        /// <summary>일정 잠금과 별도로 대상·파트너 목록의 참여 불가 사유를 제공한다.</summary>
+        public static string ParticipantReason(ManagerHistoricalRuntimeState runtime,string cardId)
+        {
+            if (!runtime.TryGetOwnedCard(cardId,out _)) return "보유 선수를 선택하세요.";
             var person = Season(runtime, cardId).PlayerPersonId;
             if (runtime.ManagerMode.GetPlayerStatus(runtime.PlayerTeamSeasonKey).TryGetPlayer(person, out var status)
                 && status.Availability != PlayerAvailabilityStatus.Available)
-                throw new InvalidOperationException("회복 중이거나 출전할 수 없는 선수는 훈련에 참여할 수 없습니다.");
+                return "회복 중인 선수는 훈련에 참여할 수 없습니다.";
+            foreach (var study in runtime.PlayerGrowth.StudyProjects)
+                if (Season(runtime,study.CardId).PlayerPersonId == person) return "유학 중인 선수는 귀환 후 참여할 수 있습니다.";
             int season = runtime.ManagerMode.LiveSeason.SeasonNumber;
-            if (OwnerPermanentGrowthService.Count(card, OwnerGrowthSource.Mentoring, season) > 0)
-                throw new InvalidOperationException("이번 오프시즌 훈련 파트너 활동에 참여한 선수입니다.");
-            return card;
+            foreach (var owned in runtime.OwnedCards)
+                if (Season(runtime,owned.CardId).PlayerPersonId == person && OwnerPermanentGrowthService.Count(owned,OwnerGrowthSource.Mentoring,season)>0)
+                    return "이번 오프시즌 훈련 파트너 활동에 참여한 선수입니다.";
+            return "";
         }
 
         public static int RemainingUses(OwnedPlayerCardState card, int season, OwnerTraitTrainingBalance balance) =>
             Math.Max(0, balance.partnerUses - (card.Trait.partnerSeason == season ? card.Trait.partnerUses : 0));
+
+        /// <summary>같은 인물의 다른 연도·등급 카드로 파트너 횟수를 우회하지 못하게 한다.</summary>
+        public static int RemainingUses(ManagerHistoricalRuntimeState runtime, string cardId, OwnerTraitTrainingBalance balance)
+        {
+            string person = Season(runtime,cardId).PlayerPersonId;
+            int season = runtime.ManagerMode.LiveSeason.SeasonNumber, used = 0;
+            foreach (var owned in runtime.OwnedCards)
+                if (owned.Trait.partnerSeason == season && Season(runtime,owned.CardId).PlayerPersonId == person)
+                    used += owned.Trait.partnerUses;
+            return Math.Max(0,balance.partnerUses-used);
+        }
 
         public static bool IsStarter(ManagerHistoricalRuntimeState runtime, string cardId)
         {
@@ -65,11 +88,11 @@ namespace Baseball.Game.Historical
             if (cardId == partnerId || targetSeason.PlayerPersonId == partnerSeason.PlayerPersonId)
                 throw new InvalidOperationException("대상과 다른 선수를 파트너로 선택하세요.");
             if (partner.Trait.HasCandidates) throw new InvalidOperationException("특성 후보 선택을 먼저 마쳐 주세요.");
-            if (RemainingUses(partner, runtime.ManagerMode.LiveSeason.SeasonNumber, balance) == 0)
+            if (RemainingUses(runtime, partnerId, balance) == 0)
                 throw new InvalidOperationException("이번 오프시즌 파트너 훈련 횟수를 모두 사용했습니다.");
             int bonus = targetSeason.Position == partnerSeason.Position ? balance.samePositionPercent : 0;
             if (targetSeason.OriginFranchiseId == partnerSeason.OriginFranchiseId) bonus += balance.sameTeamPercent;
-            // 현재 시즌 우수 성적은 기록 판정이 확정된 경우에만 추가한다. 원 시즌 명성을 대신 쓰지 않는다.
+            if (HasExcellentSeason(runtime, partnerId, balance)) bonus += balance.performancePercent;
             return (IsStarter(runtime, partnerId) ? balance.starterExperience : balance.reserveExperience) * (100 + bonus) / 100;
         }
 
@@ -176,6 +199,7 @@ namespace Baseball.Game.Historical
         {
             if (random == null) throw new ArgumentNullException(nameof(random));
             var pool = Eligible(runtime, cardId, balance);
+            if (next.trait != CardTraitKind.None && pool.Count > 3) pool.Remove(next.trait);
             next.candidateSeed = (ulong)(random.NextDouble() * uint.MaxValue);
             var draw = new Pcg32Random(next.candidateSeed, (ulong)++next.candidateSequence);
             next.candidates = new CardTraitKind[3];
@@ -192,8 +216,34 @@ namespace Baseball.Game.Historical
             int season = runtime.ManagerMode.LiveSeason.SeasonNumber;
             var state = runtime.PlayerGrowth.Traits;
             if (state.rewardedSeason >= season) return false;
-            state.points = checked(state.points + balance.offseasonReward); state.rewardedSeason = season; state.revision++;
+            state.points = checked(state.points + OffseasonReward(runtime, balance)); state.rewardedSeason = season; state.revision++;
             return true;
+        }
+
+        /// <summary>경기 수가 없는 시즌에는 목표 달성 수치를 만들어 지급하지 않는다.</summary>
+        public static int OffseasonReward(ManagerHistoricalRuntimeState runtime, OwnerTraitTrainingBalance balance)
+        {
+            int teamId = 0, wins = 0, games = 0;
+            foreach (var team in runtime.ManagerMode.LiveSeason.Teams)
+                if (team.TeamSeasonKey == runtime.PlayerTeamSeasonKey) teamId = team.TeamId;
+            foreach (var game in runtime.ManagerMode.LiveSeason.Schedule.Games)
+            {
+                if (!game.IsCompleted || game.HomeTeamId != teamId && game.AwayTeamId != teamId) continue;
+                games++;
+                if (game.HomeTeamId == teamId ? game.HomeRuns > game.AwayRuns : game.AwayRuns > game.HomeRuns) wins++;
+            }
+            return balance.offseasonReward + (games > 0 && (long)wins * 100 >= (long)games * balance.seasonGoalWinPercent ? balance.seasonGoalReward : 0);
+        }
+
+        public static bool HasExcellentSeason(ManagerHistoricalRuntimeState runtime, string cardId, OwnerTraitTrainingBalance balance)
+        {
+            var season = Season(runtime, cardId);
+            var ids = runtime.LeagueWorld?.PlayerIds ?? ManagerModeMatchService.PlayerIdMap.Create(runtime.Rosters);
+            if (!ids.TryGet(runtime.PlayerTeamSeasonKey, season.PlayerSeasonId, out int id) ||
+                !runtime.ManagerMode.LiveSeason.Statistics.RegularSeason.Players.TryGetValue(id, out var statistics)) return false;
+            return season.PlayerType == PlayerType.Batter
+                ? statistics.Batting.PlateAppearances >= balance.performancePlateAppearances && statistics.Batting.OnBasePlusSlugging >= balance.performanceOps
+                : statistics.Pitching.OutsRecorded >= balance.performancePitchingOuts && statistics.Pitching.EarnedRunAverage <= balance.performanceEra;
         }
 
         public static void GrantMatchReward(ManagerHistoricalRuntimeState runtime, OwnerTraitTrainingBalance balance)

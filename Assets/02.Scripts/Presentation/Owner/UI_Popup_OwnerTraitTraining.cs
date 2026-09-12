@@ -30,12 +30,13 @@ namespace Baseball.Presentation.Owner
         private GameObject _previousFocus;
         private OwnerTraitTrainingPreview _trainingPreview;
         private Action _schedule;
+        private Action _closed;
         private int _seenSeason, _seenRevision;
         private Coroutine _animation;
         public bool IsVisible => gameObject.activeSelf;
 
         public static UI_Popup_OwnerTraitTraining Show(Transform parent, OwnerModeManager manager,
-            string cardId = null, Action schedule = null)
+            string cardId = null, Action schedule = null, Action closed = null)
         {
             if (manager?.Runtime == null) throw new InvalidOperationException("구단주 진행 상태를 불러오지 못했습니다.");
             var root = OwnerRuntimeUiFactory.CreateRect(nameof(UI_Popup_OwnerTraitTraining), parent);
@@ -43,12 +44,13 @@ namespace Baseball.Presentation.Owner
             var shade = root.gameObject.AddComponent<Image>(); shade.color = new Color(0, 0, 0, .94f);
             var view = root.gameObject.AddComponent<UI_Popup_OwnerTraitTraining>();
             view._manager = manager; view._cardId = cardId ?? ""; view._schedule = schedule;
+            view._closed = closed;
             view._previousFocus = EventSystem.current?.currentSelectedGameObject;
             view.Reload(); view.Build();
             try { manager.PrepareTraitTraining(); }
             catch (Exception) { view._feedback.text = "오프시즌 보상을 저장하지 못했습니다. 다시 열어 주세요."; }
             view.Reload(); view.Refresh(); view._chooseTarget.Select();
-            if (!manager.Runtime.PlayerGrowth.Traits.hasSeenGuide) view.ShowHelp();
+            if (view.CanTrainNow && !manager.Runtime.PlayerGrowth.Traits.hasSeenGuide) view.ShowHelp();
             return view;
         }
 
@@ -78,6 +80,7 @@ namespace Baseball.Presentation.Owner
             _change = Button(left, "ChangeTrait", "특성 변경", .05f, .01f, .57f, .07f, RequestChange);
             Button(left, "InspectCard", "카드 확인", .61f, .01f, .95f, .07f, OpenCard);
             Label(right, "Step", "02  훈련 파트너", .035f, .9f, .64f, .98f, 19, true);
+            Button(right, "Schedule", "일정 보기", .73f, .91f, .965f, .98f, () => { Close(); _schedule?.Invoke(); });
             Label(right, "PartnerSafety", "선수는 사라지지 않습니다 · 파트너 횟수만 사용", .035f, .82f, .96f, .90f, 16);
             BuildPartnerList(right);
             _slots = Label(right, "SelectedPartners", "", .035f, .23f, .96f, .34f, 17, true);
@@ -117,6 +120,7 @@ namespace Baseball.Presentation.Owner
             _progressFill.rectTransform.anchorMax = new Vector2(card == null ? 0 : Mathf.Clamp01((float)total / balance.experience[nextRank]), 1);
             bool pending = card != null && card.Trait.HasCandidates;
             _candidates.gameObject.SetActive(pending);
+            _partnerScroll.gameObject.SetActive(!pending); _partnerSearch.gameObject.SetActive(!pending);
             _change.interactable = CanTrainNow && card != null && card.Trait.trait != CardTraitKind.None && !pending;
             SetButtonText(_change, card?.Trait.freeChangeSeason == _seenSeason ? $"특성 변경 · {balance.changeCost} TP" : "특성 변경 · 이번 시즌 무료");
             _hasPreview = false; _train.interactable = false; _cost.text = "";
@@ -185,13 +189,14 @@ namespace Baseball.Presentation.Owner
         private void BuildCandidates(RectTransform right)
         {
             _candidates = Surface(right, "CandidateSelection", .015f, .015f, .985f, .985f);
+            _candidates.GetComponent<Image>().raycastTarget = true;
             Label(_candidates, "Title", "03  새로운 특성 선택", .035f, .83f, .96f, .96f, 22, true);
             Label(_candidates, "Persistence", "후보는 저장됩니다. 창을 닫아도 같은 후보로 이어집니다.", .035f, .73f, .96f, .83f, 16);
             for (int i = 0; i < 3; i++)
             {
                 int index = i; float top = .70f - i * .18f;
                 _candidateButtons[i] = Button(_candidates, "Candidate" + i, "후보", .035f, top - .155f, .965f, top,
-                    () => { _chosen = Card().Trait.candidates[index]; RefreshCandidates(Card()); });
+                    () => { _chosen = Card().Trait.candidates[index]; RefreshCandidates(Card()); RefreshNavigation(); });
             }
             _reroll = Button(_candidates, "Reroll", "재추첨", .035f, .02f, .47f, .13f,
                 () => Execute(() => _manager.RerollTrait(_cardId, _seenSeason, _seenRevision), "새 후보를 저장했습니다."));
@@ -238,7 +243,7 @@ namespace Baseball.Presentation.Owner
             var start = Button(_help, "Begin", "확인하고 시작", .62f, .045f, .95f, .15f, () => {
                 Execute(() => _manager.SetTraitPreferences(true, _manager.Runtime.PlayerGrowth.Traits.skipAnimation,
                     _manager.Runtime.PlayerGrowth.Traits.skipConfirmation), "대상 선택 → 파트너 선택 → 특성 결정 → 카드 배지 확인");
-                _help.gameObject.SetActive(false); _chooseTarget.Select(); });
+                _help.gameObject.SetActive(false); RefreshNavigation(); _chooseTarget.Select(); });
             OwnerUiButtonSkin.Apply(start, OwnerButtonRole.Primary); _help.gameObject.SetActive(false);
         }
 
@@ -250,9 +255,10 @@ namespace Baseball.Presentation.Owner
         {
             var state = _manager.Runtime.PlayerGrowth.Traits;
             _guide.text = "① 대상 선택   ② 파트너 선택   ③ 특성 결정   ④ 카드 배지 확인\n\n"
-                + "C 100 → B 250 → A 500 → S 900 누적 경험치\n파트너는 사라지지 않으며, 오프시즌마다 2회 참여합니다.\n"
-                + "최초 획득은 세 후보 중 선택 · 시즌당 재추첨 1회 무료\n특성을 바꿔도 등급과 경험치는 유지됩니다.\n\n"
+                + $"C {_manager.TraitBalance.experience[0]} → B {_manager.TraitBalance.experience[1]} → A {_manager.TraitBalance.experience[2]} → S {_manager.TraitBalance.experience[3]} 누적 경험치\n파트너는 사라지지 않으며, 오프시즌마다 {_manager.TraitBalance.partnerUses}회 참여합니다.\n"
+                + "최초 획득은 세 후보 중 선택 · 시즌당 재추첨 1회 무료\n특성을 바꿔도 등급과 경험치는 유지됩니다.\n"
                 + "결과 연출: " + (state.skipAnimation ? "생략" : "사용") + "   ·   훈련 전 확인: " + (state.skipConfirmation ? "생략" : "사용");
+            _guide.text += $"\n경기당 {_manager.TraitBalance.gameReward} TP · 오프시즌 {_manager.TraitBalance.offseasonReward} TP\n시즌 승률 {_manager.TraitBalance.seasonGoalWinPercent}% 목표 달성: {_manager.TraitBalance.seasonGoalReward} TP 추가";
             _help.gameObject.SetActive(true); _help.SetAsLastSibling(); _help.GetComponentInChildren<Button>().Select();
             RefreshNavigation();
         }
@@ -260,7 +266,7 @@ namespace Baseball.Presentation.Owner
         {
             foreach (var dropdown in GetComponentsInChildren<Dropdown>())
                 if (dropdown.transform.Find("Dropdown List") != null) { dropdown.Hide(); dropdown.Select(); return true; }
-            if (_help.gameObject.activeSelf) { _help.gameObject.SetActive(false); _chooseTarget.Select(); return true; }
+            if (_help.gameObject.activeSelf) { _help.gameObject.SetActive(false); RefreshNavigation(); _chooseTarget.Select(); return true; }
             if (_picker.gameObject.activeSelf) { ClosePicker(); return true; }
             if (_isConfirming) { _isConfirming = false; Refresh(); _train.Select(); return true; }
             Close(); return true;
@@ -271,7 +277,8 @@ namespace Baseball.Presentation.Owner
             if (_isSubmitting) return;
             gameObject.SetActive(false);
             if (_previousFocus != null && _previousFocus.activeInHierarchy) EventSystem.current?.SetSelectedGameObject(_previousFocus);
-            Destroy(gameObject);
+            else _closed?.Invoke();
+            if (Application.isPlaying) Destroy(gameObject); else DestroyImmediate(gameObject);
         }
 
         private static RectTransform Rect(Transform parent, string name, float l, float b, float r, float t) => OwnerDugoutDetailUiFactory.CreateRect(parent, name, l, b, r, t);

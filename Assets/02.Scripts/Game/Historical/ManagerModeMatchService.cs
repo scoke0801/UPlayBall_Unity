@@ -481,6 +481,7 @@ namespace Baseball.Game.Historical
 
             int scoutingPointsEarned = GrantMatchScoutingPoints(runtime, match, playerIsHome);
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
+            OwnerTraitTrainingService.GrantMatchReward(runtime, _balance.TraitTraining);
             runtime.ManagerMode.ClearSelectedTactics();
             runtime.ManagerMode.Dugout.RecordMatchCompleted();
             OwnerSupportService.CompleteMatch(runtime);

@@ -15,6 +15,12 @@
   "changeCost": 30,
   "offseasonReward": 400,
   "gameReward": 1,
+  "seasonGoalReward": 100,
+  "seasonGoalWinPercent": 50,
+  "performancePlateAppearances": 60,
+  "performancePitchingOuts": 60,
+  "performanceOps": 0.8,
+  "performanceEra": 3.5,
   "definitions": [
     {"kind":1,"name":"타격의 정석","description":"타격 시 교타","playerType":0,"position":0,"effect":3},
     {"kind":2,"name":"해결사","description":"득점권에서 교타","playerType":0,"position":0,"effect":5},

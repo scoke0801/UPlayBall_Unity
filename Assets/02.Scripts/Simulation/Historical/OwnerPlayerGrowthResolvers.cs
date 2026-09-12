@@ -282,6 +282,8 @@ namespace Baseball.Simulation.Historical
                 throw new ArgumentNullException(nameof(growth));
             if (season.PlayerType != program.PlayerType) throw new InvalidOperationException("선수 유형과 유학 과정이 맞지 않습니다.");
             if (card.LastStudySeason == seasonNumber) throw new InvalidOperationException("이 카드는 이번 시즌에 이미 유학을 사용했습니다.");
+            if (card.Trait.HasCandidates || card.Trait.trainingSeason == seasonNumber || card.Trait.partnerSeason == seasonNumber)
+                throw new InvalidOperationException("특성훈련에 참여한 선수는 같은 오프시즌의 유학에 중복 배정할 수 없습니다.");
             if (growth.StudyProjects.Count >= capacity) throw new InvalidOperationException("TrainingCenter 유학 정원이 가득 찼습니다.");
             for (int index = 0; index < growth.StudyProjects.Count; index++)
                 if (string.Equals(growth.StudyProjects[index].CardId, card.CardId, StringComparison.Ordinal))

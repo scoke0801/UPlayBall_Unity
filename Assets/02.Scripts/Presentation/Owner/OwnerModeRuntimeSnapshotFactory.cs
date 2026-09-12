@@ -378,7 +378,7 @@ namespace Baseball.Presentation.Owner
                   pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                   isActiveRoster: IsActiveRoster(runtime, owned.CardId),
                   studyStatus: GetStudyStatus(runtime, owned.CardId),
-                  growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth),
+                  growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth, manager.TraitBalance),
                   teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder,
                   isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                   originFranchiseId: season.OriginFranchiseId,
@@ -475,7 +475,7 @@ namespace Baseball.Presentation.Owner
                 abilityBreakdowns,
                 manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                 conditionLevel: condition.HasValue ? manager.Balance.ConditionChemistry.Presentation.GetLevel(condition.Value) : (int?)null,
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth),
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth, manager.TraitBalance),
                 originFranchiseId: season.OriginFranchiseId,
                 franchiseHistoryDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(
                     season.OriginFranchiseId), growthHistory: OwnerGrowthHistoryFormatter.Format(owned, manager.Balance.Growth));

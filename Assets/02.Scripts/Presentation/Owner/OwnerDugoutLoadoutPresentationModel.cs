@@ -351,7 +351,7 @@ namespace Baseball.Presentation.Owner
                         isInteractable: true,
                         frameEdition: card.Edition,
                         cost: season.Cost,
-                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, card.CardId, manager.Balance.Growth));
+                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, card.CardId, manager.Balance.Growth, manager.TraitBalance));
                     eligiblePlayers.Add(new OwnerTeamColorEligiblePlayerSnapshot(
                         miniCard,
                         season.PlayerPersonId,
@@ -497,19 +497,16 @@ namespace Baseball.Presentation.Owner
             }
 
             if (activeNames.Count == 0)
-                return "현재 활성 효과 없음\n장착 슬롯이 비어 있거나 발동 인원을 충족하지 못했습니다.";
+                return "현재 활성 효과 없음\n\n장착 슬롯이 비어 있거나 발동 인원을 충족하지 못했습니다.";
 
             var builder = new StringBuilder();
-            builder.Append("현재 활성 효과 ").Append(activeNames.Count).Append("개 · ");
-            for (int index = 0; index < activeNames.Count; index++)
-            {
-                if (index > 0) builder.Append(" + ");
-                builder.Append(activeNames[index]);
-            }
-            builder.Append('\n');
+            builder.Append("현재 활성 효과 ").Append(activeNames.Count).Append("개\n");
             AppendRoleBonus(builder, "야수", PlayerRole.Hitter, hitterBonuses);
             builder.Append('\n');
             AppendRoleBonus(builder, "투수", PlayerRole.Pitcher, pitcherBonuses);
+            builder.Append('\n');
+            for (int index = 0; index < activeNames.Count; index++)
+                builder.Append("\n• ").Append(activeNames[index]);
             return builder.ToString();
         }
 
