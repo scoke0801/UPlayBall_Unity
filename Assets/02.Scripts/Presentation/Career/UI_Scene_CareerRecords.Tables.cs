@@ -156,7 +156,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(470f, 49f),
                     0f,
                     rowIndex * rowHeight);
-                CreateTopLeftText("Season", row, $"{split.Year} {GetTeamShortName(split.TeamName)}", 13,
+                CreateTopLeftText("Season", row, $"{split.Year} · {GetTeamShortName(split.TeamName)}", 13,
                     FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(230f, 22f),
                     12f, 4f, split.IsCurrentSeason ? BrightAccentColor : PrimaryTextColor);
                 CreateTopLeftText("TeamGames", row, $"팀 {split.TeamGames}경기", 11,
@@ -207,7 +207,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(1021f, rowHeight - 2f), 0f, headerHeight + index * rowHeight + 1f);
                 if (CareerPresentationRequestFactory.TryCreateAwardReplay(
                         award,
-                        _manager.CurrentCareer.MyPlayer.Name,
+                        _manager.GetPresentationPlayerName(_manager.CurrentCareer.MyPlayer.PlayerId),
                         out CareerPresentationRequest replayRequest))
                 {
                     Image rowImage = row.GetComponent<Image>();

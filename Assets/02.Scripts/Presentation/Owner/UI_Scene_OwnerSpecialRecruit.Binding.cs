@@ -149,7 +149,7 @@ namespace Baseball.Presentation.Owner
             var runtime = _manager.Runtime;
             var season = runtime.WorldCardCatalog.GetPlayerSeason(runtime.WorldCardCatalog.GetRequiredCard(cardId));
             return season.OriginYear + " " + runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId) +
-                " · " + runtime.IdentityRegistry.GetFranchiseDisplayName(season.OriginFranchiseId);
+                " · " + _manager.GetClubDisplayName(season.OriginTeamSeasonKey);
         }
 
         private OwnerCollectionCardSnapshot CreateCardSnapshot(PlayerCardDefinition card)
@@ -161,7 +161,7 @@ namespace Baseball.Presentation.Owner
                 season.Position, season.Cost, card.Edition, 0, 0, false, false,
                 new OwnerCardAbilityResolver(_manager.Balance.Growth).ResolvePermanent(season, card, null),
                 playerSeasonId: season.PlayerSeasonId, pitcherRole: season.PitcherRole,
-                teamDisplayName: runtime.IdentityRegistry.GetFranchiseDisplayName(season.OriginFranchiseId),
+                teamDisplayName: _manager.GetClubDisplayName(season.OriginTeamSeasonKey),
                 abilityGraphMaximum: _manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder,
                 isPositionEvidenceMissing: season.IsPositionEvidenceMissing);
@@ -290,7 +290,7 @@ namespace Baseball.Presentation.Owner
                 (season.OriginYear % 100).ToString("00"), "", "", portraitAssetKey: season.PlayerSeasonId,
                 isInteractable: !owned, frameEdition: card.Edition, cost: season.Cost),
                 PlayerPortraitSprites.GetForPlayer(season.PlayerPersonId, season.Position));
-            view.SetTeamIdentity(_manager.Runtime.IdentityRegistry.GetFranchiseDisplayName(season.OriginFranchiseId));
+            view.SetTeamIdentity(_manager.GetClubDisplayName(season.OriginTeamSeasonKey));
             view.SetVisualState(valid ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal);
             _materialButtons[slot].GetComponentInChildren<Text>().text = valid ? "등록됨 · 변경" :
                 selected != null ? "사용 불가 · 변경" : _manager.Runtime.CanUseSpecialRecruitMaterial(display) ?

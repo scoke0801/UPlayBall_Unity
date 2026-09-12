@@ -418,7 +418,7 @@ namespace Baseball.Presentation.Career
                 "Title", _content, "경기 준비", 42, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(600f, 60f), new Vector2(0f, 420f), PrimaryTextColor);
             CreateText(
-                "Date", _content, $"{session.GameDate:M월 d일 dddd} · {session.Input.HomeTeam.Name} 홈구장",
+                "Date", _content, $"{session.GameDate:M월 d일 dddd} · {GetTeamName(session.Input.HomeTeam.TeamId)} 홈구장",
                 18, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(760f, 34f), new Vector2(0f, 376f), SecondaryTextColor);
 
@@ -426,9 +426,9 @@ namespace Baseball.Presentation.Career
                 "PreparationCard", _content, new Vector2(1240f, 680f), new Vector2(0f, -5f));
             RenderVersusHeader(
                 card,
-                session.Input.AwayTeam.Name,
+                GetTeamName(session.Input.AwayTeam.TeamId),
                 _manager.CurrentCareer.World.GetTeam(session.Input.AwayTeam.TeamId).EmblemId,
-                session.Input.HomeTeam.Name,
+                GetTeamName(session.Input.HomeTeam.TeamId),
                 _manager.CurrentCareer.World.GetTeam(session.Input.HomeTeam.TeamId).EmblemId,
                 205f);
 
@@ -570,11 +570,11 @@ namespace Baseball.Presentation.Career
                 snapshot.Inning,
                 snapshot.Half == InningHalf.Top ? MatchHudHalf.Top : MatchHudHalf.Bottom,
                 new MatchHudTeamModel(
-                    session.Input.AwayTeam.Name,
+                    GetTeamName(session.Input.AwayTeam.TeamId),
                     snapshot.AwayScore,
                     view.IsAwayTeamBatting),
                 new MatchHudTeamModel(
-                    session.Input.HomeTeam.Name,
+                    GetTeamName(session.Input.HomeTeam.TeamId),
                     snapshot.HomeScore,
                     !view.IsAwayTeamBatting),
                 new MatchHudCountModel(snapshot.Balls, snapshot.Strikes, snapshot.Outs),
@@ -597,9 +597,10 @@ namespace Baseball.Presentation.Career
             MatchProgressViewState view)
         {
             PlayerState player = _manager.CurrentCareer.MyPlayer;
-            CreatePlayerPortrait(panel, player.PlayerId, player.Name, player.PrimaryPosition, new Vector2(0f, 326f));
+            string playerName = _manager.GetPresentationPlayerName(player.PlayerId);
+            CreatePlayerPortrait(panel, player.PlayerId, playerName, player.PrimaryPosition, new Vector2(0f, 326f));
             CreateText(
-                "Name", panel, player.Name, 27, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Name", panel, playerName, 27, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(320f, 42f), new Vector2(0f, 244f), PrimaryTextColor);
             CreateText(
                 "Role", panel, GetRoleLabel(session.PlayerRole, player.PrimaryPosition), 15,
@@ -875,16 +876,16 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleCenter, new Vector2(800f, 62f), new Vector2(0f, 132f), PrimaryTextColor);
             CreateText(
                 "Score", panel,
-                $"{session.Input.AwayTeam.Name} {snapshot.AwayScore}   ·   " +
-                $"{snapshot.HomeScore} {session.Input.HomeTeam.Name}",
+                $"{GetTeamName(session.Input.AwayTeam.TeamId)} {snapshot.AwayScore}   ·   " +
+                $"{snapshot.HomeScore} {GetTeamName(session.Input.HomeTeam.TeamId)}",
                 24, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(880f, 40f), new Vector2(0f, 62f), SecondaryTextColor);
             CreateStatusPill(panel, "공수 교대", new Vector2(260f, 48f), new Vector2(0f, -14f));
 
             bool isNextHalfBottom = snapshot.Half == InningHalf.Top;
             string nextTeamName = isNextHalfBottom
-                ? session.Input.HomeTeam.Name
-                : session.Input.AwayTeam.Name;
+                ? GetTeamName(session.Input.HomeTeam.TeamId)
+                : GetTeamName(session.Input.AwayTeam.TeamId);
             CreateText(
                 "NextLabel", panel, "다음 공격", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(400f, 24f), new Vector2(0f, -90f), MutedTextColor);
@@ -907,7 +908,7 @@ namespace Baseball.Presentation.Career
                 19, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(760f, 32f), new Vector2(0f, 152f), SecondaryTextColor);
             CreateText(
-                "Name", panel, player.Name, 40, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Name", panel, _manager.GetPresentationPlayerName(player.PlayerId), 40, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(700f, 58f), new Vector2(0f, 92f), RoleColor);
             CreateText(
                 "Reason", panel, BuildCallUpDescription(session), 19, FontStyle.Normal,
@@ -936,7 +937,7 @@ namespace Baseball.Presentation.Career
             MatchDecisionRequest request = session.PendingDecision.Value;
             PlayerState player = _manager.CurrentCareer.MyPlayer;
             CreateText(
-                "Title", panel, $"{player.Name}의 타석", 30, FontStyle.Bold, TextAnchor.MiddleCenter,
+                "Title", panel, $"{_manager.GetPresentationPlayerName(player.PlayerId)}의 타석", 30, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(700f, 44f), new Vector2(0f, 244f), RoleColor);
             CreateText(
                 "Situation", panel,
@@ -1185,16 +1186,16 @@ namespace Baseball.Presentation.Career
                 "Outcome", _content, outcome, 28, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(220f, 42f), new Vector2(0f, 358f), outcomeColor);
             CreateText(
-                "NarrativeHeadline", _content, narrative.Headline, 18, FontStyle.Bold,
+                "NarrativeHeadline", _content, ResolveNarrativeText(narrative, narrative.Headline), 18, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(1080f, 36f), new Vector2(0f, 318f), PrimaryTextColor);
 
             RectTransform scoreCard = CreatePanel(
                 "ScoreCard", _content, new Vector2(1180f, 195f), new Vector2(0f, 190f));
-            RenderFinalTeam(scoreCard, session.Input.AwayTeam.Name, result.AwayBoxScore.Runs, new Vector2(-300f, 0f));
+            RenderFinalTeam(scoreCard, GetTeamName(session.Input.AwayTeam.TeamId), result.AwayBoxScore.Runs, new Vector2(-300f, 0f));
             CreateText(
                 "Colon", scoreCard, ":", 44, FontStyle.Bold, TextAnchor.MiddleCenter,
                 new Vector2(70f, 70f), Vector2.zero, SecondaryTextColor);
-            RenderFinalTeam(scoreCard, session.Input.HomeTeam.Name, result.HomeBoxScore.Runs, new Vector2(300f, 0f));
+            RenderFinalTeam(scoreCard, GetTeamName(session.Input.HomeTeam.TeamId), result.HomeBoxScore.Runs, new Vector2(300f, 0f));
 
             RectTransform personal = CreatePanel(
                 "Personal", _content, new Vector2(720f, 410f), new Vector2(-245f, -145f));
@@ -1202,7 +1203,7 @@ namespace Baseball.Presentation.Career
                 "Label", personal, "개인 결과", 14, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(180f, 28f), new Vector2(-245f, 168f), AccentColor);
             CreateText(
-                "Name", personal, _manager.CurrentCareer.MyPlayer.Name, 31, FontStyle.Bold,
+                "Name", personal, _manager.GetPresentationPlayerName(_manager.CurrentCareer.MyPlayer.PlayerId), 31, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(450f, 48f), new Vector2(-110f, 125f), PrimaryTextColor);
 
             string personalLine = session.PlayerRole == PlayerGameRole.StartingBatter
@@ -1224,18 +1225,18 @@ namespace Baseball.Presentation.Career
                 "SeasonRecord", personal, BuildSeasonRecordChange(narrative), 14, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(630f, 26f), new Vector2(0f, 8f), MutedTextColor);
             CreateText(
-                "Performance", personal, narrative.PerformanceEvaluation, 17, FontStyle.Bold,
+                "Performance", personal, ResolveNarrativeText(narrative, narrative.PerformanceEvaluation), 17, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(630f, 32f), new Vector2(0f, -28f), GoldColor);
             CreateText(
-                "PerformanceDetail", personal, narrative.PerformanceDetail, 15, FontStyle.Normal,
+                "PerformanceDetail", personal, ResolveNarrativeText(narrative, narrative.PerformanceDetail), 15, FontStyle.Normal,
                 TextAnchor.MiddleLeft, new Vector2(630f, 30f), new Vector2(0f, -65f), SecondaryTextColor);
             CreateText(
-                "GameImpact", personal, narrative.GameImpact, 15, FontStyle.Normal,
+                "GameImpact", personal, ResolveNarrativeText(narrative, narrative.GameImpact), 15, FontStyle.Normal,
                 TextAnchor.MiddleLeft, new Vector2(630f, 42f), new Vector2(0f, -105f), PrimaryTextColor);
             if (!string.IsNullOrEmpty(narrative.RecentForm))
             {
                 CreateText(
-                    "RecentForm", personal, narrative.RecentForm, 14, FontStyle.Bold,
+                    "RecentForm", personal, ResolveNarrativeText(narrative, narrative.RecentForm), 14, FontStyle.Bold,
                     TextAnchor.MiddleLeft, new Vector2(630f, 28f), new Vector2(0f, -149f), AccentColor);
             }
 
@@ -1250,7 +1251,7 @@ namespace Baseball.Presentation.Career
                 $"{GetEvaluationGrade(narrative.ManagerTrustBefore)} {narrative.ManagerTrustBefore}",
                 $"{GetEvaluationGrade(narrative.ManagerTrustAfter)} {narrative.ManagerTrustAfter}",
                 narrative.ManagerTrustAfter - narrative.ManagerTrustBefore,
-                narrative.ManagerTrustReason,
+                ResolveNarrativeText(narrative, narrative.ManagerTrustReason),
                 100f);
             RenderChangeRow(
                 change,
@@ -1258,19 +1259,19 @@ namespace Baseball.Presentation.Career
                 narrative.ConditionBefore.ToString(),
                 narrative.ConditionAfter.ToString(),
                 narrative.ConditionAfter - narrative.ConditionBefore,
-                narrative.ConditionReason,
+                ResolveNarrativeText(narrative, narrative.ConditionReason),
                 24f);
             RenderStatusRow(
                 change,
                 "현재 역할",
                 $"{GetShortRoleLabel(narrative.RoleAfter, narrative.PlayerPosition)} 유지",
-                narrative.RoleReason,
+                ResolveNarrativeText(narrative, narrative.RoleReason),
                 -52f);
             CreateText(
                 "ManagerCommentLabel", change, $"감독 코멘트 · {GetManagerStyleLabel(narrative.ManagerStyle)}", 13, FontStyle.Bold,
                 TextAnchor.MiddleLeft, new Vector2(405f, 24f), new Vector2(0f, -112f), AccentColor);
             CreateText(
-                "ManagerComment", change, narrative.ManagerComment, 14, FontStyle.Normal,
+                "ManagerComment", change, ResolveNarrativeText(narrative, narrative.ManagerComment), 14, FontStyle.Normal,
                 TextAnchor.UpperLeft, new Vector2(405f, 60f), new Vector2(0f, -151f), PrimaryTextColor);
 
             Button nextDay = CreateButton(
@@ -1281,6 +1282,11 @@ namespace Baseball.Presentation.Career
                 new Vector2(520f, 72f), new Vector2(0f, -448f),
                 CareerUiTheme.PrimaryAction, PrimaryTextColor);
             nextDay.onClick.AddListener(() => _manager.ReturnHomeFromCompletedMatch());
+        }
+
+        private string ResolveNarrativeText(MatchNarrativeSnapshot narrative, string text)
+        {
+            return _manager.ResolvePresentationNarrativeText(narrative, text);
         }
 
         private static bool IsConfirmKeyPressed(Keyboard keyboard)
@@ -1627,9 +1633,15 @@ namespace Baseball.Presentation.Career
             return $"{outsRecorded / 3}.{outsRecorded % 3}";
         }
 
-        private static string FindPlayerName(MatchInput input, int playerId)
+        private string FindPlayerName(MatchInput input, int playerId)
         {
-            return FindPlayer(input, playerId)?.Name ?? string.Empty;
+            BaseballPlayer player = FindPlayer(input, playerId);
+            return player == null ? string.Empty : _manager.GetPresentationPlayerName(player.PlayerId);
+        }
+
+        private string GetTeamName(int teamId)
+        {
+            return _manager.GetPresentationTeamName(teamId);
         }
 
         private static BaseballPlayer FindPlayer(MatchInput input, int playerId)

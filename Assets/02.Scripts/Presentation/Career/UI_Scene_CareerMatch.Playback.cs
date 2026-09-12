@@ -648,10 +648,10 @@ namespace Baseball.Presentation.Career
             }
 
             CreateText(
-                "AwayName", card, session.Input.AwayTeam.Name, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "AwayName", card, GetTeamName(session.Input.AwayTeam.TeamId), 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(130f, 22f), new Vector2(-160f, 0f), SecondaryTextColor);
             CreateText(
-                "HomeName", card, session.Input.HomeTeam.Name, 13, FontStyle.Bold, TextAnchor.MiddleLeft,
+                "HomeName", card, GetTeamName(session.Input.HomeTeam.TeamId), 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 new Vector2(130f, 22f), new Vector2(-160f, -34f), SecondaryTextColor);
             CreateText(
                 "RunHeader", card, "득점", 13, FontStyle.Bold, TextAnchor.MiddleCenter,
@@ -748,7 +748,7 @@ namespace Baseball.Presentation.Career
                 TextAnchor.MiddleCenter, new Vector2(32f, 24f), new Vector2(-194f, y),
                 offset == 0 ? GoldColor : MutedTextColor);
             CreateText(
-                $"Name{slotIndex}", card, battingTeam.Lineup[slotIndex].Player.Name, 16,
+                $"Name{slotIndex}", card, FindPlayerName(session.Input, playerId), 16,
                 offset == 0 ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(220f, 26f), new Vector2(-56f, y),
                 isControlled ? RoleColor : offset == 0 ? PrimaryTextColor : SecondaryTextColor);

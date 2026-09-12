@@ -124,7 +124,10 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(_owner.CompleteNewGameFlow(), Is.True, _owner.LastError);
             Assert.That(_owner.ActiveSaveSlot, Is.EqualTo(2));
             Assert.That(_owner.HasSaveInSlot(1), Is.False);
-            Assert.That(_owner.InspectSave(2).Summary.teamName, Is.EqualTo("저장검증구단"));
+            Assert.That(
+                _owner.InspectSave(2).Summary.teamName,
+                Is.EqualTo(_owner.GetTeamDisplayName(_owner.Runtime.PlayerTeamSeasonKey)));
+            Assert.That(_owner.InspectSave(2).Summary.teamName, Is.Not.EqualTo("저장검증구단"));
             _owner.Save(2);
             string second = File.ReadAllText(_ownerStore.ForSlot(2).FilePath);
             _owner.Save(4);

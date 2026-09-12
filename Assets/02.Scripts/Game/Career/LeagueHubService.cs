@@ -20,13 +20,21 @@ namespace Baseball.Game.Career
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly SeasonState _season;
+        private readonly Func<int, string> _teamNameResolver;
+        private readonly Func<int, string> _playerNameResolver;
 
-        public LeagueHubService(CareerState career, BalanceTable balance)
+        public LeagueHubService(
+            CareerState career,
+            BalanceTable balance,
+            Func<int, string> teamNameResolver = null,
+            Func<int, string> playerNameResolver = null)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _season = career.CurrentLeague.CurrentSeason ??
                       throw new InvalidOperationException("현재 시즌이 시작되지 않았습니다.");
+            _teamNameResolver = teamNameResolver;
+            _playerNameResolver = playerNameResolver;
         }
 
         /// <summary>현재 커리어의 리그 화면 스냅샷을 생성한다.</summary>
@@ -52,7 +60,7 @@ namespace Baseball.Game.Career
                 _balance.CareerSeason.RegularSeasonGamesPerTeam,
                 _balance.Postseason.PlayoffTeamCount,
                 myTeamId,
-                myTeam.Name,
+                ResolveTeamName(myTeam.TeamId),
                 _career.MyPlayer.PlayerId,
                 standings,
                 BuildBattingLeaderboards(),
@@ -99,7 +107,7 @@ namespace Baseball.Game.Career
                 views[index] = new LeagueStandingView(
                     index + 1,
                     teamId,
-                    team.Name,
+                    ResolveTeamName(teamId),
                     team.PrimaryColor,
                     record.GamesPlayed,
                     record.Wins,
@@ -294,9 +302,9 @@ namespace Baseball.Game.Career
             return new LeagueBattingLeaderView(
                 rank,
                 player.PlayerId,
-                player.PlayerName,
+                ResolvePlayerName(player.PlayerId, player.PlayerName),
                 player.TeamId,
-                GetTeam(player.TeamId).Name,
+                ResolveTeamName(player.TeamId),
                 player.PrimaryPosition,
                 player.Batting.Games,
                 player.Batting.PlateAppearances,
@@ -315,9 +323,9 @@ namespace Baseball.Game.Career
             return new LeaguePitchingLeaderView(
                 rank,
                 player.PlayerId,
-                player.PlayerName,
+                ResolvePlayerName(player.PlayerId, player.PlayerName),
                 player.TeamId,
-                GetTeam(player.TeamId).Name,
+                ResolveTeamName(player.TeamId),
                 player.PrimaryPosition,
                 player.Pitching.Appearances,
                 player.Pitching.OutsRecorded,
@@ -336,7 +344,7 @@ namespace Baseball.Game.Career
             for (int index = 0; index < aggregates.Length; index++)
             {
                 TeamState team = _career.CurrentLeague.Teams[index];
-                aggregates[index] = new TeamAggregate(team.TeamId, team.Name);
+                aggregates[index] = new TeamAggregate(team.TeamId, ResolveTeamName(team.TeamId));
             }
 
             foreach (PlayerCompetitionStatisticsState player in
@@ -480,9 +488,9 @@ namespace Baseball.Game.Career
                 game.Round,
                 GetGameDate(game.Round),
                 game.AwayTeamId,
-                GetTeam(game.AwayTeamId).Name,
+                ResolveTeamName(game.AwayTeamId),
                 game.HomeTeamId,
-                GetTeam(game.HomeTeamId).Name,
+                ResolveTeamName(game.HomeTeamId),
                 game.IsCompleted,
                 game.AwayRuns,
                 game.HomeRuns,
@@ -573,6 +581,16 @@ namespace Baseball.Game.Career
                     return team;
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
+        }
+
+        private string ResolveTeamName(int teamId)
+        {
+            return _teamNameResolver?.Invoke(teamId) ?? GetTeam(teamId).Name;
+        }
+
+        private string ResolvePlayerName(int playerId, string fallbackName)
+        {
+            return _playerNameResolver?.Invoke(playerId) ?? fallbackName;
         }
 
         private static TeamAggregate GetAggregate(TeamAggregate[] aggregates, int teamId)

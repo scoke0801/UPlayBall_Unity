@@ -86,6 +86,8 @@ namespace Baseball.Game.Career
         private readonly CareerBakedTeamRuntimeDefinition[] _teams;
         private readonly Dictionary<string, PlayerPersonDefinition> _personsById;
         private readonly Dictionary<string, CareerBakedTeamRuntimeDefinition> _teamsByKey;
+        private readonly Dictionary<int, CareerBakedTeamRuntimeDefinition> _teamsById;
+        private readonly Dictionary<int, string> _playerPersonIdsByRuntimeId;
         private readonly CareerBakedTeamRuntimeDefinition[][] _teamsByGrade;
 
         public CareerBakedContent(
@@ -123,6 +125,8 @@ namespace Baseball.Game.Career
                 gradeTeams[gradeIndex] = new List<CareerBakedTeamRuntimeDefinition>();
             _teams = new CareerBakedTeamRuntimeDefinition[teams.Count];
             _teamsByKey = new Dictionary<string, CareerBakedTeamRuntimeDefinition>(StringComparer.Ordinal);
+            _teamsById = new Dictionary<int, CareerBakedTeamRuntimeDefinition>();
+            _playerPersonIdsByRuntimeId = new Dictionary<int, string>();
             var teamIds = new HashSet<int>();
             var emblemIds = new HashSet<int>();
             var playerInstanceIds = new HashSet<int>();
@@ -133,6 +137,7 @@ namespace Baseball.Game.Career
                     ?? throw new ArgumentException("null TeamSeason Runtime 입력이 있습니다.", nameof(teams));
                 if (!teamIds.Add(team.TeamId))
                     throw new ArgumentException("커리어 TeamId는 중복될 수 없습니다.", nameof(teams));
+                _teamsById.Add(team.TeamId, team);
                 if (!emblemIds.Add(team.EmblemId))
                     throw new ArgumentException("커리어 EmblemId는 중복될 수 없습니다.", nameof(teams));
                 if (!_teamsByKey.TryAdd(team.TeamSeason.TeamSeasonKey, team))
@@ -188,6 +193,18 @@ namespace Baseball.Game.Career
             return team;
         }
 
+        public CareerBakedTeamRuntimeDefinition GetTeam(int teamId)
+        {
+            if (!_teamsById.TryGetValue(teamId, out CareerBakedTeamRuntimeDefinition team))
+                throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
+            return team;
+        }
+
+        public bool TryGetPlayerPersonId(int playerId, out string playerPersonId)
+        {
+            return _playerPersonIdsByRuntimeId.TryGetValue(playerId, out playerPersonId);
+        }
+
         private void ValidateRosterReferences(
             CareerBakedTeamRuntimeDefinition team,
             HashSet<int> playerInstanceIds)
@@ -214,6 +231,7 @@ namespace Baseball.Game.Career
                     season.PlayerSeasonId);
                 if (!playerInstanceIds.Add(playerId))
                     throw new ArgumentException("Baked ID에서 커리어 PlayerId 충돌이 발생했습니다.");
+                _playerPersonIdsByRuntimeId.Add(playerId, season.PlayerPersonId);
             }
         }
 
@@ -323,7 +341,8 @@ namespace Baseball.Game.Career
                 baseRatings.ToBatterAttributes(),
                 baseRatings.ToPitcherAttributes(),
                 team.TeamId,
-                leagueId);
+                leagueId,
+                person.PlayerPersonId);
             player.AttachGrowthState(new PlayerGrowthState(
                 playerId,
                 age,

@@ -4,11 +4,11 @@ using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Game.Historical
 {
-    /// <summary>구단주 진행의 사용자 구단명과 비플레이어 구단 연도 표시 계약을 검증한다.</summary>
+    /// <summary>실제·가상 구단 Identity가 연도와 함께 한 쌍으로 표시되는 계약을 검증한다.</summary>
     public sealed class OwnerClubDisplayNameFormatterTests
     {
         [Test]
-        public void Format_내구단은입력한구단명만표시한다()
+        public void Format_내구단도Identity와원본연도를표시한다()
         {
             string result = OwnerClubDisplayNameFormatter.Format(
                 "LG 트윈스",
@@ -16,7 +16,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 true,
                 " 서울 불사조 ");
 
-            Assert.That(result, Is.EqualTo("서울 불사조"));
+            Assert.That(result, Is.EqualTo("2008 LG 트윈스"));
         }
 
         [Test]
@@ -40,6 +40,14 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 "서울 불사조");
 
             Assert.That(result, Is.EqualTo("2024 올스타"));
+        }
+
+        [Test]
+        public void Format_간소화호출도같은연도계약을사용한다()
+        {
+            Assert.That(
+                OwnerClubDisplayNameFormatter.Format("LG 트윈스", 2024),
+                Is.EqualTo("2024 LG 트윈스"));
         }
 
         [Test]

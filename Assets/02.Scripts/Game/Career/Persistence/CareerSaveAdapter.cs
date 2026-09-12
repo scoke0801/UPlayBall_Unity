@@ -67,13 +67,20 @@ namespace Baseball.Game.Career.Persistence
             int teamId = career.MyPlayer.CurrentTeamId > 0
                 ? career.MyPlayer.CurrentTeamId
                 : career.Retirement.LastTeamId;
-            string teamName = teamId > 0 ? career.World.GetTeam(teamId).Name : "무소속";
+            TeamState team = teamId > 0 ? career.World.GetTeam(teamId) : null;
+            string teamName = team?.Name ?? "무소속";
             SeasonState season = career.CurrentLeague.CurrentSeason;
             return new CareerSaveSummaryData
             {
                 playerName = career.MyPlayer.Name,
+                playerId = career.MyPlayer.PlayerId,
+                playerPersonId = career.MyPlayer.HistoricalPlayerPersonId,
                 position = GetPositionLabel(career.MyPlayer.PrimaryPosition),
                 teamName = teamName,
+                teamId = teamId,
+                teamSeasonKey = team?.OriginTeamSeasonKey ?? string.Empty,
+                franchiseId = team?.OriginFranchiseId ?? string.Empty,
+                originYear = team?.OriginYear ?? 0,
                 leagueName = GetLeagueLabel(career.CurrentLeague.LeagueLevel),
                 seasonId = season.SeasonId,
                 year = season.Year,

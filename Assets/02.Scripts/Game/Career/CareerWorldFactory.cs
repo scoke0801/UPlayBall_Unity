@@ -309,7 +309,10 @@ namespace Baseball.Game.Career
                     source.PrimaryColor,
                     positionNeeds,
                     competitors.ToArray(),
-                    source.EmblemId);
+                    source.EmblemId,
+                    definition.TeamSeason.TeamSeasonKey,
+                    definition.TeamSeason.FranchiseId,
+                    definition.TeamSeason.OriginYear);
             }
             return result;
         }

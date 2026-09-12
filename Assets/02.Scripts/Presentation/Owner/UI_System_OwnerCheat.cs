@@ -509,6 +509,7 @@ namespace Baseball.Presentation.Owner
                 string franchiseName = manager.Runtime.IdentityRegistry.GetPresentationTeamSeasonName(
                     season.OriginTeamSeasonKey,
                     season.OriginFranchiseId);
+                franchiseName = OwnerClubDisplayNameFormatter.Format(franchiseName, season.OriginYear);
                 string playerName = manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId);
                 string label = $"{season.OriginYear} · {franchiseName} · {playerName} · {DescribeEdition(card.Edition)} · {card.CardId}";
                 _cardOptions.Add(new CardOption(card, label));
@@ -563,6 +564,7 @@ namespace Baseball.Presentation.Owner
                 PlayerSeasonDefinition season = origins[index];
                 string name = _boundRuntime.IdentityRegistry.GetPresentationTeamSeasonName(
                     season.OriginTeamSeasonKey, season.OriginFranchiseId);
+                name = OwnerClubDisplayNameFormatter.Format(name, season.OriginYear);
                 _franchiseOptions.Add(new FranchiseOption(season.OriginFranchiseId, name));
             }
             _franchiseOptions.Sort(FranchiseOption.Compare);

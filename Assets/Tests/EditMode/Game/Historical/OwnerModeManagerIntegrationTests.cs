@@ -320,8 +320,13 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(manager.Runtime.PlayerTeamSeasonKey,
                     Is.EqualTo(expectedStartingSeason.OriginTeamSeasonKey));
                 Assert.That(manager.Runtime.OwnerProfile.ClubName, Is.EqualTo("서울 불사조"));
+                int playerTeamYear = manager.GetTeamOriginYear(manager.Runtime.PlayerTeamSeasonKey) ?? 0;
                 Assert.That(manager.GetClubDisplayName(manager.Runtime.PlayerTeamSeasonKey),
-                    Is.EqualTo("서울 불사조"));
+                    Is.EqualTo(manager.GetTeamDisplayName(manager.Runtime.PlayerTeamSeasonKey)));
+                Assert.That(manager.GetClubDisplayName(manager.Runtime.PlayerTeamSeasonKey),
+                    Does.StartWith(playerTeamYear + " "));
+                Assert.That(manager.GetClubDisplayName(manager.Runtime.PlayerTeamSeasonKey),
+                    Is.Not.EqualTo("서울 불사조"));
                 string opponentTeamSeasonKey = string.Empty;
                 for (int index = 0; index < manager.Runtime.League.RegularTeamSeasonKeys.Count; index++)
                 {
@@ -333,7 +338,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 }
                 int opponentYear = manager.GetTeamOriginYear(opponentTeamSeasonKey) ?? 0;
                 Assert.That(manager.GetClubDisplayName(opponentTeamSeasonKey),
-                    Is.EqualTo(opponentYear + " " + manager.GetTeamDisplayName(opponentTeamSeasonKey)));
+                    Is.EqualTo(manager.GetTeamDisplayName(opponentTeamSeasonKey)));
+                Assert.That(manager.GetClubDisplayName(opponentTeamSeasonKey),
+                    Does.StartWith(opponentYear + " "));
                 manager.Load();
                 Assert.That(manager.Runtime.OwnerProfile.ClubName, Is.EqualTo("서울 불사조"));
             }

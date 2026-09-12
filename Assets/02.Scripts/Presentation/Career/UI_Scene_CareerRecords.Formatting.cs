@@ -225,11 +225,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetTeamShortName(string teamName)
         {
-            if (string.IsNullOrWhiteSpace(teamName))
-                return "-";
-            int separator = teamName.IndexOf(' ');
-            string shortName = separator > 0 ? teamName.Substring(0, separator) : teamName;
-            return shortName.Length > 4 ? shortName.Substring(0, 4) : shortName;
+            return CareerTeamNameFormatter.GetCompactName(teamName);
         }
 
         private static string FormatMoney(long amount)

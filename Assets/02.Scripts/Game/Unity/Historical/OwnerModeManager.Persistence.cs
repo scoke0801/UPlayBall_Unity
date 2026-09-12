@@ -49,7 +49,7 @@ namespace Baseball.Game.Historical
                 var summary = new CareerSaveSummaryData
                 {
                     playerName = string.IsNullOrWhiteSpace(data.ownerProfile?.nickname) ? "구단주" : data.ownerProfile.nickname,
-                    teamName = data.ownerProfile?.clubName ?? string.Empty,
+                    teamName = ResolveSavedTeamDisplayName(data),
                     year = season.originYear,
                     seasonPhase = $"{season.seasonNumber}년차 · {season.currentWeekIndex + 1}주차",
                     savedAtUtcTicks = store.SavedAtUtcTicks
@@ -62,6 +62,38 @@ namespace Baseball.Game.Historical
                 return new CareerSaveSlotView(CareerSaveSlotStatus.Damaged, null,
                     "저장 파일을 읽을 수 없습니다. 다른 슬롯을 선택하거나 파일을 확인해 주세요.", false);
             }
+        }
+
+        private string ResolveSavedTeamDisplayName(ManagerHistoricalSaveData data)
+        {
+            HistoricalBakedContent content = _contentProvider.Load();
+            if (!content.TryGetTeamSeason(data.playerTeamSeasonKey, out Baseball.Core.Historical.TeamSeasonDefinition team))
+                return data.playerTeamSeasonKey ?? string.Empty;
+
+            WorldIdentityRegistrySaveData saved = data.identityRegistry;
+            var players = new Baseball.Core.Historical.WorldPlayerIdentity[saved?.players?.Length ?? 0];
+            for (int index = 0; index < players.Length; index++)
+            {
+                players[index] = new Baseball.Core.Historical.WorldPlayerIdentity(
+                    saved.players[index].playerPersonId,
+                    saved.players[index].displayName);
+            }
+            var franchises = new Baseball.Core.Historical.WorldFranchiseIdentity[saved?.franchises?.Length ?? 0];
+            for (int index = 0; index < franchises.Length; index++)
+            {
+                franchises[index] = new Baseball.Core.Historical.WorldFranchiseIdentity(
+                    saved.franchises[index].franchiseId,
+                    saved.franchises[index].displayName);
+            }
+            var identities = new Baseball.Core.Historical.WorldIdentityRegistry(
+                saved?.identityGeneratorVersion ?? "save-summary",
+                saved?.identitySeed ?? 0UL,
+                players,
+                franchises);
+            string identityName = identities.GetPresentationTeamSeasonName(
+                team.TeamSeasonKey,
+                team.FranchiseId);
+            return OwnerClubDisplayNameFormatter.Format(identityName, team.OriginYear);
         }
     }
 }

@@ -145,6 +145,18 @@ namespace Baseball.Game.Historical
             return registry.GetPlayerDisplayName(playerPersonId);
         }
 
+        /// <summary>커리어 State의 가상 이름을 유지하면서 Source가 있는 선수만 실제 이름으로 덮어쓴다.</summary>
+        public static string ResolvePlayerName(string virtualName, string playerPersonId)
+        {
+            Initialize();
+            if (IsEnabled && !string.IsNullOrWhiteSpace(playerPersonId) &&
+                _playerNamesById.TryGetValue(playerPersonId.Trim(), out string realName))
+            {
+                return realName;
+            }
+            return virtualName?.Trim() ?? string.Empty;
+        }
+
         /// <summary>Presentation 코드가 실제 선수 이름 오버레이를 명시적으로 요청한다.</summary>
         public static string GetPresentationPlayerName(
             this WorldIdentityRegistry registry,
@@ -185,6 +197,26 @@ namespace Baseball.Game.Historical
                 _teamSeasonNamesByKey.TryGetValue(teamSeasonKey.Trim(), out string realName))
                 return realName;
             return ResolveFranchiseName(registry, franchiseId);
+        }
+
+        /// <summary>커리어 State의 가상 구단명을 유지하면서 Source가 있는 구단만 연도별 실제 브랜드로 덮어쓴다.</summary>
+        public static string ResolveTeamSeasonName(
+            string virtualName,
+            string teamSeasonKey,
+            string franchiseId)
+        {
+            Initialize();
+            if (IsEnabled && !string.IsNullOrWhiteSpace(teamSeasonKey) &&
+                _teamSeasonNamesByKey.TryGetValue(teamSeasonKey.Trim(), out string realSeasonName))
+            {
+                return realSeasonName;
+            }
+            if (IsEnabled && !string.IsNullOrWhiteSpace(franchiseId) &&
+                _franchiseNamesById.TryGetValue(franchiseId.Trim(), out string realFranchiseName))
+            {
+                return realFranchiseName;
+            }
+            return virtualName?.Trim() ?? string.Empty;
         }
 
         /// <summary>Presentation Snapshot이 연도별 실제 구단 이름 오버레이를 요청한다.</summary>

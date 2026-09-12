@@ -9,6 +9,16 @@ namespace Baseball.Game.Career
     {
         private const int LeaderboardLimit = LeagueLeaderboardService.DefaultLeaderboardLimit;
         private const double TieTolerance = LeagueLeaderboardService.TieTolerance;
+        private readonly Func<int, string> _teamNameResolver;
+        private readonly Func<int, string> _playerNameResolver;
+
+        public CareerRecordsService(
+            Func<int, string> teamNameResolver = null,
+            Func<int, string> playerNameResolver = null)
+        {
+            _teamNameResolver = teamNameResolver;
+            _playerNameResolver = playerNameResolver;
+        }
 
         public CareerRecordsView Build(CareerState career, CareerRecordCategory category)
         {
@@ -47,7 +57,7 @@ namespace Baseball.Game.Career
             {
                 SeasonYear = currentSeason.Year,
                 LeagueLevel = currentSeason.LeagueLevel,
-                PlayerName = myPlayer.Name,
+                PlayerName = ResolvePlayerName(myPlayer.PlayerId, myPlayer.Name),
                 Category = category,
                 ViewMode = viewMode,
                 Scope = scope,
@@ -72,7 +82,7 @@ namespace Baseball.Game.Career
             };
         }
 
-        private static CareerRecordLeaderboardRow[] BuildLeaderboard(
+        private CareerRecordLeaderboardRow[] BuildLeaderboard(
             CareerState career,
             List<PlayerCompetitionStatisticsState> qualified,
             CareerRecordMetric[] columns,
@@ -83,7 +93,8 @@ namespace Baseball.Game.Career
                 columns,
                 teamId => GetTeamName(career, teamId),
                 player => player.PlayerId == myPlayerId,
-                LeaderboardLimit);
+                LeaderboardLimit,
+                playerId => ResolvePlayerName(playerId, string.Empty));
         }
 
         private static CareerRecordMetricValue[] BuildMyMetrics(
@@ -102,7 +113,7 @@ namespace Baseball.Game.Career
             return values;
         }
 
-        private static CareerRecordSeasonRow[] BuildSeasons(
+        private CareerRecordSeasonRow[] BuildSeasons(
             CareerState career,
             CareerRecordMetric[] columns,
             CompetitionScope scope)
@@ -129,7 +140,7 @@ namespace Baseball.Game.Career
                 rows.Add(new CareerRecordSeasonRow(
                     history.Year,
                     history.LeagueLevel,
-                    history.TeamName,
+                    GetTeamName(career, history.TeamId),
                     false,
                     BuildMetricValues(statistics, columns)));
             }
@@ -225,7 +236,7 @@ namespace Baseball.Game.Career
             }
         }
 
-        private static CareerRecordHighlightView[] BuildHighlights(
+        private CareerRecordHighlightView[] BuildHighlights(
             CareerState career,
             CompetitionScope scope)
         {
@@ -246,7 +257,7 @@ namespace Baseball.Game.Career
             return highlights;
         }
 
-        private static CareerTeamStatisticsSplitView[] BuildTeamSplits(
+        private CareerTeamStatisticsSplitView[] BuildTeamSplits(
             CareerState career,
             CareerRecordMetric[] columns,
             CompetitionScope scope)
@@ -281,7 +292,7 @@ namespace Baseball.Game.Career
             return splits.ToArray();
         }
 
-        private static void AddTeamSplits(
+        private void AddTeamSplits(
             List<CareerTeamStatisticsSplitView> destination,
             CareerState career,
             int year,
@@ -305,7 +316,7 @@ namespace Baseball.Game.Career
             }
         }
 
-        private static CareerTradeHistoryView[] BuildTradeHistory(CareerState career)
+        private CareerTradeHistoryView[] BuildTradeHistory(CareerState career)
         {
             IReadOnlyList<TradeHistoryRecord> history = career.TradeState.History;
             var rows = new CareerTradeHistoryView[history.Count];
@@ -613,8 +624,10 @@ namespace Baseball.Game.Career
             return totals;
         }
 
-        private static string GetTeamName(CareerState career, int teamId)
+        private string GetTeamName(CareerState career, int teamId)
         {
+            if (_teamNameResolver != null)
+                return _teamNameResolver(teamId);
             for (int index = 0; index < career.CurrentLeague.Teams.Count; index++)
             {
                 TeamState team = career.CurrentLeague.Teams[index];
@@ -622,6 +635,11 @@ namespace Baseball.Game.Career
                     return team.Name;
             }
             return string.Empty;
+        }
+
+        private string ResolvePlayerName(int playerId, string fallbackName)
+        {
+            return _playerNameResolver?.Invoke(playerId) ?? fallbackName;
         }
 
         private static CareerRecordMetric[] GetColumns(

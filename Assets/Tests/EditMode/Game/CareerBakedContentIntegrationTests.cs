@@ -61,9 +61,14 @@ namespace Baseball.Tests.EditMode.Game
             Assert.That(flow.Career.World.Players.Count, Is.EqualTo(2_500));
             PlayerState bakedPlayer = FindBakedPlayer(flow.Career.World.Players);
             Assert.That(bakedPlayer.GrowthState, Is.Not.Null);
+            Assert.That(bakedPlayer.HistoricalPlayerPersonId, Is.Not.Empty);
             Assert.That(
                 bakedPlayer.GrowthState.BaseAbilities.Get(PlayerAbility.Contact),
                 Is.EqualTo(60));
+            TeamState bakedTeam = flow.Career.World.GetTeam(bakedPlayer.CurrentTeamId);
+            Assert.That(bakedTeam.OriginTeamSeasonKey, Is.Not.Empty);
+            Assert.That(bakedTeam.OriginFranchiseId, Is.Not.Empty);
+            Assert.That(bakedTeam.OriginYear, Is.GreaterThan(0));
         }
 
         [Test]

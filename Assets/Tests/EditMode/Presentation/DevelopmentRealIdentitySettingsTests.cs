@@ -181,5 +181,32 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(DevelopmentRealIdentitySettings.ResolvePlayerName(
                 registry, "PERSON_08a17db05a3902825cd1"), Is.EqualTo("박도현"));
         }
+
+        [Test]
+        public void CareerStateIdentity_UsesSameModeForTeamPlayerAndEmblemLookup()
+        {
+            const string personId = "PERSON_08a17db05a3902825cd1";
+            const string teamSeasonKey = "FRANCHISE_1b36b987034cef53c24a_2003";
+            const string franchiseId = "FRANCHISE_1b36b987034cef53c24a";
+
+            Assert.That(DevelopmentRealIdentitySettings.ResolvePlayerName("박도현", personId),
+                Is.EqualTo("류현진"));
+            string teamName = DevelopmentRealIdentitySettings.ResolveTeamSeasonName(
+                "수원 파이어오니어스", teamSeasonKey, franchiseId);
+            Assert.That(teamName, Is.EqualTo("SK 와이번스"));
+            string clubName = OwnerClubDisplayNameFormatter.Format(teamName, 2003);
+            Assert.That(clubName, Is.EqualTo("2003 SK 와이번스"));
+            Assert.That(DevelopmentRealIdentitySettings.TryGetEmblemResource(
+                clubName, out string resourcePath), Is.True);
+            Assert.That(resourcePath, Does.EndWith("/SkWyverns"));
+
+            DevelopmentRealIdentitySettings.SetEnabled(false);
+
+            Assert.That(DevelopmentRealIdentitySettings.ResolvePlayerName("박도현", personId),
+                Is.EqualTo("박도현"));
+            Assert.That(DevelopmentRealIdentitySettings.ResolveTeamSeasonName(
+                    "수원 파이어오니어스", teamSeasonKey, franchiseId),
+                Is.EqualTo("수원 파이어오니어스"));
+        }
     }
 }

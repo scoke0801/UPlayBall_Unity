@@ -52,7 +52,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void ScheduleFactory_비플레이어구단에만원본연도를붙인다()
+        public void ScheduleFactory_모든구단에원본연도를붙인다()
         {
             var game = new ScheduledGameState(1, 1, 10UL, 1, 2);
             var liveSeason = new ManagerLiveSeasonState(
@@ -75,7 +75,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 teamId => teamId == "owner-team" ? 2023 : 2024);
 
             Assert.That(snapshot.Games[0].AwayTeam.DisplayName, Is.EqualTo("2024 LG 트윈스"));
-            Assert.That(snapshot.Games[0].HomeTeam.DisplayName, Is.EqualTo("서울 마리너스"));
+            Assert.That(snapshot.Games[0].HomeTeam.DisplayName, Is.EqualTo("2023 서울 마리너스"));
 
             var league = new OwnerLeaguePresentationModel(snapshot);
             Assert.That(
@@ -83,7 +83,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Is.EqualTo("2024 LG 트윈스"));
             Assert.That(
                 league.Standings.Single(team => team.Id == "owner-team").Name,
-                Is.EqualTo("서울 마리너스"));
+                Is.EqualTo("2023 서울 마리너스"));
         }
 
         [Test]

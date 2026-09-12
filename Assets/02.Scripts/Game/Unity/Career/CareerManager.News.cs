@@ -18,7 +18,20 @@ namespace Baseball.Game.Career
                 category,
                 CurrentCareer.MyPlayer.PlayerId,
                 CurrentCareer.MyPlayer.CurrentTeamId,
-                maximumArticles);
+                maximumArticles,
+                ResolveNewsSubjectName);
+        }
+
+        private string ResolveNewsSubjectName(NewsSubject subject)
+        {
+            if (!int.TryParse(subject.SubjectId, out int runtimeId))
+                return subject.DisplayName;
+            return subject.Type switch
+            {
+                NewsSubjectType.Player => GetPresentationPlayerName(runtimeId),
+                NewsSubjectType.Team => GetPresentationTeamName(runtimeId),
+                _ => subject.DisplayName
+            };
         }
 
         /// <summary>기사 열람 상태만 바꾸며 계약·성장·경기 결과에는 영향을 주지 않는다.</summary>

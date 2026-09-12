@@ -949,10 +949,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetShortTeamName(string teamName)
         {
-            if (string.IsNullOrWhiteSpace(teamName))
-                return "-";
-            int separator = teamName.LastIndexOf(' ');
-            return separator >= 0 && separator < teamName.Length - 1 ? teamName.Substring(separator + 1) : teamName;
+            return CareerTeamNameFormatter.GetCompactName(teamName);
         }
 
         private static RectTransform CreateRect(string name, Transform parent, Vector2 size, Vector2 position)

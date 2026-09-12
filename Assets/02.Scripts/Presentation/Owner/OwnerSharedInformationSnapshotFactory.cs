@@ -21,7 +21,7 @@ namespace Baseball.Presentation.Owner
                 OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade),
                 teamSeasonKey => manager.GetClubDisplayName(teamSeasonKey),
                 teamSeasonKey => manager.GetTeamOriginYear(teamSeasonKey),
-                manager.GetTeamDisplayName(runtime.PlayerTeamSeasonKey));
+                manager.GetClubDisplayName(runtime.PlayerTeamSeasonKey));
         }
 
         /// <summary>Owner 일정 원본과 이름 Resolver를 날짜 없는 공용 Round Snapshot으로 복사한다.</summary>
@@ -56,7 +56,6 @@ namespace Baseball.Presentation.Owner
                         awayKey,
                         FormatLeagueTeamDisplayName(
                             awayKey,
-                            focusTeamKey,
                             teamDisplayNameResolver,
                             teamOriginYearResolver,
                             teamDisplayNames),
@@ -66,7 +65,6 @@ namespace Baseball.Presentation.Owner
                         homeKey,
                         FormatLeagueTeamDisplayName(
                             homeKey,
-                            focusTeamKey,
                             teamDisplayNameResolver,
                             teamOriginYearResolver,
                             teamDisplayNames),
@@ -94,7 +92,6 @@ namespace Baseball.Presentation.Owner
 
         private static string FormatLeagueTeamDisplayName(
             string teamSeasonKey,
-            string focusTeamSeasonKey,
             Func<string, string> teamDisplayNameResolver,
             Func<string, int?> teamOriginYearResolver,
             IDictionary<string, string> teamDisplayNames)
@@ -103,8 +100,7 @@ namespace Baseball.Presentation.Owner
                 return cachedDisplayName;
 
             string displayName = teamDisplayNameResolver(teamSeasonKey);
-            if (teamOriginYearResolver == null ||
-                string.Equals(teamSeasonKey, focusTeamSeasonKey, StringComparison.Ordinal))
+            if (teamOriginYearResolver == null)
             {
                 teamDisplayNames.Add(teamSeasonKey, displayName);
                 return displayName;
@@ -141,7 +137,7 @@ namespace Baseball.Presentation.Owner
             return new OwnerSeasonRecordsPresentationModel(
                 new OwnerSeasonRecordsService().Build(
                     runtime,
-                    teamSeasonKey => manager.GetTeamDisplayName(teamSeasonKey),
+                    teamSeasonKey => manager.GetClubDisplayName(teamSeasonKey),
                     playerPersonId => runtime.IdentityRegistry.GetPresentationPlayerName(playerPersonId),
                     seasonNumber: seasonNumbers[selectedIndex]),
                 seasonNumbers, selectedIndex);

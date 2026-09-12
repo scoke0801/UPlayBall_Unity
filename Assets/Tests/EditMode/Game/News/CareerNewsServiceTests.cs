@@ -73,6 +73,42 @@ namespace Baseball.Tests.EditMode.Game.News
         }
 
         [Test]
+        public void NewsArticleView_선수구단Identity와조사를표시시점에함께바꾼다()
+        {
+            var article = new NewsArticleState(
+                "identity-article",
+                CreateDate(),
+                NewsCategory.Club,
+                NewsImportance.B,
+                NewsArticleLength.Standard,
+                NewsSourceType.ClubNews,
+                NewsTone.Neutral,
+                "identity-template",
+                0,
+                "identity-variant",
+                1,
+                "푸른 곰은 김도윤을 영입했다",
+                "김도윤이 푸른 곰과 계약했다",
+                "푸른 곰으로 향한 김도윤은 각오를 밝혔다.",
+                NewsSubject.Team(1, "푸른 곰"),
+                new[] { NewsSubject.Player(2, "김도윤") },
+                new NewsFactSet(),
+                new[] { "identity-event" },
+                string.Empty,
+                false);
+
+            var view = new NewsArticleView(
+                article,
+                subject => subject.Type == NewsSubjectType.Team
+                    ? "2024 LG 트윈스"
+                    : "이정후");
+
+            Assert.That(view.Headline, Is.EqualTo("2024 LG 트윈스는 이정후를 영입했다"));
+            Assert.That(view.Lead, Is.EqualTo("이정후가 2024 LG 트윈스와 계약했다"));
+            Assert.That(view.Body, Is.EqualTo("2024 LG 트윈스로 향한 이정후는 각오를 밝혔다."));
+        }
+
+        [Test]
         public void NewsFactKey_새키는기존직렬화값뒤에만추가한다()
         {
             // 미배포 포맷에서 부상 전용 두 키를 제거한 현재 저장 계약을 고정한다.

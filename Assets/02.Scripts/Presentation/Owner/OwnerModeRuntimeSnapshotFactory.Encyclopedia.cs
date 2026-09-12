@@ -98,9 +98,11 @@ namespace Baseball.Presentation.Owner
             CardEditionPresentationMetadata metadata =
                 CardEditionPresentationMetadataCatalog.Resolve(entry.Edition);
             string playerDisplayName = identities.GetPresentationPlayerName(entry.PlayerPersonId);
-            string franchiseDisplayName = identities.GetPresentationTeamSeasonName(
+            string franchiseDisplayName = ResolveOriginTeamDisplayName(
+                identities,
                 entry.OriginTeamSeasonKey,
-                entry.OriginFranchiseId);
+                entry.OriginFranchiseId,
+                entry.OriginYear);
             return new EncyclopediaScreenEntry
             {
                 CardId = entry.CardId,
@@ -145,9 +147,11 @@ namespace Baseball.Presentation.Owner
             WorldIdentityRegistry identities)
         {
             string playerDisplayName = identities.GetPresentationPlayerName(entry.PlayerPersonId);
-            string franchiseDisplayName = identities.GetPresentationTeamSeasonName(
+            string franchiseDisplayName = ResolveOriginTeamDisplayName(
+                identities,
                 entry.OriginTeamSeasonKey,
-                entry.OriginFranchiseId);
+                entry.OriginFranchiseId,
+                entry.OriginYear);
             return new EncyclopediaScreenEntry
             {
                 PlayerSeasonId = entry.PlayerSeasonId,
@@ -241,9 +245,11 @@ namespace Baseball.Presentation.Owner
                 entry.Bats,
                 CreatePitchSnapshots(manager, entry.Season, abilities),
                 CreateSeasonRecord(runtime.WorldHistory, entry.Season, entry.OriginTeamSeasonKey, entry.OriginYear),
-                teamDisplayName: runtime.IdentityRegistry.GetPresentationTeamSeasonName(
+                teamDisplayName: ResolveOriginTeamDisplayName(
+                    runtime.IdentityRegistry,
                     entry.OriginTeamSeasonKey,
-                    entry.OriginFranchiseId),
+                    entry.OriginFranchiseId,
+                    entry.OriginYear),
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: entry.Card.PreferredBattingOrder, isPositionEvidenceMissing: entry.Season.IsPositionEvidenceMissing);
         }
@@ -260,11 +266,13 @@ namespace Baseball.Presentation.Owner
                 {
                     HasTeamSeason = entry.HasTeamSeason,
                     FranchiseId = entry.FranchiseId,
-                    FranchiseDisplayName = identities.GetPresentationTeamSeasonName(
+                    FranchiseDisplayName = ResolveOriginTeamDisplayName(
+                        identities,
                         entry.HasTeamSeason
                             ? entry.FranchiseId + "_" + entry.OriginYear
                             : string.Empty,
-                        entry.FranchiseId),
+                        entry.FranchiseId,
+                        entry.OriginYear),
                     OriginYear = entry.OriginYear,
                     CollectibleCardCount = entry.CollectibleCardCount,
                     EverAcquiredCardCount = entry.EverAcquiredCardCount,
@@ -322,7 +330,7 @@ namespace Baseball.Presentation.Owner
             CardEditionPresentationMetadata metadata,
             string franchiseDisplayName)
         {
-            return $"{entry.OriginYear}년 {franchiseDisplayName}\n{metadata.DisplayName} · COST {entry.Cost}\n" +
+            return $"{franchiseDisplayName}\n{metadata.DisplayName} · COST {entry.Cost}\n" +
                    (entry.IsCurrentlyOwned
                        ? $"현재 {entry.OwnedCount}장 보유"
                        : entry.WasEverAcquired ? "획득 이력 있음 · 현재 미보유" : "미획득");
@@ -363,9 +371,11 @@ namespace Baseball.Presentation.Owner
             WorldIdentityRegistry identities)
         {
             var text = new StringBuilder();
-            string franchiseDisplayName = identities.GetPresentationTeamSeasonName(
+            string franchiseDisplayName = ResolveOriginTeamDisplayName(
+                identities,
                 entry.OriginTeamSeasonKey,
-                entry.OriginFranchiseId);
+                entry.OriginFranchiseId,
+                entry.OriginYear);
             for (int index = 0; index < scoutPools.Count; index++)
             {
                 ScoutPoolDefinition pool = scoutPools[index];
@@ -387,8 +397,7 @@ namespace Baseball.Presentation.Owner
                 case ScoutType.General: return "일반 스카우트";
                 case ScoutType.Franchise: return franchiseDisplayName + " 집중 스카우트";
                 case ScoutType.Year: return entry.OriginYear + "년 집중 스카우트";
-                case ScoutType.YearFranchise:
-                    return franchiseDisplayName + " + " + entry.OriginYear + "년 정밀 스카우트";
+                case ScoutType.YearFranchise: return franchiseDisplayName + " 정밀 스카우트";
                 case ScoutType.Award:
                     return CardEditionPresentationMetadataCatalog.Resolve(entry.Edition).DisplayName + " 스카우트";
                 default: throw new ArgumentOutOfRangeException(nameof(pool.ScoutType));
@@ -399,6 +408,16 @@ namespace Baseball.Presentation.Owner
         {
             if (playerType != PlayerType.Pitcher) return "타자";
             return OwnerCollectionPresentationBuilder.FormatPitcherRole(role);
+        }
+
+        private static string ResolveOriginTeamDisplayName(
+            WorldIdentityRegistry identities,
+            string teamSeasonKey,
+            string franchiseId,
+            int originYear)
+        {
+            string identityName = identities.GetPresentationTeamSeasonName(teamSeasonKey, franchiseId);
+            return OwnerClubDisplayNameFormatter.Format(identityName, originYear);
         }
     }
 }

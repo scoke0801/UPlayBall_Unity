@@ -11,7 +11,8 @@ namespace Baseball.Game.Career.News
             NewsFeedCategory category,
             int myPlayerId,
             int myTeamId,
-            int maximumArticles)
+            int maximumArticles,
+            Func<NewsSubject, string> subjectNameResolver = null)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
             if (maximumArticles < 0) throw new ArgumentOutOfRangeException(nameof(maximumArticles));
@@ -28,7 +29,7 @@ namespace Baseball.Game.Career.News
                     matches.Add(article);
                 }
                 matches.Sort(CompareLatest);
-                AddViews(matches, views, maximumArticles);
+                AddViews(matches, views, maximumArticles, subjectNameResolver);
                 return new CareerNewsFeedView(category, views.ToArray(), unreadCount);
             }
 
@@ -41,18 +42,19 @@ namespace Baseball.Game.Career.News
                 matches.Add(article);
             }
             matches.Sort(CompareLatest);
-            AddViews(matches, views, maximumArticles);
+            AddViews(matches, views, maximumArticles, subjectNameResolver);
             return new CareerNewsFeedView(category, views.ToArray(), unreadCount);
         }
 
         private static void AddViews(
             IReadOnlyList<NewsArticleState> articles,
             List<NewsArticleView> views,
-            int maximumArticles)
+            int maximumArticles,
+            Func<NewsSubject, string> subjectNameResolver)
         {
             int count = articles.Count < maximumArticles ? articles.Count : maximumArticles;
             for (int index = 0; index < count; index++)
-                views.Add(new NewsArticleView(articles[index]));
+                views.Add(new NewsArticleView(articles[index], subjectNameResolver));
         }
 
         private static int CompareLatest(NewsArticleState left, NewsArticleState right)

@@ -124,6 +124,30 @@ namespace Baseball.Tests.EditMode.Game
             }
         }
 
+        [Test]
+        public void ViewBuilder_은퇴원본은유지하고표시Identity를회고전체에적용한다()
+        {
+            CreateCareer(out CareerState career, out BalanceTable balance);
+            RetirementRecapSnapshot snapshot = new RetirementRecapService(balance)
+                .CreateSnapshot(career, RetirementReason.Voluntary);
+            var builder = new RetirementRecapViewBuilder(
+                _ => "2024 실제 구단",
+                _ => "실제 선수");
+
+            RetirementRecapBeat[] beats = builder.BuildRecap(snapshot);
+            RetirementArchivePage summary = builder.BuildArchivePage(
+                snapshot,
+                RetirementArchiveTab.Summary);
+            RetirementArchivePage timeline = builder.BuildArchivePage(
+                snapshot,
+                RetirementArchiveTab.SeasonTimeline);
+
+            Assert.That(beats[0].Title, Is.EqualTo("실제 선수"));
+            Assert.That(summary.Body, Does.StartWith("실제 선수"));
+            Assert.That(timeline.Body, Does.Contain("2024 실제 구단"));
+            Assert.That(snapshot.PlayerName, Is.Not.EqualTo("실제 선수"));
+        }
+
         private static void CreateCareer(out CareerState career, out BalanceTable balance)
         {
             NewGameConfiguration configuration = NewGameConfiguration.CreateDefault();

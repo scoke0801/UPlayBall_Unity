@@ -31,7 +31,7 @@ namespace Baseball.Presentation.Career
         private static readonly Color SecondaryTextColor = new(0.68f, 0.70f, 0.68f, 1f);
         private static readonly Color MutedTextColor = new(0.42f, 0.45f, 0.45f, 1f);
 
-        private readonly RetirementRecapViewBuilder _builder = new();
+        private RetirementRecapViewBuilder _builder;
         private CareerManager _careerManager;
         private NewGameManager _newGameManager;
         private RectTransform _root;
@@ -83,6 +83,9 @@ namespace Baseball.Presentation.Career
         {
             _careerManager = GameManager.EnsureExists().EnsureManager<CareerManager>("CareerManager");
             _newGameManager = GameManager.EnsureExists().EnsureManager<NewGameManager>("NewGameManager");
+            _builder = new RetirementRecapViewBuilder(
+                _careerManager.GetPresentationTeamName,
+                _careerManager.GetPresentationPlayerName);
             _root = (RectTransform)transform;
             Stretch(_root);
         }
@@ -290,7 +293,7 @@ namespace Baseball.Presentation.Career
             CreateText("Title", panel, "한 선수의 기록이 완성되었습니다.", 42, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(900f, 70f), new Vector2(0f, 190f), PrimaryTextColor);
             CreateText("Player", panel,
-                $"{_snapshot.PlayerName}\n{_snapshot.DebutSeason} – {_snapshot.RetirementSeason}\n\n" +
+                $"{_careerManager.GetPresentationPlayerName(_snapshot.PlayerId)}\n{_snapshot.DebutSeason} – {_snapshot.RetirementSeason}\n\n" +
                 $"“{GetCareerTitle()}”",
                 28, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(760f, 180f), new Vector2(0f, 60f), SecondaryTextColor);

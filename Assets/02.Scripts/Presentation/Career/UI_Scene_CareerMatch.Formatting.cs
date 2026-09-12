@@ -271,7 +271,7 @@ namespace Baseball.Presentation.Career
         /// <summary>
         /// 타임라인 한 줄의 본문이다. 이닝은 그룹 머리글이 이미 알려 주므로 붙이지 않는다.
         /// </summary>
-        private static string DescribeTimelineEvent(
+        private string DescribeTimelineEvent(
             MatchInput input,
             IReadOnlyList<MatchEvent> events,
             int eventIndex)

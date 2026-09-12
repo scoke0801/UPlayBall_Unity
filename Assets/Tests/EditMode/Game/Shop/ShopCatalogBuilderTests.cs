@@ -186,6 +186,28 @@ namespace Baseball.Tests.EditMode.Game.Shop
         }
 
         [Test]
+        public void 연도구단상품은해당시즌Identity를구단명으로사용한다()
+        {
+            IReadOnlyList<ScoutPoolDefinition> pools = ShopDefaultPools.CreateScoutPools(
+                ScoutFeaturePolicy.Phase4NormalOnly,
+                new[] { new ScoutMarketTarget("franchise-a", 2003) });
+            ShopCatalog catalog = ShopCatalogBuilder.Build(
+                GrowthBalanceTable.CreateDefault().SkillGacha,
+                pools,
+                ShopDefaultPools.CreateTacticResearchPools(),
+                _ => "현재 구단",
+                franchiseYearDisplayNameResolver: (_, year) => year.HasValue
+                    ? year.Value + " 역사 구단"
+                    : "현재 구단");
+
+            Assert.That(catalog.TryGetProduct(
+                "shop.player.year_franchise_2003_franchise-a",
+                out ShopProductDefinition precise), Is.True);
+            Assert.That(precise.TargetFranchiseName, Is.EqualTo("2003 역사 구단"));
+            Assert.That(precise.ScopeLabel, Is.EqualTo("2003 역사 구단"));
+        }
+
+        [Test]
         public void 스킬블록_구매결과는_내부ID가_아닌_한글_능력치와_보너스를_표시한다()
         {
             GrowthBalanceTable growth = GrowthBalanceTable.CreateDefault();

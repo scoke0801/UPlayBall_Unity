@@ -24,5 +24,15 @@ namespace Baseball.Tests.EditMode.Presentation
         {
             Assert.That(CareerTeamNameFormatter.GetMonogram(teamName), Is.EqualTo("UP"));
         }
+
+        [TestCase("2024 LG 트윈스", "2024LG트윈스")]
+        [TestCase("1988 빙그레 이글스", "1988빙그레이글스")]
+        [TestCase("2024 부산 오로라", "2024부산오로라")]
+        public void GetCompactName_연도와전체구단명을보존하고공백만제거한다(
+            string teamName,
+            string expected)
+        {
+            Assert.That(CareerTeamNameFormatter.GetCompactName(teamName), Is.EqualTo(expected));
+        }
     }
 }

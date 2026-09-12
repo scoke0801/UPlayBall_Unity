@@ -15,6 +15,35 @@ namespace Baseball.Game.Career.News
             return noun + (finalType == KoreanFinalConsonantType.None ? vowelForm : consonantForm);
         }
 
+        /// <summary>완성된 한국어 문장에서 명사를 바꾸고 뒤따르는 대표 조사도 새 명사에 맞춘다.</summary>
+        public static string ReplaceNoun(string text, string source, string target)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(source) ||
+                string.IsNullOrEmpty(target) || source == target)
+            {
+                return text ?? string.Empty;
+            }
+
+            text = ReplacePostposition(text, source, target, "으로", "로");
+            text = ReplacePostposition(text, source, target, "은", "는");
+            text = ReplacePostposition(text, source, target, "이", "가");
+            text = ReplacePostposition(text, source, target, "을", "를");
+            text = ReplacePostposition(text, source, target, "과", "와");
+            return text.Replace(source, target);
+        }
+
+        private static string ReplacePostposition(
+            string text,
+            string source,
+            string target,
+            string consonantForm,
+            string vowelForm)
+        {
+            string resolved = Apply(target, consonantForm, vowelForm);
+            text = text.Replace(source + consonantForm, resolved);
+            return text.Replace(source + vowelForm, resolved);
+        }
+
         internal static KoreanFinalConsonantType GetFinalConsonantType(string value)
         {
             if (string.IsNullOrWhiteSpace(value))

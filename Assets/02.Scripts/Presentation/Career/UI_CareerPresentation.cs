@@ -177,7 +177,7 @@ namespace Baseball.Presentation.Career
                 bool isRepeat = CountPreviousSelections(growth, index, result) > 0;
                 if (CareerPresentationRequestFactory.TryCreateGrowthActivity(
                         result,
-                        career.MyPlayer.Name,
+                        _manager.GetPresentationPlayerName(career.MyPlayer.PlayerId),
                         nextWeek,
                         isRepeat,
                         out CareerPresentationRequest request))

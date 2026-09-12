@@ -19,12 +19,20 @@ namespace Baseball.Game.Career
         private readonly CareerState _career;
         private readonly BalanceTable _balance;
         private readonly SkillBoardService _skillBoardService;
+        private readonly Func<int, string> _teamNameResolver;
+        private readonly Func<int, string> _playerNameResolver;
 
-        public CareerContractViewBuilder(CareerState career, BalanceTable balance)
+        public CareerContractViewBuilder(
+            CareerState career,
+            BalanceTable balance,
+            Func<int, string> teamNameResolver = null,
+            Func<int, string> playerNameResolver = null)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _skillBoardService = new SkillBoardService(balance.Growth.SkillBoard, balance.Growth.SkillBlocks);
+            _teamNameResolver = teamNameResolver;
+            _playerNameResolver = playerNameResolver;
         }
 
         /// <summary>
@@ -82,7 +90,7 @@ namespace Baseball.Game.Career
             var evaluator = new PlayerValueEvaluator(_balance.PlayerEvaluation);
             return new CareerContractView
             {
-                PlayerName = player.Name,
+                PlayerName = ResolvePlayerName(player.PlayerId, player.Name),
                 Age = player.Age,
                 Position = player.PrimaryPosition,
                 Overall = evaluator.CalculatePositionValue(player.ToRosterPlayer(_skillBoardService)),
@@ -91,7 +99,7 @@ namespace Baseball.Game.Career
                 SeasonPhase = season.Phase,
                 AvailableMoney = _career.AvailableMoney,
                 CurrentContract = new CurrentContractView(
-                    currentTeam.Name,
+                    ResolveTeamName(currentTeam.TeamId, currentTeam.Name),
                     contract.SignedYear,
                     contract.EndYear,
                     contract.ContractYears,
@@ -141,7 +149,9 @@ namespace Baseball.Game.Career
             {
                 PlayerContractState contract = source[source.Count - 1 - index];
                 result[index] = new ContractHistoryView(
-                    GetTeam(contract.SigningTeamId).Name,
+                    ResolveTeamName(
+                        contract.SigningTeamId,
+                        GetTeam(contract.SigningTeamId).Name),
                     contract.SignedYear,
                     contract.EndYear,
                     contract.ContractYears,
@@ -233,7 +243,7 @@ namespace Baseball.Game.Career
                 : transitionService.GetPlannedLeagueLevel(offer.Team.TeamId);
             return new RenewalContractOfferView(
                 offer.Team.TeamId,
-                offer.Team.Name,
+                ResolveTeamName(offer.Team.TeamId, offer.Team.Name),
                 targetLeagueLevel,
                 offer.Team.PrimaryColor,
                 offer.Team.GetPositionNeed(_career.MyPlayer.PrimaryPosition),
@@ -252,7 +262,7 @@ namespace Baseball.Game.Career
                 isSelected);
         }
 
-        private static string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)
+        private string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)
         {
             if (competitors == null || competitors.Count == 0)
                 return "없음";
@@ -261,7 +271,8 @@ namespace Baseball.Game.Career
             for (int index = 0; index < count; index++)
             {
                 if (index > 0) result += ", ";
-                result += $"{competitors[index].Name} OVR {competitors[index].Overall}";
+                result += $"{ResolvePlayerName(competitors[index].PlayerId, competitors[index].Name)} " +
+                          $"OVR {competitors[index].Overall}";
             }
             return result;
         }
@@ -303,6 +314,16 @@ namespace Baseball.Game.Career
         private TeamState GetTeam(int teamId)
         {
             return _career.World.GetTeam(teamId);
+        }
+
+        private string ResolveTeamName(int teamId, string fallbackName)
+        {
+            return _teamNameResolver?.Invoke(teamId) ?? fallbackName;
+        }
+
+        private string ResolvePlayerName(int playerId, string fallbackName)
+        {
+            return _playerNameResolver?.Invoke(playerId) ?? fallbackName;
         }
 
         private static GeneratedTeam ToGeneratedTeam(TeamState team)

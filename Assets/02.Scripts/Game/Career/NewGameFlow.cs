@@ -15,7 +15,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 17;
+        public const int CurrentSaveVersion = 18;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
@@ -34,6 +34,7 @@ namespace Baseball.Game.Career
 
         public NewGameFlowState State { get; private set; }
         public CareerState Career { get; private set; }
+        public CareerBakedContent BakedContent => _bakedContent;
         public string BuildWarning { get; private set; } = string.Empty;
 
         public CareerCreationRules CareerCreationRules => _configuration.CareerCreationRules;

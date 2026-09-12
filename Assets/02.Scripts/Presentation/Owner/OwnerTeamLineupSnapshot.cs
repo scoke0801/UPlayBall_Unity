@@ -179,13 +179,17 @@ namespace Baseball.Presentation.Owner
                     OwnerTeamColorDisplayFormatter.FormatWorldName(
                         definition,
                         definition.DisplayName,
-                        manager.Runtime.IdentityRegistry.GetFranchiseDisplayName,
-                        manager.GetTeamDisplayName),
+                        franchiseId => OwnerClubDisplayNameFormatter.Format(
+                            manager.Runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId),
+                            definition.OriginYear),
+                        manager.GetClubDisplayName),
                     OwnerTeamColorDisplayFormatter.FormatWorldDescription(
                         definition,
                         definition.Description,
-                        manager.Runtime.IdentityRegistry.GetFranchiseDisplayName,
-                        manager.GetTeamDisplayName));
+                        franchiseId => OwnerClubDisplayNameFormatter.Format(
+                            manager.Runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId),
+                            definition.OriginYear),
+                        manager.GetClubDisplayName));
             }
             return result;
         }
@@ -278,7 +282,7 @@ namespace Baseball.Presentation.Owner
                 person?.Bats,
                 CreatePitchSnapshots(manager, season, abilities),
                 CreateCurrentSeasonRecord(runtime, season, currentTeamSeasonKey),
-                teamDisplayName: manager.GetTeamDisplayName(season.OriginTeamSeasonKey),
+                teamDisplayName: manager.GetClubDisplayName(season.OriginTeamSeasonKey),
                 conditionLabel: "비공개",
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,

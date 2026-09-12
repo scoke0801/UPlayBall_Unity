@@ -274,7 +274,8 @@ namespace Baseball.Game.Career
             CareerRecordMetric[] columns,
             Func<int, string> getTeamName,
             Func<PlayerCompetitionStatisticsState, bool> isHighlighted,
-            int limit = DefaultLeaderboardLimit)
+            int limit = DefaultLeaderboardLimit,
+            Func<int, string> getPlayerName = null)
         {
             if (qualified == null) throw new ArgumentNullException(nameof(qualified));
             if (columns == null || columns.Length == 0)
@@ -297,7 +298,7 @@ namespace Baseball.Game.Career
                 rows[index] = new CareerRecordLeaderboardRow(
                     rank,
                     player.PlayerId,
-                    player.PlayerName,
+                    getPlayerName?.Invoke(player.PlayerId) ?? player.PlayerName,
                     player.TeamId,
                     getTeamName(player.TeamId),
                     isHighlighted(player),

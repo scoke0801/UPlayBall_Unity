@@ -40,9 +40,15 @@ namespace Baseball.Game.Shop
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
                 tacticPools,
-                runtime.IdentityRegistry.GetFranchiseDisplayName,
+                runtime.IdentityRegistry.GetPresentationFranchiseName,
                 manager.Balance.ConditionChemistry,
-                pityBalance);
+                pityBalance,
+                (franchiseId, originYear) => originYear.HasValue
+                    ? manager.GetTeamDisplayName(string.Concat(
+                        franchiseId,
+                        "_",
+                        originYear.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                    : runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId));
             var detailsResolver = OwnerShopDetailsBuilder.CreateResolver(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,

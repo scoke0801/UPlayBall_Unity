@@ -25,8 +25,14 @@ namespace Baseball.Game.Career.Persistence
     public sealed class CareerSaveSummaryData
     {
         public string playerName;
+        public int playerId;
+        public string playerPersonId;
         public string position;
         public string teamName;
+        public int teamId;
+        public string teamSeasonKey;
+        public string franchiseId;
+        public int originYear;
         public string leagueName;
         public int seasonId;
         public int year;

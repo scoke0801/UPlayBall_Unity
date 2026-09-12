@@ -93,7 +93,8 @@ namespace Baseball.Game.Career
             BatterAttributes batterAttributes,
             PitcherAttributes pitcherAttributes,
             int currentTeamId,
-            LeagueId currentLeagueId)
+            LeagueId currentLeagueId,
+            string historicalPlayerPersonId = null)
         {
             SaveVersion = saveVersion;
             PlayerId = playerId;
@@ -107,6 +108,7 @@ namespace Baseball.Game.Career
             PitcherAttributes = pitcherAttributes;
             CurrentTeamId = currentTeamId;
             CurrentLeagueId = currentLeagueId;
+            HistoricalPlayerPersonId = historicalPlayerPersonId?.Trim() ?? string.Empty;
             CareerStatus = currentTeamId > 0 ? PlayerCareerStatus.ActiveRoster : PlayerCareerStatus.FreeAgent;
             StudyState = new PlayerStudyState();
             SkillBoardState = new SkillBoardState("standard_4x4");
@@ -117,6 +119,7 @@ namespace Baseball.Game.Career
         public RetirementPersonality RetirementPersonality =>
             (RetirementPersonality)((PlayerId - 1) % 4);
         public string Name { get; }
+        public string HistoricalPlayerPersonId { get; }
         public string Nationality { get; }
         public int Age { get; private set; }
         public PlayerPosition PrimaryPosition { get; }

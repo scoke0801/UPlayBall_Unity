@@ -68,7 +68,10 @@ namespace Baseball.Game.Career
             TeamColor primaryColor,
             int[] positionNeedRatings,
             RosterCompetitorState[] rosterCompetitors,
-            int emblemId = 0)
+            int emblemId = 0,
+            string originTeamSeasonKey = null,
+            string originFranchiseId = null,
+            int originYear = 0)
             : this(
                 saveVersion,
                 teamId,
@@ -79,7 +82,10 @@ namespace Baseball.Game.Career
                 positionNeedRatings,
                 rosterCompetitors,
                 rosterPlayerIds: null,
-                emblemId: emblemId)
+                emblemId: emblemId,
+                originTeamSeasonKey,
+                originFranchiseId,
+                originYear)
         {
         }
 
@@ -93,7 +99,10 @@ namespace Baseball.Game.Career
             int[] positionNeedRatings,
             RosterCompetitorState[] rosterCompetitors,
             int[] rosterPlayerIds,
-            int emblemId)
+            int emblemId,
+            string originTeamSeasonKey = null,
+            string originFranchiseId = null,
+            int originYear = 0)
         {
             if (emblemId < 0)
                 throw new ArgumentOutOfRangeException(nameof(emblemId));
@@ -104,6 +113,16 @@ namespace Baseball.Game.Career
             Archetype = archetype;
             PrimaryColor = primaryColor;
             EmblemId = emblemId;
+            OriginTeamSeasonKey = originTeamSeasonKey?.Trim() ?? string.Empty;
+            OriginFranchiseId = originFranchiseId?.Trim() ?? string.Empty;
+            OriginYear = originYear;
+            bool hasHistoricalIdentity = OriginTeamSeasonKey.Length > 0 ||
+                OriginFranchiseId.Length > 0 || OriginYear > 0;
+            if (hasHistoricalIdentity &&
+                (OriginTeamSeasonKey.Length == 0 || OriginFranchiseId.Length == 0 || OriginYear <= 0))
+            {
+                throw new ArgumentException("역사 구단 Identity는 TeamSeasonKey·FranchiseId·연도를 함께 가져야 합니다.");
+            }
             _positionNeedRatings = (int[])positionNeedRatings.Clone();
             _rosterCompetitors = (RosterCompetitorState[])rosterCompetitors.Clone();
             _rosterPlayerIds = rosterPlayerIds == null
@@ -118,6 +137,10 @@ namespace Baseball.Game.Career
         public TeamArchetypeProfile Archetype { get; }
         public TeamColor PrimaryColor { get; }
         public int EmblemId { get; }
+        public string OriginTeamSeasonKey { get; }
+        public string OriginFranchiseId { get; }
+        public int OriginYear { get; }
+        public bool HasHistoricalIdentity => OriginYear > 0;
         public IReadOnlyList<RosterCompetitorState> RosterCompetitors => _rosterCompetitors;
         public IReadOnlyList<int> RosterPlayerIds => _rosterPlayerIds;
 
@@ -183,7 +206,10 @@ namespace Baseball.Game.Career
                 _positionNeedRatings,
                 rosterCompetitors,
                 MergePersistentRosterIds(rosterCompetitors),
-                EmblemId);
+                EmblemId,
+                OriginTeamSeasonKey,
+                OriginFranchiseId,
+                OriginYear);
         }
 
         public TeamState WithRosterAndPlayerIds(
@@ -200,7 +226,10 @@ namespace Baseball.Game.Career
                 _positionNeedRatings,
                 rosterCompetitors,
                 rosterPlayerIds,
-                EmblemId);
+                EmblemId,
+                OriginTeamSeasonKey,
+                OriginFranchiseId,
+                OriginYear);
         }
 
         public TeamState WithRosteredPlayer(int playerId)
@@ -226,7 +255,10 @@ namespace Baseball.Game.Career
                 _positionNeedRatings,
                 _rosterCompetitors,
                 rosterPlayerIds,
-                EmblemId);
+                EmblemId,
+                OriginTeamSeasonKey,
+                OriginFranchiseId,
+                OriginYear);
         }
 
         /// <summary>은퇴·방출된 선수를 경쟁자 스냅샷과 영구 로스터 ID에서 함께 제거한다.</summary>
@@ -274,7 +306,10 @@ namespace Baseball.Game.Career
                 _positionNeedRatings,
                 competitors,
                 rosterPlayerIds,
-                EmblemId);
+                EmblemId,
+                OriginTeamSeasonKey,
+                OriginFranchiseId,
+                OriginYear);
         }
 
         /// <summary>
@@ -294,7 +329,10 @@ namespace Baseball.Game.Career
                 _positionNeedRatings,
                 _rosterCompetitors,
                 _rosterPlayerIds,
-                EmblemId);
+                EmblemId,
+                OriginTeamSeasonKey,
+                OriginFranchiseId,
+                OriginYear);
         }
 
         /// <summary>동일 구단 상태에 월드 생성에서 확정된 엠블럼 ID를 부여한다.</summary>
@@ -314,7 +352,10 @@ namespace Baseball.Game.Career
                 _positionNeedRatings,
                 _rosterCompetitors,
                 _rosterPlayerIds,
-                emblemId);
+                emblemId,
+                OriginTeamSeasonKey,
+                OriginFranchiseId,
+                OriginYear);
         }
 
         private int[] MergePersistentRosterIds(RosterCompetitorState[] rosterCompetitors)

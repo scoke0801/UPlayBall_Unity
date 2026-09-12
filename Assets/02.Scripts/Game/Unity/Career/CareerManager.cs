@@ -5,6 +5,7 @@ using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Career.Narrative;
 using Baseball.Game.Career.News;
+using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Simulation.Career;
 using Baseball.Simulation.Match;
@@ -36,6 +37,53 @@ namespace Baseball.Game.Career
         public TeamOverviewView TeamOverview => HasRetirementRecap ? null : BuildTeamOverview();
 
         public event Action CareerChanged;
+
+        /// <summary>현재 Identity 모드에 맞는 연도 포함 구단명을 반환한다.</summary>
+        public string GetPresentationTeamName(int teamId)
+        {
+            if (CurrentCareer == null)
+                return string.Empty;
+
+            TeamState team = CurrentCareer.World.GetTeam(teamId);
+            string identityName = DevelopmentRealIdentitySettings.ResolveTeamSeasonName(
+                team.Name,
+                team.OriginTeamSeasonKey,
+                team.OriginFranchiseId);
+            return OwnerClubDisplayNameFormatter.Format(identityName, team.OriginYear);
+        }
+
+        /// <summary>현재 Identity 모드에 맞는 선수명을 반환한다.</summary>
+        public string GetPresentationPlayerName(int playerId)
+        {
+            if (CurrentCareer == null)
+                return string.Empty;
+
+            PlayerState player = CurrentCareer.World.GetPlayer(playerId);
+            return DevelopmentRealIdentitySettings.ResolvePlayerName(
+                player.Name,
+                player.HistoricalPlayerPersonId);
+        }
+
+        /// <summary>저장된 경기 서사 원문을 유지하면서 현재 Identity 모드의 이름과 조사로 표시한다.</summary>
+        public string ResolvePresentationNarrativeText(
+            MatchNarrativeSnapshot narrative,
+            string text)
+        {
+            if (narrative == null || CurrentCareer == null)
+                return text ?? string.Empty;
+            text = News.KoreanPostpositionFormatter.ReplaceNoun(
+                text,
+                narrative.TeamName,
+                GetPresentationTeamName(narrative.TeamId));
+            text = News.KoreanPostpositionFormatter.ReplaceNoun(
+                text,
+                narrative.OpponentName,
+                GetPresentationTeamName(narrative.OpponentTeamId));
+            return News.KoreanPostpositionFormatter.ReplaceNoun(
+                text,
+                narrative.PlayerName,
+                GetPresentationPlayerName(CurrentCareer.MyPlayer.PlayerId));
+        }
 
         /// <summary>
         /// 저장되거나 새로 시작한 커리어를 현재 시즌 단계 그대로 인수한다.
@@ -734,7 +782,11 @@ namespace Baseball.Game.Career
         {
             if (CurrentCareer == null || _balance == null)
                 return null;
-            return new CareerContractViewBuilder(CurrentCareer, _balance)
+            return new CareerContractViewBuilder(
+                    CurrentCareer,
+                    _balance,
+                    GetPresentationTeamName,
+                    GetPresentationPlayerName)
                 .Build(_seasonTransitionService, LastError);
         }
 
@@ -817,7 +869,7 @@ namespace Baseball.Game.Career
             Player currentPlayer = BuildStablePlayer();
             return new CareerDashboardView
             {
-                PlayerName = player.Name,
+                PlayerName = GetPresentationPlayerName(player.PlayerId),
                 Age = player.Age,
                 Position = player.PrimaryPosition,
                 BattingHand = player.BattingHand,
@@ -828,7 +880,7 @@ namespace Baseball.Game.Career
                 Condition = player.Condition,
                 ManagerEvaluation = player.ManagerEvaluation,
                 ExpectedRole = CurrentCareer.CurrentExpectedRole,
-                TeamName = playerTeam.Name,
+                TeamName = GetPresentationTeamName(playerTeam.TeamId),
                 TeamEmblemId = playerTeam.EmblemId,
                 SeasonYear = season.Year,
                 LeagueLevel = season.LeagueLevel,
@@ -878,11 +930,10 @@ namespace Baseball.Game.Career
                     postseasonGames += postseason.Series[index].Games.Count;
             }
 
-            string championTeamName = review?.IsPostseasonFinalized == true
-                ? review.ChampionTeamName
-                : postseason?.ChampionTeamId > 0
-                    ? GetTeam(postseason.ChampionTeamId).Name
-                    : string.Empty;
+            int championTeamId = postseason?.ChampionTeamId ?? 0;
+            string championTeamName = championTeamId > 0
+                ? GetPresentationTeamName(championTeamId)
+                : review?.ChampionTeamName ?? string.Empty;
             int playerAwardCount = 0;
             if (review?.IsPostseasonFinalized == true)
             {
@@ -924,14 +975,21 @@ namespace Baseball.Game.Career
         {
             if (CurrentCareer == null || _balance == null)
                 return null;
-            return new LeagueHubService(CurrentCareer, _balance).Build();
+            return new LeagueHubService(
+                CurrentCareer,
+                _balance,
+                GetPresentationTeamName,
+                GetPresentationPlayerName).Build();
         }
 
         private TeamOverviewView BuildTeamOverview()
         {
             if (CurrentCareer == null || _balance == null)
                 return null;
-            return new TeamOverviewBuilder(_balance).Build(CurrentCareer);
+            return new TeamOverviewBuilder(
+                _balance,
+                GetPresentationTeamName,
+                GetPresentationPlayerName).Build(CurrentCareer);
         }
 
         private NextCareerGameView? BuildNextGameView(Player currentPlayer)
@@ -945,9 +1003,9 @@ namespace Baseball.Game.Career
             return new NextCareerGameView(
                 game.GameId,
                 GetGameDate(CurrentCareer.CurrentLeague.CurrentSeason.Year, game.Round),
-                GetTeam(game.AwayTeamId).Name,
-                GetTeam(game.HomeTeamId).Name,
-                GetTeam(opponentTeamId).Name,
+                GetPresentationTeamName(game.AwayTeamId),
+                GetPresentationTeamName(game.HomeTeamId),
+                GetPresentationTeamName(opponentTeamId),
                 isHome,
                 game.PlannedPlayerRole,
                 GetPlayerBattingOrder(game, currentPlayer),
@@ -986,7 +1044,7 @@ namespace Baseball.Game.Career
 
             var result = new PositionCompetitionView[count];
             result[0] = new PositionCompetitionView(
-                player.Name,
+                GetPresentationPlayerName(player.PlayerId),
                 evaluator.CalculatePositionValue(BuildStablePlayer()),
                 true);
             int resultIndex = 1;
@@ -996,7 +1054,7 @@ namespace Baseball.Game.Career
                 if (competitor.Position != player.PrimaryPosition)
                     continue;
                 result[resultIndex++] = new PositionCompetitionView(
-                    competitor.Name,
+                    GetPresentationPlayerName(competitor.PlayerId),
                     competitor.Overall,
                     false);
             }
@@ -1024,7 +1082,7 @@ namespace Baseball.Game.Career
                 int opponentTeamId = isHome ? game.AwayTeamId : game.HomeTeamId;
                 result[resultIndex] = new UpcomingGameView(
                     GetGameDate(CurrentCareer.CurrentLeague.CurrentSeason.Year, game.Round),
-                    GetTeam(opponentTeamId).Name,
+                    GetPresentationTeamName(opponentTeamId),
                     isHome,
                     resultIndex == 0);
                 resultIndex++;

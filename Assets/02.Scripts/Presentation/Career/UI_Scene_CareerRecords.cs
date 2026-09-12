@@ -32,7 +32,7 @@ namespace Baseball.Presentation.Career
             0f,
             -(CareerUiTheme.SharedShellChromeHeight * 0.5f + CareerUiTheme.Space2));
 
-        private readonly CareerRecordsService _recordsService = new();
+        private CareerRecordsService _recordsService;
         private CareerManager _manager;
         private RectTransform _content;
         private CareerRecordsPage _page = CareerRecordsPage.Personal;
@@ -61,6 +61,9 @@ namespace Baseball.Presentation.Career
         protected override void OnInitialize()
         {
             _manager = GameManager.EnsureExists().EnsureManager<CareerManager>("CareerManager");
+            _recordsService = new CareerRecordsService(
+                _manager.GetPresentationTeamName,
+                _manager.GetPresentationPlayerName);
             _manager.CareerChanged += HandleCareerChanged;
             BuildHierarchy();
         }

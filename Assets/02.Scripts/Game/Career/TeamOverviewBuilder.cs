@@ -17,8 +17,13 @@ namespace Baseball.Game.Career
         private readonly PlayerValueEvaluator _playerValueEvaluator;
         private readonly ManagerLineupAi _managerLineupAi;
         private readonly SkillBoardService _skillBoardService;
+        private readonly Func<int, string> _teamNameResolver;
+        private readonly Func<int, string> _playerNameResolver;
 
-        public TeamOverviewBuilder(BalanceTable balance)
+        public TeamOverviewBuilder(
+            BalanceTable balance,
+            Func<int, string> teamNameResolver = null,
+            Func<int, string> playerNameResolver = null)
         {
             _balance = balance ?? throw new ArgumentNullException(nameof(balance));
             _playerValueEvaluator = new PlayerValueEvaluator(balance.PlayerEvaluation);
@@ -26,6 +31,8 @@ namespace Baseball.Game.Career
             _skillBoardService = new SkillBoardService(
                 balance.Growth.SkillBoard,
                 balance.Growth.SkillBlocks);
+            _teamNameResolver = teamNameResolver;
+            _playerNameResolver = playerNameResolver;
         }
 
         /// <summary>
@@ -71,7 +78,7 @@ namespace Baseball.Game.Career
             return new TeamOverviewView
             {
                 TeamId = team.TeamId,
-                TeamName = team.Name,
+                TeamName = ResolveTeamName(team),
                 PrimaryColor = team.PrimaryColor,
                 EmblemId = team.EmblemId,
                 Archetype = team.Archetype,
@@ -105,7 +112,7 @@ namespace Baseball.Game.Career
                 CurrentTeamGameIndex = record?.GamesPlayed ?? 0,
                 TradeInterests = CopyTradeInterests(career.TradeState.Interests),
                 TopTradeInterestTeamName = career.TradeState.Interests.Count > 0
-                    ? GetTeam(career, career.TradeState.Interests[0].InterestedTeamId).Name
+                    ? ResolveTeamName(GetTeam(career, career.TradeState.Interests[0].InterestedTeamId))
                     : string.Empty,
                 CanChangeTradePreference = season.Phase == SeasonPhase.RegularSeason &&
                     (record?.GamesPlayed ?? 0) <= career.TradeState.TradeDeadlineGameIndex
@@ -134,7 +141,7 @@ namespace Baseball.Game.Career
             bool isMyPlayerPlanned = IsPlayerInMatchRoster(matchRoster, myPlayer.PlayerId);
             result[0] = CreateRosterView(
                 myPlayer.PlayerId,
-                myPlayer.Name,
+                ResolvePlayerName(myPlayer.PlayerId, myPlayer.Name),
                 myPlayer.PrimaryPosition,
                 myOverall,
                 GetMyPlayerRosterRole(career.CurrentExpectedRole),
@@ -150,7 +157,7 @@ namespace Baseball.Game.Career
                 bool isInNextGamePlan = IsPlayerInMatchRoster(matchRoster, competitor.PlayerId);
                 result[index + 1] = CreateRosterView(
                     competitor.PlayerId,
-                    competitor.Name,
+                    ResolvePlayerName(competitor.PlayerId, competitor.Name),
                     competitor.Position,
                     competitor.Overall,
                     GetCompetitorRosterRole(team, competitor),
@@ -350,6 +357,16 @@ namespace Baseball.Game.Career
                     return team;
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
+        }
+
+        private string ResolveTeamName(TeamState team)
+        {
+            return _teamNameResolver?.Invoke(team.TeamId) ?? team.Name;
+        }
+
+        private string ResolvePlayerName(int playerId, string fallbackName)
+        {
+            return _playerNameResolver?.Invoke(playerId) ?? fallbackName;
         }
 
         private static int CalculateRank(SeasonState season, TeamSeasonRecordState playerRecord)

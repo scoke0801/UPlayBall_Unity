@@ -13,13 +13,29 @@ namespace Baseball.Presentation.Career
         public static string GetMonogram(string teamName)
         {
             if (string.IsNullOrWhiteSpace(teamName))
-            return "유플";
+                return "유플";
 
             string[] tokens = teamName.Split(
                 new[] { ' ', '\t', '\r', '\n' },
                 StringSplitOptions.RemoveEmptyEntries);
             string cityName = tokens.Length >= 2 ? tokens[tokens.Length - 2] : tokens[0];
             return cityName.Length <= 2 ? cityName : cityName.Substring(0, 2);
+        }
+
+        /// <summary>좁은 표에서도 원본 연도와 전체 브랜드를 유지하도록 공백만 제거한다.</summary>
+        public static string GetCompactName(string teamName)
+        {
+            if (string.IsNullOrWhiteSpace(teamName))
+                return "-";
+
+            var characters = new char[teamName.Length];
+            int count = 0;
+            for (int index = 0; index < teamName.Length; index++)
+            {
+                if (!char.IsWhiteSpace(teamName[index]))
+                    characters[count++] = teamName[index];
+            }
+            return new string(characters, 0, count);
         }
     }
 }

@@ -90,6 +90,17 @@ namespace Baseball.Game.Career
     /// <summary>은퇴 스냅샷만 읽어 5막 회고와 재탐색 가능한 기록관 문장을 만든다.</summary>
     public sealed class RetirementRecapViewBuilder
     {
+        private readonly Func<int, string> _teamNameResolver;
+        private readonly Func<int, string> _playerNameResolver;
+
+        public RetirementRecapViewBuilder(
+            Func<int, string> teamNameResolver = null,
+            Func<int, string> playerNameResolver = null)
+        {
+            _teamNameResolver = teamNameResolver;
+            _playerNameResolver = playerNameResolver;
+        }
+
         public RetirementRecapBeat[] BuildRecap(RetirementRecapSnapshot snapshot)
         {
             if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
@@ -97,7 +108,7 @@ namespace Baseball.Game.Career
             beats.Add(new RetirementRecapBeat(
                 RetirementRecapAct.Prologue,
                 "한 선수의 기록",
-                snapshot.PlayerName,
+                ResolvePlayerName(snapshot),
                 $"{GetPositionLabel(snapshot.Position)} · 프로 {snapshot.CareerStats.Seasons}년\n" +
                 $"{snapshot.DebutSeason} – {snapshot.RetirementSeason}\n\n" +
                 $"{snapshot.DebutSeason}년 봄, 한 선수의 기록이 시작됐다.",
@@ -135,7 +146,7 @@ namespace Baseball.Game.Career
             };
         }
 
-        private static RetirementRecapBeat BuildSeasonBeat(
+        private RetirementRecapBeat BuildSeasonBeat(
             RetirementRecapSnapshot snapshot,
             CareerSeasonArchive season,
             int index)
@@ -148,7 +159,7 @@ namespace Baseball.Game.Career
                     ? "PRO DEBUT"
                     : index == snapshot.Seasons.Count - 1 ? "FINAL SEASON" : "SEASON TIMELINE";
             string summary = BuildSeasonStatLine(snapshot.Position, season.Stats);
-            string body = $"{season.TeamName}\n{GetRoleLabel(season.PrimaryRole)}";
+            string body = $"{ResolveTeamName(season)}\n{GetRoleLabel(season.PrimaryRole)}";
             if (season.StartOverall > 0 && season.EndOverall > 0)
                 body += $"\n\nOverall {season.StartOverall} → {season.EndOverall}";
             if (season.Awards.Count > 0)
@@ -233,7 +244,7 @@ namespace Baseball.Game.Career
                 true);
         }
 
-        private static void AddLegacyBeats(
+        private void AddLegacyBeats(
             RetirementRecapSnapshot snapshot,
             List<RetirementRecapBeat> beats)
         {
@@ -242,7 +253,7 @@ namespace Baseball.Game.Career
             beats.Add(new RetirementRecapBeat(
                 RetirementRecapAct.CareerLegacy,
                 "커리어 기록이 완성되었습니다",
-                snapshot.PlayerName,
+                ResolvePlayerName(snapshot),
                 $"{snapshot.CareerStats.Seasons}년에 걸쳐 남긴 기록",
                 isPitcher
                     ? new[]
@@ -272,7 +283,7 @@ namespace Baseball.Game.Career
                     RetirementRecapAct.CareerLegacy,
                     "가장 빛났던 시즌",
                     $"CAREER BEST · {best.Season}",
-                    best.TeamName,
+                    ResolveTeamName(best),
                     new[] { BuildSeasonStatLine(snapshot.Position, best.Stats) },
                     6f,
                     "career_high",
@@ -281,10 +292,10 @@ namespace Baseball.Game.Career
 
             beats.Add(new RetirementRecapBeat(
                 RetirementRecapAct.CareerLegacy,
-                $"{snapshot.PlayerName}가 남긴 것",
+                $"{ResolvePlayerName(snapshot)}가 남긴 것",
                 GetTitleLabel(snapshot.CareerTitlePrimary),
                 string.IsNullOrWhiteSpace(snapshot.CareerTitleSecondary)
-                    ? $"{snapshot.FranchiseLegacy.PrimaryTeamName} · {snapshot.FranchiseLegacy.Seasons}시즌"
+                    ? $"{ResolveTeamName(snapshot.FranchiseLegacy.PrimaryTeamId, snapshot.FranchiseLegacy.PrimaryTeamName)} · {snapshot.FranchiseLegacy.Seasons}시즌"
                     : $"그리고, {GetTitleLabel(snapshot.CareerTitleSecondary)}",
                 new[]
                 {
@@ -299,7 +310,7 @@ namespace Baseball.Game.Career
             beats.Add(new RetirementRecapBeat(
                 RetirementRecapAct.Farewell,
                 "마지막 인사",
-                snapshot.PlayerName,
+                ResolvePlayerName(snapshot),
                 GetFinalNarrative(snapshot.FinalNarrativeKey),
                 new[] { $"{snapshot.DebutSeason} – {snapshot.RetirementSeason}" },
                 9f,
@@ -309,7 +320,7 @@ namespace Baseball.Game.Career
             beats.Add(new RetirementRecapBeat(
                 RetirementRecapAct.CareerCard,
                 "CAREER ARCHIVE",
-                snapshot.PlayerName,
+                ResolvePlayerName(snapshot),
                 $"{GetPositionLabel(snapshot.Position)} · {snapshot.DebutSeason} – {snapshot.RetirementSeason}\n\n" +
                 $"“{GetTitleLabel(snapshot.CareerTitlePrimary)}”",
                 new[]
@@ -324,12 +335,12 @@ namespace Baseball.Game.Career
                 true));
         }
 
-        private static RetirementArchivePage BuildSummaryPage(RetirementRecapSnapshot snapshot)
+        private RetirementArchivePage BuildSummaryPage(RetirementRecapSnapshot snapshot)
         {
             return new RetirementArchivePage(
                 RetirementArchiveTab.Summary,
                 "커리어 요약",
-                $"{snapshot.PlayerName}\n{GetPositionLabel(snapshot.Position)} · " +
+                $"{ResolvePlayerName(snapshot)}\n{GetPositionLabel(snapshot.Position)} · " +
                 $"{snapshot.DebutSeason} – {snapshot.RetirementSeason}\n\n" +
                 $"{GetTitleLabel(snapshot.CareerTitlePrimary)}\n" +
                 (string.IsNullOrWhiteSpace(snapshot.CareerTitleSecondary)
@@ -339,13 +350,13 @@ namespace Baseball.Game.Career
                 FormatValue(snapshot.SignatureRecord.Value, snapshot.SignatureRecord.FormatKey));
         }
 
-        private static RetirementArchivePage BuildTimelinePage(RetirementRecapSnapshot snapshot)
+        private RetirementArchivePage BuildTimelinePage(RetirementRecapSnapshot snapshot)
         {
             var body = new StringBuilder();
             for (int index = 0; index < snapshot.Seasons.Count; index++)
             {
                 CareerSeasonArchive season = snapshot.Seasons[index];
-                body.Append(season.Season).Append(" · ").Append(season.TeamName)
+                body.Append(season.Season).Append(" · ").Append(ResolveTeamName(season))
                     .Append(" · ").Append(GetRoleLabel(season.PrimaryRole)).Append('\n');
                 if (season.StartOverall > 0 && season.EndOverall > 0)
                     body.Append("Overall ").Append(season.StartOverall).Append(" → ").Append(season.EndOverall).Append(" · ");
@@ -384,7 +395,7 @@ namespace Baseball.Game.Career
             return new RetirementArchivePage(RetirementArchiveTab.FullRecords, "전체 기록", body);
         }
 
-        private static RetirementArchivePage BuildContractsPage(RetirementRecapSnapshot snapshot)
+        private RetirementArchivePage BuildContractsPage(RetirementRecapSnapshot snapshot)
         {
             var body = new StringBuilder();
             CareerChoiceSnapshot choices = snapshot.CareerChoices;
@@ -403,7 +414,7 @@ namespace Baseball.Game.Career
                 if (season.Contract.ContractId <= 0 || season.Contract.ContractId == previousContractId)
                     continue;
                 previousContractId = season.Contract.ContractId;
-                body.Append(season.Contract.SignedYear).Append(" · ").Append(season.TeamName).Append('\n')
+                body.Append(season.Contract.SignedYear).Append(" · ").Append(ResolveTeamName(season)).Append('\n')
                     .Append(season.Contract.EndYear - season.Contract.SignedYear + 1).Append("년 · 연봉 ")
                     .Append(season.Contract.AnnualSalary.ToString("N0", CultureInfo.InvariantCulture))
                     .Append(" · ").Append(GetExpectedRoleLabel(season.Contract.PromisedRole)).Append("\n\n");
@@ -483,6 +494,21 @@ namespace Baseball.Game.Career
                     return snapshot.Seasons[index];
             }
             return null;
+        }
+
+        private string ResolvePlayerName(RetirementRecapSnapshot snapshot)
+        {
+            return _playerNameResolver?.Invoke(snapshot.PlayerId) ?? snapshot.PlayerName;
+        }
+
+        private string ResolveTeamName(CareerSeasonArchive season)
+        {
+            return ResolveTeamName(season.TeamId, season.TeamName);
+        }
+
+        private string ResolveTeamName(int teamId, string fallbackName)
+        {
+            return _teamNameResolver?.Invoke(teamId) ?? fallbackName;
         }
 
         private static string BuildSeasonStatLine(PlayerPosition position, SeasonStatSnapshot stats)

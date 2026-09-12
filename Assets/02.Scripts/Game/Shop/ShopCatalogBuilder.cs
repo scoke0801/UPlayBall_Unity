@@ -24,10 +24,16 @@ namespace Baseball.Game.Shop
             IReadOnlyList<TacticResearchPoolDefinition> tacticResearchPools,
             Func<string, string> franchiseDisplayNameResolver = null,
             ConditionChemistryBalanceTable conditionBalance = null,
-            ScoutPityBalanceTable scoutPity = null)
+            ScoutPityBalanceTable scoutPity = null,
+            Func<string, int?, string> franchiseYearDisplayNameResolver = null)
         {
             var products = new List<ShopProductDefinition>();
-            AppendPlayerCardProducts(products, scoutPools, franchiseDisplayNameResolver, scoutPity);
+            AppendPlayerCardProducts(
+                products,
+                scoutPools,
+                franchiseDisplayNameResolver,
+                franchiseYearDisplayNameResolver,
+                scoutPity);
             AppendSkillBlockProducts(products, skillGacha);
             AppendTacticProducts(products, tacticResearchPools);
             if (conditionBalance != null)
@@ -42,6 +48,7 @@ namespace Baseball.Game.Shop
             List<ShopProductDefinition> products,
             IReadOnlyList<ScoutPoolDefinition> scoutPools,
             Func<string, string> franchiseDisplayNameResolver,
+            Func<string, int?, string> franchiseYearDisplayNameResolver,
             ScoutPityBalanceTable scoutPity)
         {
             if (scoutPools == null)
@@ -51,13 +58,19 @@ namespace Baseball.Game.Shop
             {
                 ScoutPoolDefinition pool = scoutPools[index]
                     ?? throw new ArgumentException("null Scout 풀이 있습니다.", nameof(scoutPools));
-                string franchiseName = ResolveFranchiseName(pool, franchiseDisplayNameResolver);
+                string franchiseName = ResolveFranchiseName(
+                    pool,
+                    franchiseDisplayNameResolver,
+                    franchiseYearDisplayNameResolver);
                 products.Add(new ShopProductDefinition(
                     productId: "shop.player." + pool.ScoutPoolId,
                     kind: ShopProductKind.PlayerCardPack,
                     sourceId: pool.ScoutPoolId,
                     displayName: "선수 카드",
-                    scopeLabel: DescribeScoutScope(pool, franchiseDisplayNameResolver),
+                    scopeLabel: DescribeScoutScope(
+                        pool,
+                        franchiseDisplayNameResolver,
+                        franchiseYearDisplayNameResolver),
                     gradeLabel: DescribeScoutPolicy(pool),
                     currency: ShopCurrency.ScoutingPoint,
                     price: pool.PriceSp,
@@ -74,7 +87,10 @@ namespace Baseball.Game.Shop
                     kind: ShopProductKind.PlayerCardPack,
                     sourceId: pool.ScoutPoolId,
                     displayName: "선수 카드 10회",
-                    scopeLabel: DescribeScoutScope(pool, franchiseDisplayNameResolver),
+                    scopeLabel: DescribeScoutScope(
+                        pool,
+                        franchiseDisplayNameResolver,
+                        franchiseYearDisplayNameResolver),
                     gradeLabel: DescribeScoutPolicy(pool),
                     currency: ShopCurrency.ScoutingPoint,
                     price: checked(pool.PriceSp * 10L),
@@ -95,7 +111,10 @@ namespace Baseball.Game.Shop
                     kind: ShopProductKind.PlayerCardPack,
                     sourceId: pool.ScoutPoolId,
                     displayName: "보장 영입",
-                    scopeLabel: DescribeScoutScope(pool, franchiseDisplayNameResolver),
+                    scopeLabel: DescribeScoutScope(
+                        pool,
+                        franchiseDisplayNameResolver,
+                        franchiseYearDisplayNameResolver),
                     gradeLabel: "1군 미보유 선수 확정",
                     currency: ShopCurrency.ScoutPity,
                     price: scoutPity.Threshold,
@@ -235,15 +254,22 @@ namespace Baseball.Game.Shop
 
         private static string DescribeScoutScope(
             ScoutPoolDefinition pool,
-            Func<string, string> franchiseDisplayNameResolver)
+            Func<string, string> franchiseDisplayNameResolver,
+            Func<string, int?, string> franchiseYearDisplayNameResolver)
         {
-            string franchise = ResolveFranchiseName(pool, franchiseDisplayNameResolver);
+            string franchise = ResolveFranchiseName(
+                pool,
+                franchiseDisplayNameResolver,
+                franchiseYearDisplayNameResolver);
             switch (pool.ScoutType)
             {
                 case ScoutType.General: return "전국";
                 case ScoutType.Franchise: return franchise + " 연고 지역";
                 case ScoutType.Year: return pool.YearFilter.Value + "년 전국";
-                case ScoutType.YearFranchise: return franchise + " · " + pool.YearFilter.Value + "년";
+                case ScoutType.YearFranchise:
+                    return franchiseYearDisplayNameResolver == null
+                        ? franchise + " · " + pool.YearFilter.Value + "년"
+                        : franchise;
                 case ScoutType.Award: return "전국 수상 선수";
                 default: throw new ArgumentOutOfRangeException(nameof(pool));
             }
@@ -251,10 +277,13 @@ namespace Baseball.Game.Shop
 
         private static string ResolveFranchiseName(
             ScoutPoolDefinition pool,
-            Func<string, string> franchiseDisplayNameResolver)
+            Func<string, string> franchiseDisplayNameResolver,
+            Func<string, int?, string> franchiseYearDisplayNameResolver)
         {
             if (string.IsNullOrWhiteSpace(pool.FranchiseFilter))
                 return string.Empty;
+            if (franchiseYearDisplayNameResolver != null)
+                return franchiseYearDisplayNameResolver(pool.FranchiseFilter, pool.YearFilter);
             return franchiseDisplayNameResolver?.Invoke(pool.FranchiseFilter) ?? "연고 구단";
         }
 

@@ -61,25 +61,34 @@ namespace Baseball.Game.Historical
             new OwnerProfileState("구단주", FrontManagerIds.DefaultAnalysis);
     }
 
-    /// <summary>현재 진행의 사용자 구단명과 시대가 다른 참가 구단명을 같은 규칙으로 표시한다.</summary>
+    /// <summary>실제·가상 Identity와 무관하게 구단명을 원본 연도와 함께 표시한다.</summary>
     public static class OwnerClubDisplayNameFormatter
     {
+        public static string Format(string identityName, int? originYear)
+        {
+            string displayName = identityName?.Trim() ?? string.Empty;
+            if (!originYear.HasValue || originYear.Value <= 0 || displayName.Length == 0)
+                return displayName;
+
+            string year = originYear.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (displayName.StartsWith(year, StringComparison.Ordinal) &&
+                (displayName.Length == year.Length ||
+                 displayName[year.Length] == ' ' ||
+                 displayName[year.Length] == '년'))
+            {
+                return displayName;
+            }
+            return year + " " + displayName;
+        }
+
+        /// <summary>이전 호출 계약을 유지하되 구단주 별칭으로 Identity 쌍을 분리하지 않는다.</summary>
         public static string Format(
             string identityName,
             int? originYear,
             bool isPlayerTeam,
             string playerClubName)
         {
-            string displayName = identityName?.Trim() ?? string.Empty;
-            if (isPlayerTeam)
-                return string.IsNullOrWhiteSpace(playerClubName) ? displayName : playerClubName.Trim();
-            if (!originYear.HasValue || originYear.Value <= 0 || displayName.Length == 0)
-                return displayName;
-
-            string yearPrefix = originYear.Value + " ";
-            return displayName.StartsWith(yearPrefix, StringComparison.Ordinal)
-                ? displayName
-                : yearPrefix + displayName;
+            return Format(identityName, originYear);
         }
     }
 
@@ -158,16 +167,22 @@ namespace Baseball.Game.Historical
 
     public readonly struct OwnerNewGameTeamView
     {
-        public OwnerNewGameTeamView(string teamSeasonKey, string franchiseId, string displayName)
+        public OwnerNewGameTeamView(
+            string teamSeasonKey,
+            string franchiseId,
+            string displayName,
+            int originYear)
         {
             TeamSeasonKey = teamSeasonKey;
             FranchiseId = franchiseId;
             DisplayName = displayName;
+            OriginYear = originYear;
         }
 
         public string TeamSeasonKey { get; }
         public string FranchiseId { get; }
         public string DisplayName { get; }
+        public int OriginYear { get; }
     }
 
     public readonly struct OwnerNewGameCardView
@@ -339,7 +354,8 @@ namespace Baseball.Game.Historical
                 result[index] = new OwnerNewGameTeamView(
                     team.TeamSeasonKey,
                     team.FranchiseId,
-                    _world.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId));
+                    _world.IdentityRegistry.GetFranchiseDisplayName(team.FranchiseId),
+                    team.OriginYear);
             }
             Array.Sort(result, (left, right) => string.CompareOrdinal(left.DisplayName, right.DisplayName));
             return result;

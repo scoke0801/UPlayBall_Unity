@@ -5,6 +5,7 @@ using System.Threading;
 using Baseball.Core.Players;
 using Baseball.Core.Teams;
 using Baseball.Game.Data;
+using Baseball.Game.Historical;
 using Baseball.Game.Manager;
 using Baseball.Simulation.Career;
 
@@ -176,11 +177,13 @@ namespace Baseball.Game.Career
         protected override void OnInitialize()
         {
             _configuration = NewGameDefinition.LoadConfiguration();
+            DevelopmentRealIdentitySettings.Changed += HandleIdentityModeChanged;
             RestartNewGame(CreateRuntimeSeed());
         }
 
         protected override void OnShutdown()
         {
+            DevelopmentRealIdentitySettings.Changed -= HandleIdentityModeChanged;
             FlowChanged = null;
             _offerViews = Array.Empty<ContractOfferView>();
             _flow = null;
@@ -459,7 +462,7 @@ namespace Baseball.Game.Career
                     _flow.State.PrimaryPosition);
                 _offerViews[index] = new ContractOfferView(
                     offer.Team.TeamId,
-                    offer.Team.Name,
+                    ResolveTeamName(offer.Team.TeamId, offer.Team.Name),
                     offer.Team.PrimaryColor,
                     offer.Team.Archetype.Archetype,
                     offer.Team.Archetype.Development,
@@ -497,10 +500,10 @@ namespace Baseball.Game.Career
 
             SeasonState season = career.CurrentLeague.CurrentSeason;
             return new CareerSummaryView(
-                career.MyPlayer.Name,
+                ResolvePlayerName(career.MyPlayer.PlayerId, career.MyPlayer.Name),
                 career.MyPlayer.Nationality,
                 career.MyPlayer.PrimaryPosition,
-                selectedTeam.Name,
+                ResolveTeamName(selectedTeam.TeamId, selectedTeam.Name),
                 season.Year,
                 season.LeagueLevel,
                 season.Phase,
@@ -510,7 +513,7 @@ namespace Baseball.Game.Career
                 selectedTeam.EmblemId);
         }
 
-        private static string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)
+        private string BuildCompetitorSummary(IReadOnlyList<RosterCompetitor> competitors)
         {
             if (competitors == null || competitors.Count == 0)
                 return "동일 포지션 경쟁자 없음";
@@ -520,12 +523,39 @@ namespace Baseball.Game.Career
             {
                 if (index > 0)
                     builder.Append(" · ");
-                builder.Append(competitors[index].Name);
+                builder.Append(ResolvePlayerName(competitors[index].PlayerId, competitors[index].Name));
                 builder.Append(" OVR ");
                 builder.Append(competitors[index].Overall);
             }
 
             return builder.ToString();
+        }
+
+        private string ResolveTeamName(int teamId, string fallbackName)
+        {
+            CareerBakedContent content = _flow?.BakedContent;
+            if (content == null)
+                return OwnerClubDisplayNameFormatter.Format(fallbackName, _configuration.FirstSeasonYear);
+            CareerBakedTeamRuntimeDefinition team = content.GetTeam(teamId);
+            string identityName = DevelopmentRealIdentitySettings.ResolveTeamSeasonName(
+                fallbackName,
+                team.TeamSeason.TeamSeasonKey,
+                team.TeamSeason.FranchiseId);
+            return OwnerClubDisplayNameFormatter.Format(identityName, team.TeamSeason.OriginYear);
+        }
+
+        private string ResolvePlayerName(int playerId, string fallbackName)
+        {
+            CareerBakedContent content = _flow?.BakedContent;
+            return content != null && content.TryGetPlayerPersonId(playerId, out string playerPersonId)
+                ? DevelopmentRealIdentitySettings.ResolvePlayerName(fallbackName, playerPersonId)
+                : fallbackName;
+        }
+
+        private void HandleIdentityModeChanged()
+        {
+            RebuildOfferViews();
+            FlowChanged?.Invoke();
         }
 
         private string BuildEvaluationOpportunitySummary(ExpectedRole expectedRole)

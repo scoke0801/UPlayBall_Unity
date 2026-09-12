@@ -50,6 +50,7 @@ namespace Baseball.Game.Career
                 EnsurePersistenceContext();
                 CareerSaveData saveData = store.LoadPrimary();
                 CareerSaveCompatibilityValidator.Validate(saveData, _careerSaveContent);
+                ResolveSaveSummaryIdentity(saveData.summary);
                 return new CareerSaveSlotView(
                     CareerSaveSlotStatus.Ready,
                     saveData.summary,
@@ -256,6 +257,20 @@ namespace Baseball.Game.Career
         {
             _careerSaveStore ??= new CareerSaveJsonStore(CareerSavePath.GetDefaultFilePath());
             _careerSaveAdapter ??= new CareerSaveAdapter();
+        }
+
+        private static void ResolveSaveSummaryIdentity(CareerSaveSummaryData summary)
+        {
+            if (summary == null)
+                return;
+            summary.playerName = DevelopmentRealIdentitySettings.ResolvePlayerName(
+                summary.playerName,
+                summary.playerPersonId);
+            string identityName = DevelopmentRealIdentitySettings.ResolveTeamSeasonName(
+                summary.teamName,
+                summary.teamSeasonKey,
+                summary.franchiseId);
+            summary.teamName = OwnerClubDisplayNameFormatter.Format(identityName, summary.originYear);
         }
 
         private static bool IsPersistenceFailure(Exception exception) =>

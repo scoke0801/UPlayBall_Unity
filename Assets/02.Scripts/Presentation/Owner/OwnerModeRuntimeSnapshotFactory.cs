@@ -348,7 +348,7 @@ namespace Baseball.Presentation.Owner
             PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
             if (!teamDisplayNames.TryGetValue(season.OriginTeamSeasonKey, out string teamDisplayName))
             {
-                teamDisplayName = manager.GetTeamDisplayName(season.OriginTeamSeasonKey);
+                teamDisplayName = manager.GetClubDisplayName(season.OriginTeamSeasonKey);
                 teamDisplayNames[season.OriginTeamSeasonKey] = teamDisplayName;
             }
             return new OwnerCollectionCardSnapshot(
@@ -442,7 +442,7 @@ namespace Baseball.Presentation.Owner
                 availableSkillBlockCount,
                 IsActiveRoster(runtime, owned.CardId),
                 GetStudyStatus(runtime, owned.CardId),
-                manager.GetTeamDisplayName(season.OriginTeamSeasonKey),
+                manager.GetClubDisplayName(season.OriginTeamSeasonKey),
                 CreateSkillBlockPlacements(manager.Balance.Growth.SkillBlocks, owned.SkillBoard.Placements),
                 condition,
                 conditionLabel,

@@ -12,13 +12,18 @@ namespace Baseball.Game.Career
 
         private readonly CareerState _career;
         private readonly CareerSeasonBalance _balance;
+        private readonly Func<int, string> _teamNameResolver;
 
-        public CareerScheduleViewBuilder(CareerState career, BalanceTable balance)
+        public CareerScheduleViewBuilder(
+            CareerState career,
+            BalanceTable balance,
+            Func<int, string> teamNameResolver = null)
         {
             _career = career ?? throw new ArgumentNullException(nameof(career));
             if (balance == null)
                 throw new ArgumentNullException(nameof(balance));
             _balance = balance.CareerSeason;
+            _teamNameResolver = teamNameResolver;
         }
 
         public CareerScheduleView Build()
@@ -62,7 +67,7 @@ namespace Baseball.Game.Career
                 season.Phase,
                 _career.AvailableMoney,
                 playerTeamId,
-                playerTeam.Name,
+                ResolveTeamName(playerTeam),
                 playerTeam.PrimaryColor,
                 CalculateRank(record, season.TeamRecords),
                 record?.Wins ?? 0,
@@ -86,10 +91,10 @@ namespace Baseball.Game.Career
                 game.Round,
                 SeasonDateCalculator.GetGameDate(year, game.Round, _balance),
                 away.TeamId,
-                away.Name,
+                ResolveTeamName(away),
                 away.PrimaryColor,
                 home.TeamId,
-                home.Name,
+                ResolveTeamName(home),
                 home.PrimaryColor,
                 game.IsCompleted,
                 game.AwayRuns,
@@ -108,6 +113,11 @@ namespace Baseball.Game.Career
                     return teams[index];
             }
             throw new InvalidOperationException($"TeamId {teamId}를 찾을 수 없습니다.");
+        }
+
+        private string ResolveTeamName(TeamState team)
+        {
+            return _teamNameResolver?.Invoke(team.TeamId) ?? team.Name;
         }
 
         private static int CalculateRank(
