@@ -176,11 +176,11 @@ namespace Baseball.Presentation.Owner
             }
             _training.gameObject.SetActive(model.Training.Length == 0);
             _training.text = "파견 중인 선수가 없습니다. 유학에서 선수와 훈련 과정을 먼저 선택하세요.";
-            _message.text = model.Phase != OwnerSeasonPhase.Offseason ? "정규시즌과 포스트시즌이 끝나면 훈련 일정을 진행할 수 있습니다."
+            _message.text = model.Phase != OwnerSeasonPhase.Offseason ? "시즌 중 유학은 주간 정산에 따라 진행됩니다. 포스트시즌 종료 후에는 빠른 완료를 이용할 수 있습니다."
                 : remaining == 0 ? "선수의 성장 결과와 라인업을 확인한 뒤 시즌 보고에서 다음 시즌을 시작하세요."
-                : "주차를 진행하면 되돌릴 수 없습니다. 훈련 중인 선수가 모두 귀환해야 다음 시즌을 시작할 수 있습니다.";
+                : "유학 모두 완료로 귀환까지 빠르게 진행합니다. 결과를 확인한 뒤 다음 시즌을 시작할 수 있습니다.";
             _advance.interactable = model.CanAdvance;
-            _advance.GetComponentInChildren<Text>().text = remaining > 0 ? "1주 진행" : "훈련 일정 완료";
+            _advance.GetComponentInChildren<Text>().text = remaining > 0 ? (model.Training.Length > 0 ? "유학 모두 완료" : "1주 진행") : "훈련 일정 완료";
             _trainingButton.gameObject.SetActive(_isSeasonExit);
             if (_isSeasonExit)
             {
@@ -205,7 +205,7 @@ namespace Baseball.Presentation.Owner
                 _message.text = _isSeasonExit ? "남은 훈련과 편성을 마치고 다음 시즌을 시작합니다. 확정할까요?"
                     : _model.Training.Length == 0
                     ? "파견 중인 선수가 없습니다. 훈련을 신청하지 않고 한 주를 보낼까요?"
-                    : "모든 파견 선수의 훈련을 한 주 진행하고 결과를 저장합니다. 확정할까요?";
+                    : "모든 파견 선수가 귀환할 때까지 한 번에 진행하고 결과를 저장합니다. 확정할까요?";
                 _advance.GetComponentInChildren<Text>().text = "진행 확정";
                 return;
             }

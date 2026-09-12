@@ -46,8 +46,6 @@ namespace Baseball.Presentation.Owner
         public OwnerCollectionCardSnapshot DetailCard => _detailCard.Value;
         public PlacedSkillBlock[] Placements { get; }
         public OwnerStudyOption[] Studies => _studies.Value;
-        public int UnlockedMask { get; private set; } = OwnedCardSkillBoardState.CompleteUnlockedMask;
-        public bool IsCellUnlocked(int x, int y) => x >= 0 && x < 4 && y >= 0 && y < 4 && (UnlockedMask & (1 << (y * 4 + x))) != 0;
 
         public OwnerGrowthCardSnapshot(OwnerCollectionCardSnapshot card,
             IReadOnlyList<PlacedSkillBlock> placements, IReadOnlyList<OwnerStudyOption> studies)
@@ -62,13 +60,12 @@ namespace Baseball.Presentation.Owner
         /// <summary>선수 목록은 요약만 읽고 선택한 선수의 상세·유학 과정만 한 번 조회한다.</summary>
         public OwnerGrowthCardSnapshot(OwnerCollectionCardSnapshot card,
             IReadOnlyList<PlacedSkillBlock> placements, Func<OwnerStudyOption[]> studies,
-            Func<OwnerCollectionCardSnapshot> detailCard, int unlockedMask = OwnedCardSkillBoardState.CompleteUnlockedMask)
+            Func<OwnerCollectionCardSnapshot> detailCard)
         {
             Card = card ?? throw new ArgumentNullException(nameof(card));
             Placements = OwnerPowerUpSnapshotCopy.Copy(placements);
             _studies = new Lazy<OwnerStudyOption[]>(studies);
             _detailCard = new Lazy<OwnerCollectionCardSnapshot>(detailCard);
-            UnlockedMask = unlockedMask;
         }
     }
 
@@ -238,7 +235,7 @@ namespace Baseball.Presentation.Owner
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
                 cards.Add(new OwnerGrowthCardSnapshot(card, owned.SkillBoard.Placements,
                     () => CreateStudyOptions(manager, card, owned, season, capacity),
-                    () => detailResolver == null ? card : detailResolver(card.CardId), owned.SkillBoard.UnlockedMask));
+                    () => detailResolver == null ? card : detailResolver(card.CardId)));
             }
             return new OwnerGrowthSnapshot(cards, runtime.PlayerGrowth.Inventory.Blocks,
                 manager.Balance.Growth.SkillBlocks, manager.Balance.Growth.SkillBoard,
@@ -273,12 +270,9 @@ namespace Baseball.Presentation.Owner
                 string unlockText = FormatUnlockText(program.UnlockRequirement);
                 OwnerSchedulePermission permission = OwnerScheduleGateService.Evaluate(
                     runtime, OwnerGrowthAction.OverseasTraining, program.DurationWeeks);
-                bool isCamping = false;
-                foreach (var camp in runtime.PlayerGrowth.Camps) if (camp.CardId == owned.CardId) isCamping = true;
                 string reason = !permission.IsAllowed ? permission.Reason
-                    : isCamping ? "전지훈련을 마친 뒤 유학을 시작하세요."
                     : !isUnlocked ? FormatUnlockBlockedReason(program.UnlockRequirement)
-                    : card.IsActiveRoster ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
+                    : card.IsActiveRoster && !OwnerScheduleGateService.CanStudyWhileRegistered(runtime) ? "1군 등록 선수입니다. 선수단에서 등록을 해제한 뒤 신청하세요."
                     : owned.LastStudySeason == runtime.ManagerMode.LiveSeason.SeasonNumber ? "이번 시즌 유학을 이미 사용했습니다."
                     : runtime.PlayerGrowth.StudyProjects.Count >= capacity ? "유학 정원이 가득 찼습니다. 훈련 시설과 복귀 일정을 확인하세요."
                     : totalGain == 0 ? "이 과정의 성장 상한에 도달했습니다."

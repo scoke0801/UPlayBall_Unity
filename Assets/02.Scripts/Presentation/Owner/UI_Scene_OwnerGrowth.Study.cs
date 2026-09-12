@@ -13,7 +13,7 @@ namespace Baseball.Presentation.Owner
         {
             Image mapFrame = Frame(_content, "StudyMapFrame", 20, 86, 710, 416);
             AddStudyDismissAction(mapFrame);
-            Label(_content, "StudyMapHeading", "유학지 선택", 15, 30, 92, 300, 25);
+            StudyLabel(_content, "StudyMapHeading", "유학지 선택", 15, 30, 92, 300, 25);
             var map = new GameObject("StudyWorldMap", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
             map.transform.SetParent(_content, false);
             Place(map.rectTransform, 30, 121, 690, 337);
@@ -31,22 +31,22 @@ namespace Baseball.Presentation.Owner
                 for (int index = 0; index < card.Studies.Length; index++)
                     RenderStudyDestinationNode(card.Studies[index]);
             }
-            Label(_content, "MapLegend", "비행기  이용 가능    ·    ?  해금 조건 확인    ·    금색 테두리  선택", 11, 35, 466, 685, 26);
+            StudyLabel(_content, "MapLegend", "비행기  이용 가능    ·    ?  해금 조건 확인    ·    금색 테두리  선택", 11, 35, 466, 685, 26);
             Image informationFrame = Frame(_content, "StudyInformation", 742, 86, 338, 416);
             AddStudyDismissAction(informationFrame);
-            Label(_content, "StudyInformationTitle", "유학지 정보", 15, 754, 92, 310, 25);
+            StudyLabel(_content, "StudyInformationTitle", "유학지 정보", 15, 754, 92, 310, 25);
             Surface(_content, "StudyTitleRule", 753, 119, 315, 1, Border);
-            Label(_content, "StudyName", option?.Program.DisplayName ?? "목적지를 선택하세요", 16, 757, 126, 305, 28);
-            Label(_content, "StudyDestination", option == null ? "" : "목적지  " + option.Program.DestinationName,
+            StudyLabel(_content, "StudyName", option?.Program.DisplayName ?? "목적지를 선택하세요", 16, 757, 126, 305, 28);
+            StudyLabel(_content, "StudyDestination", option == null ? "" : "목적지  " + option.Program.DestinationName,
                 12, 757, 153, 305, 22);
-            Text unlock = Label(_content, "StudyUnlock", option?.UnlockText ?? "", 11, 757, 174, 305, 26);
-            unlock.color = option?.IsUnlocked == false ? new Color32(191, 77, 62, 255) : Blue;
-            Label(_content, "StudyReward", option == null
+            Text unlock = StudyLabel(_content, "StudyUnlock", option?.UnlockText ?? "", 11, 757, 174, 305, 32);
+            unlock.color = option?.IsUnlocked == false ? Baseball.Presentation.UI.CareerUiTheme.Error : OwnerDashboardStyle.Gold;
+            StudyLabel(_content, "StudyReward", option == null
                 ? "지도 위 비행기를 누르면 성장 효과와\n해금 조건을 확인할 수 있습니다."
-                : "유학 성장 효과\n" + option.RewardText, 13, 757, 198, 305, 48);
-            Label(_content, "StudyCost", option == null ? "" :
+                : "유학 성장 효과\n" + option.RewardText, 13, 757, 208, 305, 48);
+            StudyLabel(_content, "StudyCost", option == null ? "" :
                 $"유학 비용    {option.CostText}\n유학 기간    {option.Program.DurationWeeks}주",
-                12, 757, 248, 305, 42);
+                12, 757, 258, 305, 38);
             Surface(_content, "StudyCardRule", 753, 300, 315, 1, Border);
             if (card != null)
             {
@@ -55,21 +55,22 @@ namespace Baseball.Presentation.Owner
                 Place(selected.GetComponent<RectTransform>(), 758, 309, 82, 112);
                 selected.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.DetailCard, false));
                 selected.SetPortrait(Baseball.Presentation.UI.PlayerPortraitSprites.GetDefault(card.Card.Position));
-                selected.UsePlayerPickerLayout();
                 FitCompactCardText(selected);
                 // 공용 카드가 이미 생성한 그룹을 재사용한다. 중복 추가하면 여기서 렌더링이 중단된다.
                 CanvasGroup cardCanvas = selected.GetComponent<CanvasGroup>();
                 cardCanvas.blocksRaycasts = false;
-                Label(_content, "StudyPlayer", card.Card.DisplayName + "\n" +
+                StudyLabel(_content, "StudyPlayer", card.Card.DisplayName + "\n" +
                     (string.IsNullOrEmpty(card.Card.StudyStatus) ? "유학 대기" : card.Card.StudyStatus),
                     13, 850, 313, 210, 48);
             }
             Tab(_content, "ChooseStudyPlayer", "선수 선택", () =>
             {
                 _isChoosingStudyPlayer = true;
+                _studyDraftCardId = _cardId;
+                _studyPickerPage = 0;
                 _pendingStudy = string.Empty;
                 Render();
-                FocusRosterControl("Card_" + _cardId);
+                FocusRosterControl("StudySearch");
             }, false, 850, 374, 205, 30);
             if (option == null)
             {
@@ -78,10 +79,10 @@ namespace Baseball.Presentation.Owner
             }
             string reason = option?.BlockedReason ?? "보유 선수를 선택하세요.";
             bool isPending = option != null && _pendingStudy == _cardId + ":" + _programId;
-            Text status = Label(_content, "StudyBlockedReason", isPending
+            Text status = StudyLabel(_content, "StudyBlockedReason", isPending
                 ? $"{card.Card.DisplayName} · {option.Program.DurationWeeks}주 · {option.CostText} 사용. 확정하면 시작합니다."
                 : reason.Length == 0 ? "시즌당 한 번 참가할 수 있습니다." : reason, 11, 757, 409, 305, 50);
-            status.color = reason.Length == 0 ? Ink : new Color32(176, 50, 39, 255);
+            status.color = reason.Length == 0 ? OwnerDashboardStyle.Ivory : Baseball.Presentation.UI.CareerUiTheme.Error;
             Button start = Tab(_content, "StartStudy", isPending ? "유학 확정" : "유학지 결정", () =>
             {
                 if (isPending)
@@ -140,20 +141,29 @@ namespace Baseball.Presentation.Owner
             markerButton.targetGraphic = pin;
             markerButton.onClick.AddListener(() => select());
 
-            const float labelWidth = 104;
+            const float labelWidth = 116;
             float labelX = Mathf.Clamp(point.x - labelWidth * .5f, 38, 712 - labelWidth);
             float labelY = point.y + 32;
             Surface(_content, "StudyLabelConnector_" + study.Program.ProgramId,
                 point.x - .5f, point.y + 19, 1, 13, new Color32(206, 229, 251, 255));
             Button nameplate = Tab(_content, "StudyPinLabel_" + study.Program.ProgramId,
-                study.Program.DestinationName, select, false, labelX, labelY, labelWidth, 22);
-            nameplate.GetComponent<Image>().color = new Color32(243, 249, 255, 255);
-            Outline border = nameplate.GetComponent<Outline>();
-            border.effectColor = isSelected ? new Color32(255, 201, 65, 255) : new Color32(125, 174, 222, 255);
-            border.effectDistance = isSelected ? new Vector2(2, -2) : new Vector2(1, -1);
+                study.Program.DestinationName, select, false, labelX, labelY, labelWidth, 28);
+            // 지도 점무늬가 글자 뒤로 비치지 않도록 밑줄 탭 대신 공용 면 버튼을 쓴다.
+            OwnerUiButtonSkin.Apply(nameplate, OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.SetSelected(nameplate, isSelected);
             Text label = nameplate.GetComponentInChildren<Text>();
-            label.fontSize = 11;
-            label.color = Blue;
+            label.fontSize = 14;
+            OwnerDashboardStyle.SetTypography(label, true);
+        }
+
+        private static Text StudyLabel(Transform parent, string name, string value, int size,
+            float x, float y, float width, float height)
+        {
+            Text text = Label(parent, name, value, Mathf.Max(14, size), x, y, width, height);
+            // 본문 서체는 유지하고 공용 기본 글자색으로 대비를 확보한다.
+            OwnerDashboardStyle.SetTypography(text, size >= 15);
+            text.color = OwnerDashboardStyle.Ivory;
+            return text;
         }
 
         private void AddStudyDismissAction(Graphic graphic)
@@ -172,20 +182,6 @@ namespace Baseball.Presentation.Owner
 
         private static Vector2 GetStudyMapPoint(int xPermille, int yPermille) =>
             new Vector2(30f + 690f * xPermille / 1000f, 121f + 337f * yPermille / 1000f);
-
-        private void RenderStudyPlayerPicker()
-        {
-            Frame(_content, "StudyPlayerPicker", 42, 110, 667, 386);
-            Label(_content, "PickerHeading", "유학 대상 선수 선택 · 1군 미등록 선수만 신청 가능", 15, 56, 120, 590, 30);
-            RenderRoster(_content, 52, 154, 646, 292, 8, cardHeight: 120);
-            Tab(_content, "CloseStudyPlayerPicker", "선택 완료", () =>
-            {
-                _isChoosingStudyPlayer = false;
-                _pendingStudy = string.Empty;
-                Render();
-                FocusRosterControl("ChooseStudyPlayer");
-            }, true, 545, 456, 148, 29);
-        }
 
         private static void Place(RectTransform rect, float x, float y, float width, float height)
         {
@@ -210,6 +206,10 @@ namespace Baseball.Presentation.Owner
             Outline outline = image.gameObject.AddComponent<Outline>();
             outline.effectColor = Border;
             outline.effectDistance = new Vector2(1, -1);
+            UIOwnerFrontOfficePanel.Apply(image.rectTransform, "ManagerReport");
+            Image data = OwnerRuntimeUiFactory.CreateImage("DataSurface", image.transform, OwnerDashboardStyle.TableSurface);
+            OwnerRuntimeUiFactory.Stretch(data.rectTransform, new Vector2(8, 8), new Vector2(-8, -8));
+            OwnerDashboardStyle.SetDataSurface(data, OwnerDashboardStyle.TableSurface);
             return image;
         }
 
@@ -217,7 +217,8 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(parent, name, value, size, FontStyle.Normal, TextAnchor.MiddleLeft, Ink);
             Place(text.rectTransform, x, y, width, height);
-            text.raycastTarget = false;
+            text.color = UIOwnerFrontOfficePanel.HasDarkSurface(parent) ? OwnerDashboardStyle.Ivory : Ink;
+            OwnerDashboardStyle.SetDataText(text, size >= 14);
             return text;
         }
 
@@ -237,7 +238,12 @@ namespace Baseball.Presentation.Owner
             layout.preferredHeight = height;
             Text label = Label(image.transform, "Label", text, 13, 3, 0, width - 6, height);
             label.alignment = TextAnchor.MiddleCenter;
-            label.color = selected ? Color.white : Ink;
+            if (!string.IsNullOrEmpty(text))
+            {
+                outline.enabled = false;
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab);
+            }
+            OwnerUiButtonSkin.SetSelected(button, selected);
             return button;
         }
 
@@ -247,6 +253,10 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.SetAnchors(track.rectTransform, new Vector2(1, 0), Vector2.one, new Vector2(-10, 0), Vector2.zero);
             Scrollbar bar = track.gameObject.AddComponent<Scrollbar>();
             Image handle = OwnerRuntimeUiFactory.CreateImage("Handle", track.transform, Border);
+            OwnerDashboardStyle.SetDataSurface(track, OwnerDashboardStyle.TableHeader, true);
+            OwnerDashboardStyle.SetDataSurface(handle, OwnerDashboardStyle.TableSecondary, true);
+            Image surface = scroll.GetComponent<Image>();
+            if (surface != null) OwnerDashboardStyle.SetDataSurface(surface, OwnerDashboardStyle.TableSurface, true);
             bar.handleRect = handle.rectTransform;
             bar.targetGraphic = handle;
             bar.direction = Scrollbar.Direction.BottomToTop;

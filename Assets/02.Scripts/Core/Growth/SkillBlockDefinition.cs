@@ -158,12 +158,11 @@ namespace Baseball.Core.Growth
             long sellValue,
             string traitId = "",
             bool isUniqueReward = false,
-            bool allowCompactShape = false,
             int adjacencySetBonus = 0)
         {
             if (string.IsNullOrWhiteSpace(blockId))
                 throw new ArgumentException("BlockId는 비어 있을 수 없습니다.", nameof(blockId));
-            if (shapeCells == null || (allowCompactShape ? shapeCells.Length < 1 || shapeCells.Length > 4 : shapeCells.Length != TetrominoShapeCatalog.CellCount))
+            if (shapeCells == null || shapeCells.Length != TetrominoShapeCatalog.CellCount)
                 throw new ArgumentException("블록은 정사각형 네 칸으로 구성된 테트로미노여야 합니다.", nameof(shapeCells));
             if (sellValue < 0L)
                 throw new ArgumentOutOfRangeException(nameof(sellValue));

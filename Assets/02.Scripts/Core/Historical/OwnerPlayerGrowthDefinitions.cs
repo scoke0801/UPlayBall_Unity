@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
@@ -156,7 +156,12 @@ namespace Baseball.Core.Historical
             throw new KeyNotFoundException($"카드 유학 프로그램 {programId}을 찾을 수 없습니다.");
         }
 
-        public int GetStudyCapacity(int trainingCenterLevel) => Math.Max(0, Math.Min(3, trainingCenterLevel));
+        /// <summary>레벨 0 구단도 유학 결정을 한 번은 내릴 수 있게 1슬롯을 보장하고, 업그레이드마다 1슬롯씩 늘린다.</summary>
+        public int GetStudyCapacity(int trainingCenterLevel) =>
+            Math.Max(1, Math.Min(MaxTrainingCenterLevel, trainingCenterLevel) + 1);
+
+        /// <summary>ClubOperationBalanceTable의 트레이닝 센터 최고 레벨. 그 위로는 슬롯이 늘지 않는다.</summary>
+        private const int MaxTrainingCenterLevel = 3;
 
         public static OwnerCardGrowthBalanceTable CreateDefault()
         {
@@ -263,31 +268,6 @@ namespace Baseball.Core.Historical
     /// <summary>한 선수 카드의 4×4 성장판에 장착된 블록만 저장한다.</summary>
     public sealed class OwnedCardSkillBoardState
     {
-        public const int InitialUnlockedMask = 0x77;
-        public const int CompleteUnlockedMask = 0xffff;
-        public int UnlockedMask { get; private set; }
-        public int SlotExperience { get; private set; }
-        public OwnedCardSkillBoardState(int unlockedMask = InitialUnlockedMask, int slotExperience = 0)
-        {
-            if ((unlockedMask & ~CompleteUnlockedMask) != 0 || (unlockedMask & InitialUnlockedMask) != InitialUnlockedMask || slotExperience < 0)
-                throw new ArgumentException("성장판 개방 상태가 올바르지 않습니다.");
-            UnlockedMask = unlockedMask; SlotExperience = slotExperience;
-        }
-        public bool IsCellUnlocked(int x, int y) => x >= 0 && x < 4 && y >= 0 && y < 4 && (UnlockedMask & (1 << (y * 4 + x))) != 0;
-        public bool CanUnlock(int x, int y) => x >= 0 && x < 4 && y >= 0 && y < 4 && !IsCellUnlocked(x, y)
-            && (IsCellUnlocked(x - 1, y) || IsCellUnlocked(x + 1, y) || IsCellUnlocked(x, y - 1) || IsCellUnlocked(x, y + 1));
-        public void AddSlotExperience(int amount)
-        {
-            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount));
-            SlotExperience = checked(SlotExperience + amount);
-        }
-        public void UnlockCell(int x, int y, int requiredExperience)
-        {
-            if (requiredExperience <= 0) throw new ArgumentOutOfRangeException(nameof(requiredExperience));
-            if (!CanUnlock(x, y)) throw new InvalidOperationException("열린 칸과 인접한 잠금 칸을 선택하세요.");
-            if (SlotExperience < requiredExperience) throw new InvalidOperationException("칸 개방 경험치가 부족합니다.");
-            SlotExperience -= requiredExperience; UnlockedMask |= 1 << (y * 4 + x);
-        }
         private readonly List<PlacedSkillBlock> _placements = new List<PlacedSkillBlock>();
 
         public IReadOnlyList<PlacedSkillBlock> Placements => _placements;
@@ -445,8 +425,8 @@ namespace Baseball.Core.Historical
         }
 
         public OwnerOffseasonState Offseason { get; }
+        public OwnerTraitTrainingState Traits { get; set; } = new OwnerTraitTrainingState();
         public OwnerSupportState Support { get; set; } = new OwnerSupportState();
-        public List<OwnerCampProject> Camps { get; } = new List<OwnerCampProject>();
         public OwnerSloganState Slogan { get; set; }
         public int StudySequence { get; private set; }
         public void RestoreStudySequence(int value)

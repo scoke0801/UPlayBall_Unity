@@ -22,55 +22,75 @@ namespace Baseball.Presentation.Owner
         private GameObject _previousFocus;
         private string _cardId = "";
         private int _tab, _page, _option, _decrease, _increase = 1, _amount = 1, _blockIndex;
-        private bool _pitchers, _automaticReturn = true, _isConfirming, _isSubmitting;
-        private int _unlockX = -1, _unlockY = -1;
+        private bool _pitchers, _researchPitchers, _isConfirming, _isSubmitting;
         private int _researchAbility, _researchRarity = 1;
         private Action _action;
         private string _actionLabel;
         private long _cost;
-        private readonly List<Button> _focus = new List<Button>();
-        private readonly string[] _tabs = { "전지훈련", "능력치 교정", "훈련 파트너", "스킬 연구·합성", "슬로건", "유학 관리" };
+        private readonly List<Selectable> _focus = new List<Selectable>();
+        private readonly OwnerCardFilters _origins = new OwnerCardFilters();
+        private readonly List<PlayerPosition> _positions = new List<PlayerPosition>();
+        private readonly Button[] _playerRows = new Button[4];
+        private readonly string[] _rowCardIds = new string[4];
+        private OwnerCollectionSnapshot _roster;
+        private Text _playerCount, _playerEmpty, _selectionHint;
+        private Button _previousPage, _nextPage, _batters, _pitcherButton;
+        private int _positionFilter, _registrationFilter, _sort;
+        private string _query = "";
+        private readonly string[] _tabs = { "능력치 교정", "훈련 파트너", "스킬 연구·합성", "슬로건", "유학 관리" };
 
         public static UI_Popup_OwnerDevelopment Show(Transform parent, OwnerModeManager manager)
         {
             if (manager?.Runtime == null) throw new InvalidOperationException("구단주 진행 상태를 불러오지 못했습니다.");
             var root = OwnerRuntimeUiFactory.CreateRect(nameof(UI_Popup_OwnerDevelopment), parent);
             OwnerRuntimeUiFactory.Stretch(root);
-            var shade = root.gameObject.AddComponent<Image>(); shade.color = new Color(0, 0, 0, .75f);
+            var shade = root.gameObject.AddComponent<Image>(); shade.color = new Color(0, 0, 0, .94f);
             var view = root.gameObject.AddComponent<UI_Popup_OwnerDevelopment>();
             view._manager = manager; view._previousFocus = EventSystem.current?.currentSelectedGameObject;
+            view._roster = new OwnerModeRuntimeSnapshotFactory().CreateCollectionSummary(manager);
             view.Build(); view.Refresh(); view._close.Select(); return view;
         }
         private void Build()
         {
             _frame = OwnerDugoutDetailUiFactory.CreatePanel(transform, "DevelopmentOffice", .02f, .035f, .98f, .965f);
-            _status = Text(_frame, "Title", "오프시즌 성장 관리", .025f, .90f, .81f, .975f, 23);
+            UIOwnerFrontOfficePanel.Apply(_frame, "ManagerReport");
+            _status = Text(_frame, "Title", "성장 관리", .025f, .935f, .81f, .98f, 23);
+            Text(_frame, "Workflow", "성장 방법 선택  →  대상·효과 확인  →  비용 확인 후 실행", .025f, .885f, .81f, .93f, 15);
             _close = Button(_frame, "Close", "닫기", .865f, .905f, .975f, .975f, Close);
             for (int i = 0; i < _tabs.Length; i++)
             {
                 int tab = i;
-                Button(_frame, "Tab" + i, _tabs[i], .025f + i * .158f, .815f, .177f + i * .158f, .885f,
-                    () => { _tab = tab; _option = 0; _unlockX = -1; _isConfirming = false; Refresh(); });
+                Button(_frame, "Tab" + i, _tabs[i], .025f + i * .19f, .805f, .209f + i * .19f, .875f,
+                    () => { _tab = tab; _option = 0; _isConfirming = false; Refresh(); });
             }
-            _players = OwnerDugoutDetailUiFactory.CreatePanel(_frame, "Players", .025f, .17f, .275f, .79f);
-            _body = OwnerDugoutDetailUiFactory.CreatePanel(_frame, "Operation", .29f, .17f, .975f, .79f);
+            _players = OwnerDugoutDetailUiFactory.CreatePanel(_frame, "Players", .025f, .17f, .345f, .785f);
+            _body = OwnerDugoutDetailUiFactory.CreatePanel(_frame, "Operation", .36f, .17f, .975f, .785f);
+            UIOwnerFrontOfficePanel.Apply(_players, "ManagerReport");
+            UIOwnerFrontOfficePanel.Apply(_body, "ManagerReport");
+            BuildPlayerControls();
             _feedback = Text(_frame, "Feedback", "", .025f, .025f, .685f, .145f, 17);
             _confirm = Button(_frame, "Confirm", "확정", .79f, .035f, .975f, .13f, Confirm);
             OwnerUiButtonSkin.Apply(_confirm, OwnerButtonRole.Primary);
-            _cancel = Button(_frame, "Cancel", "취소", .69f, .035f, .775f, .13f, () => { _isConfirming = false; _unlockX = -1; Refresh(); });
+            _cancel = Button(_frame, "Cancel", "취소", .69f, .035f, .775f, .13f, () => { _isConfirming = false; Refresh(); });
         }
         private void Refresh()
         {
-            string focusName = EventSystem.current?.currentSelectedGameObject?.name;
+            var focused = EventSystem.current?.currentSelectedGameObject;
+            string focusName = focused != null ? focused.GetComponentInParent<Dropdown>()?.name ?? focused.name : null;
             _action = null; _cost = 0; _actionLabel = "선택 필요";
-            OwnerRuntimeUiFactory.ClearChildren(_players); OwnerRuntimeUiFactory.ClearChildren(_body);
+            OwnerRuntimeUiFactory.ClearChildren(_body);
+            bool needsPlayer = _tab == 0 || _tab == 1 || _tab == 4;
+            _players.gameObject.SetActive(needsPlayer);
+            Place(_body, needsPlayer ? .36f : .025f, .17f, .975f, .785f);
             _status.text = "성장 관리 · 남은 일정 " + _manager.Runtime.PlayerGrowth.Offseason.RemainingWeeks + "주 · " + _manager.Runtime.Economy.Money.ToString("N0") + " PT";
             _feedback.text = "변화와 비용을 확인한 뒤 확정하세요.";
             try
             {
                 BuildPlayers();
-                switch (_tab) { case 0: BuildCamp(); break; case 1: BuildCorrection(); break; case 2: BuildPartner(); break;
-                    case 3: BuildResearch(); break; case 4: BuildSlogan(); break; case 5: BuildStudyManagement(); break; }
+                if (needsPlayer && string.IsNullOrEmpty(_cardId))
+                    Text(_body, "ChoosePlayer", "성장할 선수를 선택하세요.\n왼쪽에서 검색하거나 필터를 초기화할 수 있습니다.", .06f, .35f, .94f, .65f, 22);
+                else switch (_tab) { case 0: BuildCorrection(); break; case 1: BuildPartner(); break;
+                    case 2: BuildResearch(); break; case 3: BuildSlogan(); break; case 4: BuildStudyManagement(); break; }
             }
             catch (InvalidOperationException e) { _feedback.text = e.Message; }
             catch (Exception) { _feedback.text = "성장 정보를 읽지 못했습니다. 창을 닫고 다시 열어 주세요."; }
@@ -78,44 +98,117 @@ namespace Baseball.Presentation.Owner
             _confirm.interactable = allowed && _action != null && !_isSubmitting && _manager.Runtime.Economy.Money >= _cost;
             if (!allowed) _feedback.text = "모든 조의 포스트시즌이 끝나면 성장 관리를 실행할 수 있습니다.";
             else if (_action != null && _manager.Runtime.Economy.Money < _cost) _feedback.text = "필요 PT가 부족합니다. 비용 " + _cost.ToString("N0") + " PT";
+            else if (_action != null) _feedback.text = _actionLabel + "  ·  " + (_cost == 0 ? "PT 소모 없음" : "비용 " + _cost.ToString("N0") + " PT")
+                + "\n실행을 누르면 최종 확인 후 적용합니다.";
             if (_isConfirming) _feedback.text = _actionLabel + " · 비용 " + _cost.ToString("N0") + " PT\n선택한 결과를 적용하고 저장할까요?";
             _confirm.GetComponentInChildren<Text>().text = _isConfirming ? "최종 확정" : _actionLabel;
             _cancel.gameObject.SetActive(_isConfirming);
             foreach (var button in _frame.GetComponentsInChildren<Button>())
                 for (int tab = 0; tab < _tabs.Length; tab++)
-                    if (button.name == "Tab" + tab) OwnerUiButtonSkin.Apply(button, tab == _tab ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
+                    if (button.name == "Tab" + tab) { OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab); OwnerUiButtonSkin.SetSelected(button, tab == _tab); }
             _confirm.GetComponent<OwnerUiButtonSkin>()?.Refresh();
             LinkFocus(focusName);
         }
+        private void BuildPlayerControls()
+        {
+            Text(_players, "PlayersTitle", "대상 선수", .045f, .92f, .65f, .98f, 19);
+            Button(_players, "ResetFilters", "초기화", .73f, .92f, .955f, .98f, ResetPlayerFilter);
+            _batters = Button(_players, "Batters", "타자", .045f, .845f, .49f, .905f, () => ChangePlayerType(false));
+            _pitcherButton = Button(_players, "Pitchers", "투수", .51f, .845f, .955f, .905f, () => ChangePlayerType(true));
+            var field = DefaultControls.CreateInputField(new DefaultControls.Resources());
+            field.name = "PlayerSearch"; field.transform.SetParent(_players, false);
+            field.AddComponent<CareerUiPreserveTextColor>();
+            Place(field.GetComponent<RectTransform>(), .045f, .765f, .955f, .83f);
+            var search = field.GetComponent<InputField>(); search.characterLimit = 40;
+            foreach (var label in field.GetComponentsInChildren<Text>())
+            { label.font = UIProjectFonts.Body; label.fontSize = 15; label.fontStyle = FontStyle.Normal; }
+            ((Text)search.placeholder).text = "선수 이름 검색";
+            search.onValueChanged.AddListener(value => { _query = value; ChangeFilter(); });
+            var positionLabels = new List<string> { "전체 포지션" };
+            foreach (PlayerPosition position in Enum.GetValues(typeof(PlayerPosition)))
+            { _positions.Add(position); positionLabels.Add(OwnerCollectionPresentationBuilder.FormatPosition(position)); }
+            AddDropdown(_players, "PositionFilter", positionLabels, _positionFilter, .045f, .69f, .49f, .75f,
+                value => { _positionFilter = value; ChangeFilter(); });
+            AddDropdown(_players, "RegistrationFilter", new List<string> { "전체 등록 상태", "1군 등록", "1군 미등록" }, _registrationFilter,
+                .51f, .69f, .955f, .75f, value => { _registrationFilter = value; ChangeFilter(); });
+            var origins = OwnerDugoutDetailUiFactory.CreateRect(_players, "OriginFilters", .045f, .615f, .955f, .675f);
+            OwnerWorkspaceUiFactory.AddHorizontalLayout(origins, 8);
+            _origins.Build(origins, _roster.Cards, ChangeFilter);
+            _playerCount = Text(_players, "ResultCount", "", .045f, .545f, .48f, .60f, 14);
+            AddDropdown(_players, "PlayerSort", new List<string> { "코스트 높은 순", "코스트 낮은 순", "이름순", "최신 연도순" }, _sort,
+                .51f, .545f, .955f, .60f, value => { _sort = value; ChangeFilter(); });
+            for (int i = 0; i < _playerRows.Length; i++)
+            {
+                int slot = i; float top = .525f - i * .103f;
+                _playerRows[i] = Button(_players, "PlayerRow" + i, "선수", .045f, top - .095f, .955f, top,
+                    () => { _cardId = _rowCardIds[slot]; _isConfirming = false; _option = 0; Refresh(); });
+                OwnerUiButtonSkin.Apply(_playerRows[i], OwnerButtonRole.ListItem);
+            }
+            _playerEmpty = Text(_players, "EmptyPlayers", "조건에 맞는 선수가 없습니다.\n검색어를 바꾸거나 필터를 초기화하세요.", .06f, .22f, .94f, .46f, 16);
+            _previousPage = Button(_players, "PreviousPlayers", "이전", .045f, .035f, .29f, .10f, () => { _page--; Refresh(); });
+            _nextPage = Button(_players, "NextPlayers", "다음", .71f, .035f, .955f, .10f, () => { _page++; Refresh(); });
+            _selectionHint = Text(_players, "SelectionHint", "", .31f, .035f, .69f, .10f, 12);
+            _selectionHint.alignment = TextAnchor.MiddleCenter;
+        }
         private void BuildPlayers()
         {
-            Button(_players, "Batters", "타자", .04f, .90f, .47f, .98f, () => { _pitchers = false; ResetPlayerFilter(); });
-            Button(_players, "Pitchers", "투수", .53f, .90f, .96f, .98f, () => { _pitchers = true; ResetPlayerFilter(); });
-            var cards = new List<OwnedPlayerCardState>();
-            var runtime = _manager.Runtime;
-            foreach (var owned in runtime.OwnedCards)
+            var cards = new List<OwnerCollectionCardSnapshot>();
+            foreach (var card in _roster.Cards)
             {
-                runtime.WorldCardCatalog.TryGetCard(owned.CardId, out var definition);
-                if ((runtime.WorldCardCatalog.GetPlayerSeason(definition).PlayerType == PlayerType.Pitcher) == _pitchers) cards.Add(owned);
+                bool pitcher = card.Position == PlayerPosition.StartingPitcher || card.Position == PlayerPosition.ReliefPitcher;
+                if (pitcher != _pitchers || !_origins.Matches(card)) continue;
+                if (_positionFilter > 0 && card.Position != _positions[_positionFilter - 1]) continue;
+                if (_registrationFilter == 1 && !card.IsActiveRoster || _registrationFilter == 2 && card.IsActiveRoster) continue;
+                if (_query.Trim().Length > 0 && card.DisplayName.IndexOf(_query.Trim(), StringComparison.OrdinalIgnoreCase) < 0) continue;
+                cards.Add(card);
             }
-            cards.Sort((a, b) => string.CompareOrdinal(a.CardId, b.CardId));
-            if (cards.Count == 0) { Text(_players, "Empty", "해당 유형의 보유 선수가 없습니다.", .05f, .3f, .95f, .7f, 18); return; }
-            bool found = false; foreach (var owned in cards) if (owned.CardId == _cardId) found = true;
-            if (!found) _cardId = cards[0].CardId;
-            _page = Math.Max(0, Math.Min((cards.Count - 1) / 6, _page));
-            for (int i = _page * 6; i < Math.Min(cards.Count, (_page + 1) * 6); i++)
+            cards.Sort((a, b) =>
             {
-                var owned = cards[i]; float top = .86f - i % 6 * .12f;
-                var playerButton = Button(_players, "Player" + i, Name(owned.CardId) + " · " + Season(owned.CardId).OriginYear + "\n코스트 " + Season(owned.CardId).Cost, .04f, top - .10f, .96f, top,
-                    () => { _cardId = owned.CardId; _isConfirming = false; _unlockX = -1; _option = 0; Refresh(); });
-                OwnerUiButtonSkin.Apply(playerButton, owned.CardId == _cardId ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
+                int comparison = _sort switch { 1 => a.Cost.CompareTo(b.Cost), 2 => StringComparer.CurrentCulture.Compare(a.DisplayName, b.DisplayName),
+                    3 => b.OriginYear.CompareTo(a.OriginYear), _ => b.Cost.CompareTo(a.Cost) };
+                return comparison != 0 ? comparison : string.CompareOrdinal(a.CardId, b.CardId);
+            });
+            // 필터는 탐색 조건이다. 이미 선택한 실행 대상을 다른 선수로 몰래 바꾸지 않는다.
+            if (string.IsNullOrEmpty(_cardId) && cards.Count > 0) _cardId = cards[0].CardId;
+            int pages = Math.Max(1, (cards.Count + _playerRows.Length - 1) / _playerRows.Length);
+            _page = Mathf.Clamp(_page, 0, pages - 1);
+            _playerCount.text = cards.Count + "명 · " + (_page + 1) + "/" + pages + " 페이지";
+            _playerEmpty.gameObject.SetActive(cards.Count == 0);
+            _selectionHint.text = !string.IsNullOrEmpty(_cardId) && !cards.Exists(card => card.CardId == _cardId)
+                ? "선택 선수는\n필터 밖에 있음" : "선수 선택 후\n오른쪽 효과 확인";
+            for (int i = 0; i < _playerRows.Length; i++)
+            {
+                int index = _page * _playerRows.Length + i;
+                _playerRows[i].gameObject.SetActive(index < cards.Count);
+                if (index >= cards.Count) continue;
+                var card = cards[index]; _rowCardIds[i] = card.CardId;
+                _playerRows[i].GetComponentInChildren<Text>().text = (card.CardId == _cardId ? "선택 · " : "") + card.DisplayName + " · " + card.OriginYear
+                    + "\n" + OwnerCollectionPresentationBuilder.FormatPosition(card.Position) + " · 코스트 " + card.Cost + " · " + (card.IsActiveRoster ? "1군" : "미등록");
+                OwnerUiButtonSkin.SetSelected(_playerRows[i], card.CardId == _cardId);
             }
-            Button(_players, "PreviousPlayers", "이전", .04f, .025f, .46f, .105f, () => { _page--; Refresh(); });
-            Button(_players, "NextPlayers", "다음", .54f, .025f, .96f, .105f, () => { _page++; Refresh(); });
+            _previousPage.interactable = _page > 0; _nextPage.interactable = _page + 1 < pages;
+            OwnerUiButtonSkin.SetSelected(_batters, !_pitchers); OwnerUiButtonSkin.SetSelected(_pitcherButton, _pitchers);
+        }
+        private void ChangeFilter() { _page = 0; _isConfirming = false; Refresh(); }
+        private void ChangePlayerType(bool pitchers)
+        {
+            _pitchers = pitchers; _cardId = ""; _positionFilter = 0;
+            _players.Find("PositionFilter").GetComponent<Dropdown>().SetValueWithoutNotify(0);
+            ChangeFilter();
         }
         private void ResetPlayerFilter()
         {
-            _page = 0; _cardId = ""; _isConfirming = false; _unlockX = -1; Refresh();
+            _query = ""; _positionFilter = _registrationFilter = _sort = _page = 0; _origins.Reset();
+            _positions.Clear(); OwnerRuntimeUiFactory.ClearChildren(_players); BuildPlayerControls(); ChangeFilter();
+        }
+        private static void Place(RectTransform rect, float l, float b, float r, float t) =>
+            OwnerRuntimeUiFactory.SetAnchors(rect, new Vector2(l, b), new Vector2(r, t), Vector2.zero, Vector2.zero);
+        private static Dropdown AddDropdown(Transform parent, string name, List<string> options, int selected,
+            float l, float b, float r, float t, Action<int> changed)
+        {
+            var dropdown = OwnerCardFilters.CreateDropdown(parent, name, options, selected);
+            Place(dropdown.GetComponent<RectTransform>(), l, b, r, t);
+            dropdown.onValueChanged.AddListener(value => changed(value)); return dropdown;
         }
         private OwnedPlayerCardState Card()
         {
@@ -129,62 +222,30 @@ namespace Baseball.Presentation.Owner
         }
         private string Name(string id) => _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(Season(id).PlayerPersonId);
         private void Command(string label, long cost, Action action) { _actionLabel = label; _cost = cost; _action = action; }
-        private void BuildCamp()
-        {
-            var owned = Card(); var balance = _manager.GetDevelopmentBalance(); var camps = balance.camps;
-            _option %= camps.Length; var camp = camps[_option];
-            Text(_body, "Title", Name(_cardId) + " · 성장판 개방", .035f, .86f, .95f, .97f, 22);
-            Button(_body, "Camp", camp.name + "  ▶", .035f, .69f, .47f, .80f, () => { _option++; _isConfirming = false; Refresh(); });
-            Button(_body, "AutoReturn", "자동 귀환 " + (_automaticReturn ? "켜짐" : "꺼짐"), .035f, .54f, .47f, .65f,
-                () => { _automaticReturn = !_automaticReturn; _isConfirming = false; Refresh(); });
-            long fee = Season(_cardId).Cost * camp.costPerCardCost;
-            Text(_body, "Rules", "코치 반영 주간 경험치 +" + OwnerCampService.ResolveWeeklyExperience(_manager.Runtime, _cardId, camp, _manager.Balance) + " · 정원 " + camp.capacity + "명\n등록비 " + fee.ToString("N0")
-                + " PT\n현재 경험치 " + owned.SkillBoard.SlotExperience + " / " + balance.slotExperienceRequired
-                + "\n\n2군 선수만 등록할 수 있습니다.\n중도 귀환해도 경험치는 보존됩니다.\n등록비는 환급하지 않습니다.", .035f, .05f, .47f, .49f, 18);
-            for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++)
-            {
-                int cx = x, cy = y; bool unlocked = owned.SkillBoard.IsCellUnlocked(x, y);
-                var button = Button(_body, "Cell" + x + y, unlocked ? "개방" : "잠금", .52f + x * .11f, .65f - y * .15f,
-                    .62f + x * .11f, .78f - y * .15f, () =>
-                    { _unlockX = cx; _unlockY = cy; _isConfirming = true; Refresh(); });
-                button.interactable = !unlocked && owned.SkillBoard.CanUnlock(x, y) && owned.SkillBoard.SlotExperience >= balance.slotExperienceRequired
-                    && OwnerScheduleGateService.GetPhase(_manager.Runtime) == OwnerSeasonPhase.Offseason;
-            }
-            if (_unlockX >= 0)
-            {
-                if (!owned.SkillBoard.CanUnlock(_unlockX, _unlockY) || owned.SkillBoard.SlotExperience < balance.slotExperienceRequired)
-                    throw new InvalidOperationException("개방할 인접 칸과 경험치를 다시 확인하세요.");
-                Command("선택한 칸 개방", 0, () => _manager.UnlockSkillCell(_cardId, _unlockX, _unlockY)); return;
-            }
-            foreach (var project in _manager.Runtime.PlayerGrowth.Camps)
-                if (project.CardId == _cardId) { Command("중도 귀환", 0, () => _manager.ReturnFromCamp(_cardId)); return; }
-            OwnerPermanentGrowthService.RequireAvailable(_manager.Runtime, _cardId, OwnerGrowthAction.TrainingCamp);
-            OwnerScheduleGateService.Evaluate(_manager.Runtime, OwnerGrowthAction.TrainingCamp, 1).RequireAllowed();
-            foreach (var entry in _manager.Runtime.GetRoster(_manager.Runtime.PlayerTeamSeasonKey).Entries)
-                if (entry.CardId == _cardId) throw new InvalidOperationException("선수단에서 2군으로 이동한 뒤 캠프에 등록하세요.");
-            if (owned.SkillBoard.UnlockedMask == OwnedCardSkillBoardState.CompleteUnlockedMask) throw new InvalidOperationException("모든 칸이 개방된 선수입니다.");
-            var progress = OwnerCardStudyUnlockEvaluator.Evaluate(_manager.Runtime, camp.requiredChampionshipLeague);
-            if (progress.HighestLeagueGrade < camp.requiredLeague || progress.PostseasonChampionships < camp.requiredChampionships)
-                throw new InvalidOperationException("해금 조건: " + OwnerLeagueDisplayNameFormatter.FormatFull(camp.requiredLeague) + " 진입 · "
-                    + OwnerLeagueDisplayNameFormatter.FormatFull(camp.requiredChampionshipLeague) + " 이상 포스트시즌 우승 " + camp.requiredChampionships + "회");
-            int count = 0; foreach (var project in _manager.Runtime.PlayerGrowth.Camps) if (project.FacilityId == camp.id) count++;
-            if (count >= camp.capacity) throw new InvalidOperationException("캠프 정원이 가득 찼습니다.");
-            Command("캠프 등록", fee, () => _manager.StartCamp(_cardId, camp.id, _automaticReturn));
-        }
         private void BuildCorrection()
         {
             var owned = Card(); int first = _pitchers ? 6 : 0;
             PlayerAbility decrease = (PlayerAbility)(first + _decrease), increase = (PlayerAbility)(first + _increase);
             Text(_body, "Title", Name(_cardId) + " · 교정 " + OwnerPermanentGrowthService.Count(owned, OwnerGrowthSource.Correction) + "/3회", .035f, .85f, .96f, .97f, 22);
-            Button(_body, "Decrease", "감소 · " + OwnerGrowthHistoryFormatter.GetAbilityName(decrease), .035f, .68f, .34f, .80f,
-                () => { _decrease = (_decrease + 1) % 6; _isConfirming = false; Refresh(); });
-            Button(_body, "Increase", "증가 · " + OwnerGrowthHistoryFormatter.GetAbilityName(increase), .36f, .68f, .665f, .80f,
-                () => { _increase = (_increase + 1) % 6; _isConfirming = false; Refresh(); });
-            Button(_body, "Amount", "이동량 " + _amount, .69f, .68f, .965f, .80f,
-                () => { _amount = _amount % 3 + 1; _isConfirming = false; Refresh(); });
+            var abilityLabels = new List<string>();
+            for (int i = 0; i < 6; i++) abilityLabels.Add(OwnerGrowthHistoryFormatter.GetAbilityName((PlayerAbility)(first + i)));
+            Text(_body, "DecreaseLabel", "줄일 능력치", .035f, .765f, .34f, .83f, 15);
+            Text(_body, "IncreaseLabel", "높일 능력치", .36f, .765f, .665f, .83f, 15);
+            Text(_body, "AmountLabel", "이동할 수치", .69f, .765f, .965f, .83f, 15);
+            AddDropdown(_body, "Decrease", abilityLabels, _decrease, .035f, .67f, .34f, .75f,
+                value => { _decrease = value; _isConfirming = false; Refresh(); });
+            AddDropdown(_body, "Increase", abilityLabels, _increase, .36f, .67f, .665f, .75f,
+                value => { _increase = value; _isConfirming = false; Refresh(); });
+            AddDropdown(_body, "Amount", new List<string> { "1 이동", "2 이동", "3 이동" }, _amount - 1, .69f, .67f, .965f, .75f,
+                value => { _amount = value + 1; _isConfirming = false; Refresh(); });
+            Text(_body, "CorrectionGuide", "능력치 총합을 유지하며 원하는 강점에 재분배합니다.", .035f, .57f, .965f, .64f, 15);
             var preview = OwnerPermanentGrowthService.PreviewCorrection(_manager.Runtime, _cardId, decrease, increase, _amount);
             var bases = Season(_cardId).CreateBaseAttributes();
-            Text(_body, "Columns", "능력치                기본      기존 교정      이번 변화      교정 후", .035f, .52f, .965f, .62f, 18);
+            Text(_body, "ColumnAbility", "능력치", .04f, .50f, .29f, .56f, 15);
+            Text(_body, "ColumnBase", "기본", .32f, .50f, .43f, .56f, 15);
+            Text(_body, "ColumnCurrent", "기존 교정", .49f, .50f, .64f, .56f, 15);
+            Text(_body, "ColumnDelta", "이번 변화", .67f, .50f, .82f, .56f, 15);
+            Text(_body, "ColumnAfter", "교정 후", .85f, .50f, .96f, .56f, 15);
             for (int i = 0; i < 6; i++)
             {
                 var ability = (PlayerAbility)(first + i); int current = owned.Training.Ledger.Get(OwnerGrowthSource.Correction, ability);
@@ -201,13 +262,18 @@ namespace Baseball.Presentation.Owner
         {
             Card(); Text(_body, "Title", Name(_cardId) + " · 추천 훈련 파트너", .035f, .85f, .96f, .97f, 22);
             var candidates = OwnerPermanentGrowthService.Recommend(_manager.Runtime, _cardId, _manager.GetDevelopmentBalance().partner);
-            if (candidates.Count == 0) throw new InvalidOperationException("참여 가능한 같은 유형의 파트너가 없습니다. 이미 참여한 선수·파견 중인 선수·역할에 유효한 능력차가 없는 선수는 제외됩니다.");
+            if (candidates.Count == 0)
+            {
+                Text(_body, "NoPartners", "추천할 수 있는 훈련 파트너가 없습니다.\n\n같은 유형의 다른 선수를 선택해 보세요.\n이미 참여했거나 파견 중인 선수, 유효한 능력차가 없는 선수는 제외됩니다.", .06f, .20f, .94f, .76f, 18);
+                throw new InvalidOperationException("다른 대상을 선택하면 참여 가능한 파트너를 다시 확인할 수 있습니다.");
+            }
             _option %= Math.Min(3, candidates.Count);
             for (int i = 0; i < Math.Min(3, candidates.Count); i++)
             {
                 int index = i; var candidate = candidates[i];
-                Button(_body, "Partner" + i, (i == _option ? "● " : "") + Name(candidate.PartnerCardId) + " · 예상 성장 +" + candidate.Total,
+                var button = Button(_body, "Partner" + i, (i == _option ? "선택 · " : "") + Name(candidate.PartnerCardId) + " · 예상 성장 +" + candidate.Total,
                     .035f, .67f - i * .17f, .48f, .80f - i * .17f, () => { _option = index; _isConfirming = false; Refresh(); });
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.ListItem); OwnerUiButtonSkin.SetSelected(button, i == _option);
             }
             var selected = candidates[_option];
             Text(_body, "Preview", selected.Reason + "\n\n" + Changes(selected.Values) + "\n\n두 선수 모두 이번 오프시즌 참여를 사용합니다.\n결과는 영구 성장으로 남습니다.", .52f, .07f, .96f, .80f, 18);
@@ -216,49 +282,94 @@ namespace Baseball.Presentation.Owner
         private void BuildResearch()
         {
             var balance = _manager.GetDevelopmentBalance(); var inventory = _manager.Runtime.PlayerGrowth.Inventory;
-            Text(_body, "Title", "스킬 연구 " + inventory.ResearchCount + "회 · S 선택 상자 " + inventory.SelectionBoxes + "개", .035f, .85f, .96f, .97f, 22);
-            Text(_body, "Rules", "연구 1회: 블록 2개 확정\nC " + balance.researchWeights[0] + "% · B " + balance.researchWeights[1] + "% · A " + balance.researchWeights[2]
-                + "%\n10회마다 S 선택 상자 1개\n\n합성: 미장착 블록 5개 → 동일 계열 상위 1개\n재료는 인벤토리 등록 순서대로 소비합니다.", .035f, .33f, .48f, .80f, 18);
-            Button(_body, "ResearchMode", "연구 선택", .035f, .05f, .48f, .17f,
-                () => { _option = 0; _isConfirming = false; Refresh(); });
-            var filterAbility = (PlayerAbility)((_pitchers ? 6 : 0) + _researchAbility);
-            Button(_body, "ResearchAbility", OwnerGrowthHistoryFormatter.GetAbilityName(filterAbility) + " ▶", .035f,.20f,.25f,.31f,
-                () => { _researchAbility = (_researchAbility + 1) % 6; _blockIndex = 0; _isConfirming = false; Refresh(); });
-            Button(_body, "ResearchRarity", (_researchRarity == 1 ? "B" : _researchRarity == 2 ? "A" : "S") + "등급 ▶", .27f,.20f,.48f,.31f,
-                () => { _researchRarity = _researchRarity % 3 + 1; _blockIndex = 0; _isConfirming = false; Refresh(); });
+            Text(_body, "Title", "스킬 연구소", .025f, .90f, .46f, .97f, 23);
+            Text(_body, "Inventory", "누적 연구 " + inventory.ResearchCount + "회  ·  S 선택 상자 " + inventory.SelectionBoxes + "개",
+                .52f, .90f, .975f, .97f, 17).alignment = TextAnchor.MiddleRight;
+            string[] modes = { "블록 연구", "블록 합성", "S 상자 사용" };
+            for (int i = 0; i < modes.Length; i++)
+            {
+                int mode = i;
+                var button = Button(_body, "ResearchMode" + i, modes[i], .025f + i * .32f, .79f, .33f + i * .32f, .875f,
+                    () => { _option = mode; if (mode == 2) _researchRarity = 3; _isConfirming = false; Refresh(); });
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab); OwnerUiButtonSkin.SetSelected(button, i == _option);
+            }
+            if (_option == 0)
+            {
+                Text(_body, "ResearchHeading", "새로운 스킬 블록 2개 획득", .045f, .62f, .60f, .73f, 26);
+                Text(_body, "ResearchDescription", "연구한 블록은 구단 공용 인벤토리에 보관됩니다.\n획득 후 스킬 블록 배치 화면에서 선수에게 장착하세요.", .045f, .46f, .60f, .60f, 18);
+                Text(_body, "ResearchRates", "획득 등급  ·  C " + balance.researchWeights[0] + "%   /   B " + balance.researchWeights[1] + "%   /   A " + balance.researchWeights[2] + "%",
+                    .045f, .34f, .60f, .43f, 17);
+                Text(_body, "ResearchPity", "S 선택 상자까지 " + (10 - inventory.ResearchCount % 10) + "회\n연구 10회마다 원하는 S 블록을 선택할 수 있습니다.", .045f, .12f, .60f, .29f, 18);
+                var reward = OwnerDugoutDetailUiFactory.CreatePanel(_body, "ResearchReward", .64f, .13f, .955f, .73f);
+                UIOwnerFrontOfficePanel.Apply(reward, "ManagerReport");
+                Text(reward, "RewardTitle", "이번 연구 보상", .08f, .77f, .92f, .92f, 19);
+                Text(reward, "RewardCount", "스킬 블록 2개", .08f, .51f, .92f, .70f, 26);
+                Text(reward, "RewardCost", balance.researchCost.ToString("N0") + " PT\n등급과 모양은 무작위로 결정됩니다.", .08f, .12f, .92f, .42f, 17);
+                Command("블록 2개 연구", balance.researchCost, _manager.ResearchSkillBlocks); return;
+            }
+            Text(_body, "ChooseResult", "1  획득할 블록 선택", .035f, .67f, .57f, .75f, 19);
+            AddDropdown(_body, "BlockType", new List<string> { "타자 스킬", "투수 스킬" }, _researchPitchers ? 1 : 0, .035f, .56f, .20f, .64f,
+                value => { _researchPitchers = value == 1; _blockIndex = 0; _isConfirming = false; Refresh(); });
+            var abilities = new List<string>();
+            for (int i = 0; i < 6; i++) abilities.Add(OwnerGrowthHistoryFormatter.GetAbilityName((PlayerAbility)((_researchPitchers ? 6 : 0) + i)));
+            AddDropdown(_body, "BlockAbility", abilities, _researchAbility, .215f, .56f, .40f, .64f,
+                value => { _researchAbility = value; _blockIndex = 0; _isConfirming = false; Refresh(); });
+            var rarity = AddDropdown(_body, "BlockRarity", new List<string> { "B 등급", "A 등급", "S 등급" }, _researchRarity - 1, .415f, .56f, .57f, .64f,
+                value => { _researchRarity = value + 1; _blockIndex = 0; _isConfirming = false; Refresh(); });
+            rarity.interactable = _option != 2;
+            var filterAbility = (PlayerAbility)((_researchPitchers ? 6 : 0) + _researchAbility);
             var definitions = new List<SkillBlockDefinition>();
             foreach (var definition in _manager.Balance.Growth.SkillBlocks)
                 if ((int)definition.Rarity == _researchRarity)
                     foreach (var bonus in definition.AbilityBonuses)
                         if (bonus.Ability == filterAbility) { definitions.Add(definition); break; }
-            if (definitions.Count == 0) throw new InvalidOperationException("이 능력치와 등급의 연구 블록이 없습니다. 필터를 변경하세요.");
-            definitions.Sort((a,b) => string.CompareOrdinal(a.BlockId,b.BlockId));
-            _blockIndex = (_blockIndex + definitions.Count) % definitions.Count; var selected = definitions[_blockIndex];
-            foreach (var cell in selected.ShapeCells)
-            {
-                var shape = OwnerDugoutDetailUiFactory.CreatePanel(_body, "Shape" + cell.X + cell.Y,
-                    .65f + cell.X * .043f, .745f - cell.Y * .038f, .688f + cell.X * .043f, .779f - cell.Y * .038f);
-                shape.GetComponent<Image>().color = selected.Rarity == SkillBlockRarity.Unique ? new Color(.65f,.82f,.9f)
-                    : selected.Rarity == SkillBlockRarity.Elite ? new Color(.8f,.6f,.22f) : new Color(.54f,.62f,.72f);
-            }
-            Button(_body, "BlockPrevious", "◀", .52f, .67f, .61f, .80f, () => { _blockIndex--; _isConfirming = false; Refresh(); });
-            Button(_body, "BlockNext", "▶", .86f, .67f, .95f, .80f, () => { _blockIndex++; _isConfirming = false; Refresh(); });
-            var changes = new int[PlayerAbilityCatalog.AbilityCount]; foreach (var bonus in selected.AbilityBonuses) changes[(int)bonus.Ability] += bonus.Amount;
-            Text(_body, "SelectedBlock", "선택 블록 · " + ((int)selected.Rarity == 1 ? "B" : (int)selected.Rarity == 2 ? "A" : "S") + "등급 · " + selected.ShapeCells.Length + "칸\n" + Changes(changes)
-                + (selected.AdjacencySetBonus > 0 ? "같은 계열 3블록 인접: 세트 +" + selected.AdjacencySetBonus : ""), .52f, .35f, .95f, .64f, 18);
-            Button(_body, "FusionMode", "이 블록으로 합성", .52f, .22f, .95f, .33f, () => { _option = 1; _isConfirming = false; Refresh(); });
-            Button(_body, "BoxMode", "S 상자에서 선택", .52f, .07f, .95f, .18f, () => { _option = 2; _isConfirming = false; Refresh(); });
-            if (_option == 0) Command("연구 실행", balance.researchCost, _manager.ResearchSkillBlocks);
-            else if (_option == 1)
+            if (definitions.Count == 0) throw new InvalidOperationException("조건에 맞는 블록이 없습니다. 능력치·등급을 변경하세요.");
+            definitions.Sort((a, b) => string.CompareOrdinal(a.BlockId, b.BlockId));
+            _blockIndex = (_blockIndex + definitions.Count) % definitions.Count;
+            var selected = definitions[_blockIndex];
+            var preview = OwnerDugoutDetailUiFactory.CreatePanel(_body, "BlockPreview", .14f, .16f, .465f, .52f);
+            UIOwnerFrontOfficePanel.Apply(preview, "ManagerReport");
+            DrawBlock(preview, selected);
+            Button(_body, "BlockPrevious", "이전 모양", .035f, .25f, .13f, .39f, () => { _blockIndex--; _isConfirming = false; Refresh(); });
+            Button(_body, "BlockNext", "다음 모양", .475f, .25f, .57f, .39f, () => { _blockIndex++; _isConfirming = false; Refresh(); });
+            Text(_body, "BlockPage", (_blockIndex + 1) + " / " + definitions.Count + "  ·  " + selected.ShapeCells.Length + "칸", .14f, .065f, .465f, .14f, 16).alignment = TextAnchor.MiddleCenter;
+            Text(_body, "ResultHeading", "2  획득 효과·재료 확인", .63f, .67f, .955f, .75f, 19);
+            var changes = new int[PlayerAbilityCatalog.AbilityCount];
+            foreach (var bonus in selected.AbilityBonuses) changes[(int)bonus.Ability] += bonus.Amount;
+            Text(_body, "BlockEffect", (_researchRarity == 1 ? "B" : _researchRarity == 2 ? "A" : "S") + " 등급  ·  " + Changes(changes).TrimEnd(), .63f, .49f, .955f, .62f, 25);
+            Text(_body, "SetBonus", selected.AdjacencySetBonus > 0 ? "같은 계열 3블록 인접 배치 시\n세트 효과 +" + selected.AdjacencySetBonus : "획득 후 스킬 블록 배치에서 장착하세요.", .63f, .35f, .955f, .47f, 17);
+            if (_option == 1)
             {
                 int count = OwnerSkillResearchService.GetFusionMaterials(_manager.Runtime, _manager.Balance.Growth.SkillBlocks, selected.Category, selected.Rarity - 1).Count;
-                if (count < 5) throw new InvalidOperationException("같은 계열 하위 등급 재료 " + count + "/5개 · 장착 블록은 제외합니다.");
-                Command("블록 5개 합성", 0, () => _manager.FuseSkillBlocks(selected.BlockId));
+                Text(_body, "Materials", "합성 재료  " + count + " / 5개\n동일 계열 · 한 단계 낮은 등급\n미장착 블록을 보유 순서대로 5개 소모합니다.", .63f, .08f, .955f, .31f, 17);
+                if (count < 5) throw new InvalidOperationException("합성 재료가 " + (5 - count) + "개 부족합니다. 같은 계열 하위 등급의 미장착 블록이 필요합니다.");
+                Command("블록 5개 소모 · 합성", 0, () => _manager.FuseSkillBlocks(selected.BlockId));
             }
             else
             {
-                if (selected.Rarity != SkillBlockRarity.Unique || inventory.SelectionBoxes == 0) throw new InvalidOperationException("S 등급 블록과 보유한 S 선택 상자가 필요합니다.");
-                Command("S 선택 상자 사용", 0, () => _manager.OpenSkillSelectionBox(selected.BlockId));
+                Text(_body, "BoxCost", "S 선택 상자 1개 사용\n보유 " + inventory.SelectionBoxes + "개 · 선택한 모양을 확정 획득", .63f, .12f, .955f, .31f, 17);
+                if (inventory.SelectionBoxes == 0) throw new InvalidOperationException("S 선택 상자가 없습니다. 블록 연구를 10회 완료하면 1개를 받습니다.");
+                Command("S 상자 1개 사용", 0, () => _manager.OpenSkillSelectionBox(selected.BlockId));
+            }
+        }
+        private static void DrawBlock(RectTransform parent, SkillBlockDefinition definition)
+        {
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            foreach (var cell in definition.ShapeCells)
+            { minX = Math.Min(minX, cell.X); minY = Math.Min(minY, cell.Y); maxX = Math.Max(maxX, cell.X); maxY = Math.Max(maxY, cell.Y); }
+            // 칸마다 패널 스킨을 씌우지 않는다. 카드 성장판과 동일한 정사각형 타일·등급 문양을 사용한다.
+            var square = OwnerDugoutDetailUiFactory.CreateRect(parent, "SquareBounds", .10f, .10f, .90f, .90f);
+            var aspect = square.gameObject.AddComponent<AspectRatioFitter>();
+            aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent; aspect.aspectRatio = 1;
+            int extent = Math.Max(maxX - minX + 1, maxY - minY + 1);
+            float size = .78f / extent;
+            float left = .5f - (maxX - minX + 1) * size * .5f;
+            float top = .5f + (maxY - minY + 1) * size * .5f;
+            foreach (var cell in definition.ShapeCells)
+            {
+                float x = left + (cell.X - minX) * size, y = top - (cell.Y - minY) * size;
+                var rect = OwnerDugoutDetailUiFactory.CreateRect(square, "SkillTile" + cell.X + "_" + cell.Y, x, y - size, x + size, y);
+                SkillBlockVisual.ApplyTile(rect.gameObject.AddComponent<RawImage>(), definition.Rarity);
             }
         }
         private void BuildSlogan()
@@ -269,8 +380,9 @@ namespace Baseball.Presentation.Owner
             {
                 int index = i; var slogan = definitions[i];
                 int count = OwnerSloganService.CountProgress(_manager.Runtime, slogan);
-                Button(_body, "Slogan" + i, (i == _option ? "● " : "") + slogan.name + "\n해당 카드 수집 " + count + "장 · Lv." + OwnerSloganService.GetLevel(_manager.Runtime, slogan),
+                var button = Button(_body, "Slogan" + i, (i == _option ? "선택 · " : "") + slogan.name + "\n해당 카드 수집 " + count + "장 · Lv." + OwnerSloganService.GetLevel(_manager.Runtime, slogan),
                     .035f, .61f - i * .19f, .47f, .78f - i * .19f, () => { _option = index; _isConfirming = false; Refresh(); });
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.ListItem); OwnerUiButtonSkin.SetSelected(button, i == _option);
             }
             var selected = definitions[_option]; int level = OwnerSloganService.GetLevel(_manager.Runtime, selected);
             var preview = new StringBuilder("대상: " + (selected.reliefOnly ? "불펜 " : selected.target == OwnerSupportTarget.Batter ? "타자 " : "투수 ")
@@ -306,13 +418,13 @@ namespace Baseball.Presentation.Owner
             if (_isSubmitting || !_confirm.interactable || _action == null) return;
             if (!_isConfirming) { _isConfirming = true; Refresh(); return; }
             _isSubmitting = true; string message;
-            try { _action(); message = "선택한 결과를 적용하고 저장했습니다."; }
+            try { _action(); _roster = new OwnerModeRuntimeSnapshotFactory().CreateCollectionSummary(_manager); message = "선택한 결과를 적용하고 저장했습니다."; }
             catch (InvalidOperationException e) { message = e.Message; }
             catch (Exception) { message = "저장하지 못했습니다. 변경 전 상태에서 다시 시도할 수 있습니다."; }
-            finally { _isSubmitting = false; _isConfirming = false; _unlockX = -1; }
+            finally { _isSubmitting = false; _isConfirming = false; }
             Refresh(); _feedback.text = message;
         }
-        public bool TryHandleCancel() { if (_isConfirming) { _isConfirming = false; _unlockX = -1; Refresh(); } else Close(); return true; }
+        public bool TryHandleCancel() { if (_isConfirming) { _isConfirming = false; Refresh(); } else Close(); return true; }
         public void OnCancel(BaseEventData data) { TryHandleCancel(); data.Use(); }
         public void Close()
         {
@@ -328,13 +440,14 @@ namespace Baseball.Presentation.Owner
         }
         private void LinkFocus(string name)
         {
-            _focus.Clear(); foreach (var button in GetComponentsInChildren<Button>()) if (button.interactable) _focus.Add(button);
+            _focus.Clear(); foreach (var control in GetComponentsInChildren<Selectable>()) if (control.interactable && control.gameObject.activeInHierarchy) _focus.Add(control);
             for (int i = 0; i < _focus.Count; i++)
             {
                 var navigation = new Navigation { mode = Navigation.Mode.Explicit,
                     selectOnUp = _focus[(i + _focus.Count - 1) % _focus.Count], selectOnLeft = _focus[(i + _focus.Count - 1) % _focus.Count],
                     selectOnDown = _focus[(i + 1) % _focus.Count], selectOnRight = _focus[(i + 1) % _focus.Count] };
-                _focus[i].navigation = navigation; if (_focus[i].name == name) _focus[i].Select();
+                _focus[i].navigation = navigation;
+                if (_focus[i].name == name && EventSystem.current?.currentSelectedGameObject != _focus[i].gameObject) _focus[i].Select();
             }
         }
         private static string Signed(int value) => value > 0 ? "+" + value : value.ToString();
@@ -347,9 +460,13 @@ namespace Baseball.Presentation.Owner
         private static Text Text(Transform parent, string name, string value, float l, float b, float r, float t, int size)
         {
             var text = OwnerDugoutDetailUiFactory.CreateLabel(parent, name, value, l, b, r, t, size, FontStyle.Normal, TextAnchor.UpperLeft);
-            text.horizontalOverflow = HorizontalWrapMode.Wrap; return text;
+            OwnerDashboardStyle.SetTypography(text, size >= 21); text.horizontalOverflow = HorizontalWrapMode.Wrap; return text;
         }
-        private static Button Button(Transform parent, string name, string text, float l, float b, float r, float t, Action action) =>
-            OwnerDugoutDetailUiFactory.CreateButton(parent, name, text, l, b, r, t, action);
+        private static Button Button(Transform parent, string name, string text, float l, float b, float r, float t, Action action)
+        {
+            var button = OwnerDugoutDetailUiFactory.CreateButton(parent, name, text, l, b, r, t, action);
+            OwnerDashboardStyle.SetTypography(button.GetComponentInChildren<Text>());
+            return button;
+        }
     }
 }

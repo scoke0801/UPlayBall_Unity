@@ -8,6 +8,7 @@ namespace Baseball.Game.Historical
 {
     public sealed partial class OwnerModeManager
     {
+        public const int PracticePlayerIdBase = 20000000;
         private LegendaryPracticeCatalog _practiceCatalog;
         private bool _isPracticeSaving;
         private LegendaryPracticeRosterBuilder _practiceRosterBuilder;
@@ -34,6 +35,22 @@ namespace Baseball.Game.Historical
             return season;
         }
 
+        /// <summary>연습경기 양 팀의 경기 번호를 현재 실제·가상 선수 표시명에 연결한다.</summary>
+        public System.Collections.Generic.IReadOnlyDictionary<int, string> CreatePracticeParticipantNames(string challengeId)
+        {
+            var runtime = RequireRuntime();
+            var names = new System.Collections.Generic.Dictionary<int, string>();
+            var cards = GetPracticeCards(challengeId);
+            for (int i = 0; i < cards.Length; i++)
+                names.Add(PracticePlayerIdBase + i + 1,
+                    runtime.IdentityRegistry.GetPresentationPlayerName(GetPracticePlayerSeason(cards[i]).PlayerPersonId));
+            var ids = ManagerModeMatchService.PlayerIdMap.Create(runtime);
+            foreach (var entry in runtime.GetRoster(runtime.PlayerTeamSeasonKey).Entries)
+                names[ids.Get(runtime.PlayerTeamSeasonKey, entry.PlayerSeasonId)] =
+                    runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId);
+            return names;
+        }
+
         /// <summary>플레이어 빌드에 포함된 검증된 순위만 로드한다.</summary>
         public LegendaryPracticeCatalog GetPracticeCatalog()
         {
@@ -41,7 +58,7 @@ namespace Baseball.Game.Historical
             var asset = Resources.Load<TextAsset>("NewGame/LegendaryPracticeCatalog");
             if (asset == null) throw new InvalidOperationException("역대 강팀 정보를 불러올 수 없습니다. 게임 데이터를 확인해 주세요.");
             var catalog = JsonUtility.FromJson<LegendaryPracticeCatalog>(asset.text);
-            catalog.Validate();
+            catalog.ValidateCoverage(_contentProvider.Load().TeamSeasons);
             if (catalog.contentHash != _contentProvider.Load().Manifest.ContentHash)
                 throw new InvalidOperationException("역대 강팀 정보가 현재 선수 데이터와 맞지 않습니다.");
             if (catalog.simulationVersion != LegendaryPracticeCatalog.CreateSimulationVersion(
@@ -60,7 +77,7 @@ namespace Baseball.Game.Historical
             var builder = _practiceRosterBuilder ??= new LegendaryPracticeRosterBuilder(content, _balance);
             if (builder.GetRosterHash(definition) != team.rosterHash)
                 throw new InvalidOperationException("역사 팀 편성이 변경되어 경기할 수 없습니다.");
-            return builder.Build(definition, RequireRuntime().IdentityRegistry, 2000000, 20000000, out colors);
+            return builder.Build(definition, RequireRuntime().IdentityRegistry, 2000000, PracticePlayerIdBase, out colors);
         }
 
         /// <summary>결과와 시도 번호를 한 번 저장한 뒤 관전에 전달한다. 실패하면 기존 진행으로 복구한다.</summary>

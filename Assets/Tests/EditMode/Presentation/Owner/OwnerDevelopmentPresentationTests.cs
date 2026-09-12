@@ -22,7 +22,6 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         [TestCase(3440,1440,3)]
         [TestCase(1920,1080,4)]
         [TestCase(1920,1080,5)]
-        [TestCase(1920,1080,6)]
         public void 실제성장메뉴를렌더링한다(int width, int height, int tab)
         {
             var root = new GameObject("DevelopmentCanvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
@@ -54,7 +53,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 var workspace = new GameObject("Workspace",typeof(RectTransform)).GetComponent<RectTransform>(); workspace.SetParent(root.transform,false);
                 workspace.anchorMin=new Vector2(.015f,.08f); workspace.anchorMax=new Vector2(.985f,.86f); workspace.offsetMin=workspace.offsetMax=Vector2.zero;
                 Canvas.ForceUpdateCanvases(); Transform view;
-                if(tab==6)
+                if(tab==5)
                 {
                     var catalog=manager.GetSupportCatalog();
                     OwnerSupportService.Purchase(runtime,catalog[0]); OwnerSupportService.Equip(runtime,catalog[0],"");
@@ -72,7 +71,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     Assert.That(text.preferredHeight,Is.LessThanOrEqualTo(text.rectTransform.rect.height+2),text.name+": "+text.text);
                 Assert.That(view.GetComponentsInChildren<Text>().Any(t=>t.text.Contains("읽지 못")),Is.False,"실제 데이터 조회");
                 Assert.That(view.GetComponentsInChildren<Text>().Any(t=>t.text.Contains("Identity")),Is.False,"Identity 리소스 연결");
-                if(tab==3)
+                if(tab==2)
                 {
                     long money=runtime.Economy.Money;
                     var confirm=view.GetComponentsInChildren<Button>().Single(b=>b.name=="Confirm");

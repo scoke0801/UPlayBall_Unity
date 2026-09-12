@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
             return true;
         }
         /// <summary>검증된 복사본에서 훈련을 정산하고 저장 성공 이후에만 실제 진행을 교체한다.</summary>
-        public bool AdvanceOffseasonWeek(int expectedCompletedWeeks)
+        public bool CompleteOffseasonStudies(int expectedCompletedWeeks)
         {
             EnsureRegularSeasonSimulationIsNotRunning();
             var runtime = RequireRuntime();
@@ -25,7 +25,7 @@ namespace Baseball.Game.Historical
                 return false;
             }
             var candidate = _saveAdapter.CreateSimulationCopy(runtime);
-            if (!_coordinator.AdvanceOffseasonWeek(candidate, expectedCompletedWeeks))
+            if (!_coordinator.CompleteOffseasonStudies(candidate, expectedCompletedWeeks))
             {
                 NotifyRuntimeChanged();
                 return false;

@@ -49,6 +49,7 @@ namespace Baseball.Presentation.Owner
         public void SetPopupHost(RectTransform host) => _popupHost = host;
         private Baseball.Game.Historical.OwnerModeManager _developmentManager;
         private UI_Popup_OwnerDevelopment _developmentPopup;
+        private UI_Popup_OwnerTraitTraining _traitPopup;
         public void SetDevelopmentManager(Baseball.Game.Historical.OwnerModeManager manager) => _developmentManager = manager;
         public event Action<int> OffseasonWeekAdvanceRequested;
         private readonly List<RectTransform> _rotationTiles = new List<RectTransform>();
@@ -63,10 +64,7 @@ namespace Baseball.Presentation.Owner
         {
             var view = new GameObject(nameof(UI_Scene_OwnerGrowth)).AddComponent<UI_Scene_OwnerGrowth>();
             view._root = OwnerWorkspaceUiFactory.CreateRoot(host, "OwnerGrowthWorkspace", false);
-            var paper = view._root.gameObject.AddComponent<RawImage>();
-            paper.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/growth_silver_v1");
-            paper.color = Color.white;
-            paper.raycastTarget = false;
+            UIOwnerFrontOfficePanel.ApplyWorkspace(view._root);
             view._sheet = OwnerRuntimeUiFactory.CreateRect("ReferenceGrowthSheet", view._root);
             view._sheet.anchorMin = view._sheet.anchorMax = new Vector2(.5f, .5f);
             view._sheet.sizeDelta = new Vector2(1100, 560);
@@ -109,6 +107,7 @@ namespace Baseball.Presentation.Owner
         {
             if (!visible && _offseasonPopup != null) _offseasonPopup.Hide();
             if (!visible && _developmentPopup != null) _developmentPopup.Close();
+            if (!visible && _traitPopup != null) _traitPopup.Close();
             _root.gameObject.SetActive(visible);
         }
 
@@ -118,13 +117,15 @@ namespace Baseball.Presentation.Owner
         /// <summary>선수 선택, 유학 확인, 스킬 블록 선택 중 가장 안쪽 작업만 취소한다.</summary>
         public bool TryHandleCancel()
         {
+            if (_traitPopup != null && _traitPopup.IsVisible) return _traitPopup.TryHandleCancel();
             if (_developmentPopup != null) return _developmentPopup.TryHandleCancel();
             if (_offseasonPopup != null && _offseasonPopup.TryHandleCancel()) return true;
             if (_isChoosingStudyPlayer)
             {
-                _isChoosingStudyPlayer = false;
-                _pendingStudy = string.Empty;
-                Render();
+                foreach (Dropdown dropdown in _studyPickerSafe.GetComponentsInChildren<Dropdown>())
+                    if (dropdown.transform.Find("Dropdown List") != null)
+                    { dropdown.Hide(); dropdown.Select(); return true; }
+                CloseStudyPicker(false);
                 return true;
             }
             if (!string.IsNullOrEmpty(_pendingStudy))
@@ -153,7 +154,7 @@ namespace Baseball.Presentation.Owner
         public void SetFeedback(string text, bool isError)
         {
             _feedback.text = text ?? string.Empty;
-            _feedback.color = isError ? new Color32(175, 46, 38, 255) : Ink;
+            _feedback.color = isError ? CareerUiTheme.Error : OwnerDashboardStyle.Ivory;
         }
 
         private void LateUpdate() => Resize();
@@ -187,6 +188,9 @@ namespace Baseball.Presentation.Owner
 
         private void Render()
         {
+            string previousFocus = EventSystem.current?.currentSelectedGameObject != null && _content != null &&
+                EventSystem.current.currentSelectedGameObject.transform.IsChildOf(_content)
+                ? EventSystem.current.currentSelectedGameObject.name : null;
             if (_skillInventoryScroll != null)
                 _skillInventoryPosition = _skillInventoryScroll.verticalNormalizedPosition;
             if (_displayedSkillRarity != _rarity || _isDisplayedSkillPitcher != _isPitcher)
@@ -212,21 +216,27 @@ namespace Baseball.Presentation.Owner
                 if (_developmentPopup != null) return;
                 _developmentPopup = UI_Popup_OwnerDevelopment.Show(_popupHost != null ? _popupHost : _root, _developmentManager);
             }, false, 756, 42, 152, 28);
-            Label(_content, "SchedulePermission", _snapshot.SkillPermission.IsAllowed
+            Label(_content, "SchedulePermission", _snapshot.SeasonPhase == Baseball.Game.Historical.OwnerSeasonPhase.Offseason
                 ? _snapshot.OffseasonCompletedWeeks == Baseball.Core.Historical.OwnerOffseasonState.DurationWeeks
                     ? "오프시즌 · 훈련 종료 · 스킬 편성 가능"
                     : $"오프시즌 · {Baseball.Core.Historical.OwnerOffseasonState.DurationWeeks - _snapshot.OffseasonCompletedWeeks}주 남음"
-                : _snapshot.SeasonPhase == Baseball.Game.Historical.OwnerSeasonPhase.Offseason
-                    ? "오프시즌 훈련 완료" : "시즌 중 · 성장 효과 조회", 13, 246, 42, 490, 28);
-            Surface(_content, "BlueRule", 20, 72, 1060, 2, Blue);
+                : "시즌 중 · 특성훈련 잠금", 13, 246, 42, 315, 28);
+            Tab(_content, "TraitTraining", "특성훈련", () => {
+                if (_traitPopup != null && _traitPopup.IsVisible) return;
+                _traitPopup = UI_Popup_OwnerTraitTraining.Show(_popupHost != null ? _popupHost : _root,
+                    _developmentManager, _cardId, ShowOffseason);
+            }, false, 588, 42, 152, 28);
+            OwnerDashboardStyle.SetDataSurface(Surface(_content, "BlueRule", 20, 72, 1060, 1, OwnerDashboardStyle.Line), OwnerDashboardStyle.Line);
             if (_isStudy) RenderStudy(); else RenderSkills();
             _feedback.transform.SetAsLastSibling();
+            if (!_isStudy && previousFocus != null) FocusRosterControl(previousFocus);
             Resize();
         }
 
         private void SelectType(bool pitcher)
         {
             _isPitcher = pitcher;
+            _studyPosition = 0;
             _rosterPage = 0;
             _rosterFilter = OwnerGrowthRosterFilter.All;
             _rosterQuery = string.Empty;
@@ -265,7 +275,6 @@ namespace Baseball.Presentation.Owner
                 card.UseRosterPresentation();
                 card.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(candidate.Card, candidate.Card.CardId == _cardId));
                 card.SetPortrait(PlayerPortraitSprites.GetDefault(candidate.Card.Position));
-                if (_isStudy) card.UsePlayerPickerLayout();
                 card.Selected += _ =>
                 {
                     _cardId = selected.Card.CardId;
@@ -359,6 +368,7 @@ namespace Baseball.Presentation.Owner
                     Render();
                     FocusRosterControl("Block_" + instanceId);
                 }, instanceId == _instanceId, 0, 0, 141, 89);
+                OwnerDashboardStyle.SetDataRow(button, instanceId == _instanceId, OwnerDashboardStyle.TableSurface);
                 button.GetComponent<LayoutElement>().preferredHeight = 89;
                 button.interactable = string.IsNullOrEmpty(equipped) || equipped == _cardId;
                 RenderSkillIcon(button.transform, definition);
@@ -367,7 +377,9 @@ namespace Baseball.Presentation.Owner
                     : equipped == _cardId ? "장착 중" : "다른 선수 사용 중", 10, 4, 0, 133, 19);
                 count++;
             }
-            if (count == 0) Label(_content, "NoBlocks", "보유 블록이 없습니다.\n상점에서 스킬 블록을 획득하세요.", 14, 630, 207, 410, 90);
+            if (count == 0) Label(_content, "NoBlocks", CountAvailableBlocks() == 0
+                ? "보유 블록이 없습니다.\n상점에서 스킬 블록을 획득하세요."
+                : "선택한 희귀도의 블록이 없습니다.\n전체 탭에서 보유 블록을 확인하세요.", 14, 630, 207, 410, 90);
             RenderSkillActions(card);
             _skillInventoryScroll = scroll;
             _displayedSkillRarity = _rarity;
@@ -380,7 +392,7 @@ namespace Baseball.Presentation.Owner
 
         private void RenderRosterSearch()
         {
-            Image surface = Surface(_content, "RosterSearch", 28, 118, 176, 24, Color.white);
+            Image surface = Surface(_content, "RosterSearch", 28, 118, 176, 24, OwnerDashboardStyle.TableSurface);
             surface.raycastTarget = true;
             var outline = surface.gameObject.AddComponent<Outline>();
             outline.effectColor = Border;
@@ -392,6 +404,7 @@ namespace Baseball.Presentation.Owner
             input.textComponent = value;
             input.placeholder = placeholder;
             input.targetGraphic = surface;
+            OwnerDashboardStyle.SetDataInput(input);
             input.text = _rosterQuery;
             input.lineType = InputField.LineType.SingleLine;
             input.onEndEdit.AddListener(value =>
@@ -519,7 +532,7 @@ namespace Baseball.Presentation.Owner
             for (int x = 0; x < _snapshot.Board.Width; x++)
             {
                 int column = x, row = y, equippedInstance = 0;
-                Color color = new Color32(225, 233, 238, 255);
+                Color color = OwnerDashboardStyle.TableAlternate;
                 if (card != null)
                     foreach (PlacedSkillBlock placement in card.Placements)
                         foreach (BoardCell occupied in service.GetOccupiedCells(placement))
@@ -535,7 +548,7 @@ namespace Baseball.Presentation.Owner
                         selectedLocalCells,
                         column,
                         row,
-                        (candidateX, candidateY) => AreCellsUnlocked(card, selectedLocalCells, candidateX, candidateY) && service.GetPlacementPreview(
+                        (candidateX, candidateY) => service.GetPlacementPreview(
                             boardState,
                             _instanceId,
                             candidateX,
@@ -564,12 +577,7 @@ namespace Baseball.Presentation.Owner
                     Tab(_content, "BoardCell_" + x + "_" + y, "", () => { }, false,
                         384 + x * cellSize, 278 + y * cellSize, cellSize - 2, cellSize - 2);
                 _boardButtons[cellIndex] = button;
-                if (card != null && !card.IsCellUnlocked(x, y))
-                {
-                    color = new Color32(72, 80, 91, 255);
-                    button.GetComponentInChildren<Text>().text = "잠금";
-                }
-                else button.GetComponentInChildren<Text>().text = "";
+                button.GetComponentInChildren<Text>().text = "";
                 button.onClick.RemoveAllListeners();
                 EventTrigger trigger = button.GetComponent<EventTrigger>();
                 if (trigger != null) trigger.triggers.Clear();
@@ -592,11 +600,13 @@ namespace Baseball.Presentation.Owner
                 button.colors = CreateBoardColors(button.colors);
                 button.interactable = occupiedId > 0 || canPlace && _snapshot.SkillPermission.IsAllowed;
                 Image cellImage = button.GetComponent<Image>();
-                cellImage.color = color;
+                OwnerDashboardStyle.SetDataSurface(cellImage, color, true);
                 _boardCellImages[cellIndex] = cellImage;
                 _boardCellColors[cellIndex] = color;
+                OwnerDashboardStyle.ConfigureDataControl(button);
                 if (canPlace)
                 {
+                    button.GetComponentInChildren<Text>().text = "＋";
                     BoardCell[] previewCells = placementPreview.Cells;
                     AddPointerListener(button.gameObject, EventTriggerType.PointerEnter,
                         () => ShowBoardPlacementPreview(previewCells));
@@ -705,12 +715,6 @@ namespace Baseball.Presentation.Owner
                 _boardCellImages[cellIndex].color = new Color32(82, 190, 121, 255);
             }
         }
-        private static bool AreCellsUnlocked(OwnerGrowthCardSnapshot card, BoardCell[] cells, int x, int y)
-        {
-            foreach (var cell in cells) if (!card.IsCellUnlocked(x + cell.X, y + cell.Y)) return false;
-            return true;
-        }
-
         private void ClearBoardPlacementPreview()
         {
             for (int index = 0; index < _boardCellImages.Length; index++)

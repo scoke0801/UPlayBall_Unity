@@ -13,10 +13,12 @@ namespace Baseball.Game.Historical
         {
             OwnerScheduleGateService.Evaluate(runtime, action).RequireAllowed();
             if (!runtime.TryGetOwnedCard(cardId, out var owned)) throw new InvalidOperationException("보유 선수를 선택하세요.");
+            if (action != OwnerGrowthAction.TraitTraining &&
+                (owned.Trait.trainingSeason == runtime.ManagerMode.LiveSeason.SeasonNumber ||
+                 owned.Trait.partnerSeason == runtime.ManagerMode.LiveSeason.SeasonNumber))
+                throw new InvalidOperationException("이번 오프시즌 특성훈련에 참여한 선수입니다.");
             foreach (var study in runtime.PlayerGrowth.StudyProjects)
                 if (study.CardId == cardId) throw new InvalidOperationException("유학 중인 선수는 귀환 후 참여할 수 있습니다.");
-            foreach (var camp in runtime.PlayerGrowth.Camps)
-                if (camp.CardId == cardId) throw new InvalidOperationException("전지훈련 중인 선수는 귀환 후 참여할 수 있습니다.");
             return owned;
         }
         public static int Count(OwnedPlayerCardState card, OwnerGrowthSource source, int season = -1)

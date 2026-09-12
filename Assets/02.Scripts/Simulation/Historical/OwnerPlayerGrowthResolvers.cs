@@ -138,8 +138,6 @@ namespace Baseball.Simulation.Historical
         {
             if (inventory == null || board == null) throw new ArgumentNullException(nameof(inventory));
             SkillBlockInstance instance = inventory.GetRequired(instanceId);
-            foreach (var cell in _service.GetOccupiedCells(new PlacedSkillBlock(instance, originX, originY, rotationQuarterTurns)))
-                if (!board.IsCellUnlocked(cell.X, cell.Y)) throw new InvalidOperationException("전지훈련으로 성장판 칸을 먼저 개방하세요.");
             SkillBoardState validation = BuildValidationState(inventory, board);
             _service.PlaceBlock(validation, instanceId, originX, originY, rotationQuarterTurns);
             board.Add(new PlacedSkillBlock(instance, originX, originY, rotationQuarterTurns));

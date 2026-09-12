@@ -22,17 +22,7 @@ namespace Baseball.Game.Historical
             CommitGrowthChange(runtime => { action(runtime); return true; });
             InvalidatePregame(); NotifyRuntimeChanged();
         }
-        public void StartCamp(string cardId, string facilityId, bool automaticReturn)
-        {
-            var balance = GetDevelopmentBalance(); OwnerCampDefinition selected = null;
-            foreach (var camp in balance.camps) if (camp.id == facilityId) selected = camp;
-            if (selected == null) throw new InvalidOperationException("훈련장을 선택하세요.");
-            CommitDevelopment(runtime => OwnerCampService.Start(runtime, cardId, selected, balance.slotExperienceRequired, automaticReturn));
-        }
-        public void ReturnFromCamp(string cardId) => CommitDevelopment(runtime => OwnerCampService.Return(runtime, cardId));
         public void CancelStudy(string cardId) => CommitDevelopment(runtime => OwnerStudyCancellationService.Cancel(runtime, cardId));
-        public void UnlockSkillCell(string cardId, int x, int y) => CommitDevelopment(runtime =>
-            OwnerCampService.Unlock(runtime, cardId, x, y, GetDevelopmentBalance().slotExperienceRequired));
         public void CorrectCard(string cardId, PlayerAbility decrease, PlayerAbility increase, int amount, int expectedLedgerCount) =>
             CommitDevelopment(runtime => OwnerPermanentGrowthService.Correct(runtime, cardId, decrease, increase, amount,
                 GetDevelopmentBalance().correctionCost, expectedLedgerCount));

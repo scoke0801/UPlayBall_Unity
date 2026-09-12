@@ -36,7 +36,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
         }
 
         [Test]
-        public void Study_천장목록도선택선수만조회하고선수선택은열여섯장씩표시한다()
+        public void Study_천장검색도선택선수만조회하고취소와확정을구분한다()
         {
             int studyQueries = 0, detailQueries = 0;
             OwnerGrowthSnapshot source = CreateSnapshot();
@@ -61,30 +61,64 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             Assert.That(studyQueries, Is.EqualTo(1));
             Assert.That(detailQueries, Is.EqualTo(1));
             Click("ChooseStudyPlayer");
-            Assert.That(Find<ScrollRect>("PlayerInventory").content.childCount, Is.EqualTo(16));
-            Button firstCard = Find<Button>("Card_large0");
-            Text firstName = firstCard.transform.Find("Name").GetComponent<Text>();
-            Assert.That(firstName.text, Is.EqualTo("선수0"));
-            Assert.That(firstName.gameObject.activeInHierarchy, Is.True);
-            Assert.That(firstName.color.a, Is.GreaterThan(0.9f));
-            Assert.That(firstName.rectTransform.anchorMin.y, Is.GreaterThanOrEqualTo(.89f),
-                "유학 선수 선택에서는 이름이 카드 상단에 표시되어야 합니다.");
-            Canvas.ForceUpdateCanvases();
-            ScrollRect picker = Find<ScrollRect>("PlayerInventory");
-            LayoutRebuilder.ForceRebuildLayoutImmediate(picker.content);
-            Assert.That(picker.content.rect.height, Is.LessThanOrEqualTo(picker.viewport.rect.height),
-                "한 페이지의 두 행은 별도 스크롤 없이 선수 이름까지 보여야 합니다.");
-            Click("NextRosterPage");
-            Assert.That(Find<Text>("RosterPage").text, Does.StartWith("2/"));
-            Assert.That(FindOrNull<Button>("Card_large0"), Is.Null);
-            Click("Card_large16");
+            int count = 0;
+            foreach (Button button in _root.GetComponentsInChildren<Button>())
+                if (button.name.StartsWith("StudyCandidate_")) count++;
+            Assert.That(count, Is.EqualTo(14));
+            Assert.That(Find<Button>("ChooseStudyPlayer").IsInteractable(), Is.False);
+            InputField search = Find<InputField>("StudySearch");
+            search.text = "선수999";
+            Assert.That(Find<InputField>("StudySearch"), Is.SameAs(search));
+            Assert.That(Find<Text>("StudyResultCount").text, Does.Contain("1명"));
+            Assert.That(studyQueries, Is.EqualTo(1));
+            Click("StudyCandidate_large999");
             Assert.That(studyQueries, Is.EqualTo(2));
             Assert.That(detailQueries, Is.EqualTo(2));
+            Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("선수0"));
+            Assert.That(_view.TryHandleCancel(), Is.True);
+            Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("선수0"));
+            Click("ChooseStudyPlayer");
+            Click("StudyCandidate_large999");
             Click("CloseStudyPlayerPicker");
-            Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("선수16"));
+            Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("선수999"));
             _view.ShowRoute(OwnerNavigationRoutes.PowerUpStudy);
             Assert.That(studyQueries, Is.EqualTo(2));
             Assert.That(detailQueries, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Study_필터조합과빈결과에서도선택을보존하고초기화한다()
+        {
+            OwnerGrowthSnapshot source = CreateSnapshot();
+            var cards = new List<OwnerGrowthCardSnapshot>();
+            for (int index = 0; index < 3; index++)
+            {
+                var card = new OwnerCollectionCardSnapshot("filter" + index, "person" + index, "선수" + index,
+                    2022 + index, index == 0 ? PlayerPosition.Catcher : PlayerPosition.Shortstop,
+                    4 + index, PlayerCardEdition.Normal, 0, 0, false, false,
+                    isActiveRoster: index == 0, teamDisplayName: index == 0 ? "구단 가" : "구단 나");
+                cards.Add(new OwnerGrowthCardSnapshot(card, Array.Empty<PlacedSkillBlock>(), source.Cards[0].Studies));
+            }
+            _view.Bind(new OwnerGrowthSnapshot(cards, source.Inventory, source.Definitions, source.Board, 250, 0, 2),
+                OwnerNavigationRoutes.PowerUpStudy);
+            Click("ChooseStudyPlayer");
+            Assert.That(Find<Text>("StudyPreviewName").text, Is.EqualTo("선수0"));
+            Find<Dropdown>("StudyRegistration").value = 1;
+            Assert.That(Find<Text>("StudyResultCount").text, Does.Contain("2명"));
+            Assert.That(Find<Text>("StudySelectionHint").text, Does.Contain("목록 밖"));
+            Find<Dropdown>("YearFilter").value = 1;
+            Assert.That(Find<Text>("StudyResultCount").text, Does.Contain("1명"));
+            Find<InputField>("StudySearch").text = "없는선수";
+            Assert.That(Find<Text>("StudyEmpty").text, Does.Contain("조건에 맞는"));
+            Assert.That(Find<Text>("StudyPreviewName").text, Is.EqualTo("선수0"));
+            Click("StudyEmptyReset");
+            Assert.That(Find<Text>("StudyResultCount").text, Does.Contain("3명"));
+            Assert.That(Find<InputField>("StudySearch").text, Is.Empty);
+            Find<Dropdown>("StudyPosition").value = 1;
+            Assert.That(Find<Text>("StudyResultCount").text, Does.Contain("1명"));
+            Assert.That(FindOrNull<Button>("StudyCandidate_filter0"), Is.Not.Null);
+            Click("CancelStudyPicker");
+            Assert.That(Find<Button>("ChooseStudyPlayer").IsInteractable(), Is.True);
         }
 
         [Test]
@@ -142,7 +176,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     Assert.That(local.y, Is.InRange(map.rect.yMin, map.rect.yMax));
                 }
                 Click("ChooseStudyPlayer");
-                Click("Card_card1");
+                Click("StudyCandidate_card1");
                 Click("CloseStudyPlayerPicker");
                 Assert.That(Find<Text>("StudyPlayer").text, Does.StartWith("이도윤"));
                 Assert.That(Find<Button>("StartStudy").gameObject.activeInHierarchy, Is.True);
@@ -460,7 +494,8 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 foreach (string route in new[] { OwnerNavigationRoutes.PowerUpSkills, OwnerNavigationRoutes.PowerUpStudy, "StudySelected", "StudyPlayerPicker", "StudyPitcher" })
                 {
                     if (route == "StudyPitcher") _view.Bind(CreatePitcherStudySnapshot(), OwnerNavigationRoutes.PowerUpStudy);
-                    _view.ShowRoute(route.StartsWith("Study") ? OwnerNavigationRoutes.PowerUpStudy : route);
+                    if (route != "StudyPlayerPicker")
+                        _view.ShowRoute(route.StartsWith("Study") ? OwnerNavigationRoutes.PowerUpStudy : route);
                     if (route == OwnerNavigationRoutes.PowerUpSkills) { Click("Block_1"); Click("Rotate"); }
                     if (route == "StudyPitcher") Click("PitcherTab");
                     if (route == "StudySelected") Click("StudyPin_study_defense");
@@ -482,6 +517,7 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                     File.WriteAllBytes(Path.Combine(directory, route.Substring(route.LastIndexOf('.') + 1) + "-" + width + ".png"), texture.EncodeToPNG());
                     UnityEngine.Object.DestroyImmediate(texture);
                     texture = null;
+                    if (route == "StudyPlayerPicker") Click("CancelStudyPicker");
                 }
             }
             finally

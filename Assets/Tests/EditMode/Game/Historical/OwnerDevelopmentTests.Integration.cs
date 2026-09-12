@@ -13,17 +13,52 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed partial class OwnerDevelopmentTests
     {
         [Test]
-        public void 작은블록세트도_기존개별전체보너스상한을넘지않는다()
+        public void 미선택슬로건이_JSON기본값객체가되어도_저장을복원한다()
+        {
+            var runtime = Runtime(out var adapter, false);
+            var save = adapter.CreateSaveData(runtime);
+            save.playerGrowth.slogan = new OwnerSloganDefinition {
+                id = "", name = "", minimumAbilityByLevel = Array.Empty<int>(),
+                cardsRequired = Array.Empty<int>(), bonusByLevel = Array.Empty<int>(), penaltyByLevel = Array.Empty<int>() };
+
+            var restored = adapter.Restore(save);
+
+            Assert.That(restored.PlayerGrowth.Slogan, Is.Null);
+            Assert.That(restored.OwnedCards.Count, Is.EqualTo(runtime.OwnedCards.Count));
+            Assert.That(restored.Economy.Money, Is.EqualTo(runtime.Economy.Money));
+        }
+
+        [Test]
+        public void 선택된슬로건은_빈선택적배열을복원하고_손상된정의는거부한다()
+        {
+            var runtime = Runtime(out var adapter);
+            OwnerSloganService.Select(runtime, Balance().slogans[0]);
+            var save = adapter.CreateSaveData(runtime);
+            save.playerGrowth.slogan.minimumAbilityByLevel = Array.Empty<int>();
+
+            var restored = adapter.Restore(save);
+            Assert.That(restored.PlayerGrowth.Slogan.Level, Is.EqualTo(runtime.PlayerGrowth.Slogan.Level));
+            Assert.That(restored.PlayerGrowth.Slogan.Definition.GetMinimumAbility(restored.PlayerGrowth.Slogan.Level), Is.EqualTo(1));
+            Assert.That(restored.OwnedCards.Sum(c => c.Training.Ledger.Count), Is.EqualTo(runtime.OwnedCards.Sum(c => c.Training.Ledger.Count)));
+
+            save.playerGrowth.slogan.cardsRequired = Array.Empty<int>();
+            Assert.Throws<ArgumentException>(() => adapter.Restore(save));
+            save.playerGrowth.slogan = null;
+            Assert.Throws<ArgumentException>(() => adapter.Restore(save));
+        }
+
+        [Test]
+        public void 테트로미노도_기존개별전체보너스상한을넘지않는다()
         {
             var growth=OwnerSkillContent.Compose(GrowthBalanceTable.CreateDefault(),20);
             var inventory=new OwnerSkillBlockInventoryState();
-            var board=new OwnedCardSkillBoardState(OwnedCardSkillBoardState.CompleteUnlockedMask);
+            var board=new OwnedCardSkillBoardState();
             var placement=new OwnerSkillBoardService(growth);
             var categories=new[]{SkillBlockCategory.Contact,SkillBlockCategory.Power,SkillBlockCategory.Baserunning,SkillBlockCategory.Defense};
             for(int y=0;y<4;y++)
             {
-                var definition=growth.SkillBlocks.First(b=>b.Category==categories[y] && b.ShapeCells.Length==1);
-                for(int x=0;x<4;x++) placement.Place(inventory,board,inventory.Add(definition.BlockId).InstanceId,x,y,0);
+                var definition=growth.SkillBlocks.First(b=>b.Category==categories[y] && b.Rarity==SkillBlockRarity.Legendary && b.ShapeCells.All(c=>c.Y==0));
+                placement.Place(inventory,board,inventory.Add(definition.BlockId).InstanceId,0,y,0);
             }
             var service=new SkillBoardService(growth.SkillBoard,growth.SkillBlocks); int total=0;
             for(int i=0;i<12;i++)
@@ -53,16 +88,16 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(runtime.PlayerGrowth.Support.Assignments,Is.Empty);
         }
         [Test]
-        public void 작은블록은_세개인접시에만_세트효과를받는다()
+        public void 테트로미노는_세개인접시에만_세트효과를받는다()
         {
             var growth = OwnerSkillContent.Compose(GrowthBalanceTable.CreateDefault(), 1);
-            Assert.That(growth.SkillBlocks.Select(b => b.ShapeCells.Length).Distinct().OrderBy(x => x), Is.EqualTo(new[]{1,2,3,4}));
-            var definition = growth.SkillBlocks.First(b => b.ShapeCells.Length == 1 && b.Category == SkillBlockCategory.Contact);
+            Assert.That(growth.SkillBlocks.All(b => b.ShapeCells.Length == 4), Is.True);
+            var definition = growth.SkillBlocks.First(b => b.ShapeCells.All(c => c.Y == 0) && b.Category == SkillBlockCategory.Contact);
             var inventory = new OwnerSkillBlockInventoryState(); var board = new OwnedCardSkillBoardState();
             var service = new OwnerSkillBoardService(growth); var geometry = new SkillBoardService(growth.SkillBoard,growth.SkillBlocks);
-            for(int i=0;i<2;i++) service.Place(inventory,board,inventory.Add(definition.BlockId).InstanceId,i,0,0);
+            for(int i=0;i<2;i++) service.Place(inventory,board,inventory.Add(definition.BlockId).InstanceId,0,i,0);
             Assert.That(OwnerSkillSetResolver.GetBonus(board.Placements,geometry,growth.SkillBlocks,PlayerAbility.Contact),Is.Zero);
-            var third=inventory.Add(definition.BlockId); service.Place(inventory,board,third.InstanceId,2,0,0);
+            var third=inventory.Add(definition.BlockId); service.Place(inventory,board,third.InstanceId,0,2,0);
             Assert.That(OwnerSkillSetResolver.GetBonus(board.Placements,geometry,growth.SkillBlocks,PlayerAbility.Contact),Is.EqualTo(1));
             service.Remove(board,third.InstanceId);
             Assert.That(OwnerSkillSetResolver.GetBonus(board.Placements,geometry,growth.SkillBlocks,PlayerAbility.Contact),Is.Zero);

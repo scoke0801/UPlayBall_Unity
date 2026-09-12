@@ -14,14 +14,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     public sealed class OwnerOffseasonPresentationTests
     {
         [Test]
-        public void 캠프와유학대기열은_세명을넘어도_모두조회할수있다()
+        public void 유학대기열은_세명을넘어도_모두조회할수있다()
         {
             var root = new GameObject("Workspace",typeof(RectTransform));
             try
             {
                 root.GetComponent<RectTransform>().sizeDelta = new Vector2(1920,840);
                 var view=UI_Popup_OwnerOffseason.CreateRuntime(root.GetComponent<RectTransform>());
-                var rows=Enumerable.Range(1,7).Select(i=>new OwnerOffseasonTrainingRow("선수 "+i,"전지훈련",2)).ToArray();
+            var rows=Enumerable.Range(1,7).Select(i=>new OwnerOffseasonTrainingRow("선수 "+i,"유학",2)).ToArray();
                 view.Show(new OwnerOffseasonPresentationModel(OwnerSeasonPhase.Offseason,0,rows));
                 var next=view.GetComponentsInChildren<Button>().Single(b=>b.name=="NextTraining");
                 next.onClick.Invoke(); next.onClick.Invoke();

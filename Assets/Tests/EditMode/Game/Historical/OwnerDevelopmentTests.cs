@@ -33,8 +33,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
         private static OwnerDevelopmentBalance Balance() => new OwnerDevelopmentBalance
         {
-            correctionCost=100,partnerCost=100,researchCost=100,slotExperienceRequired=100,researchWeights=new[]{50,35,15},
-            camps=new[]{new OwnerCampDefinition{id="local",name="지역",capacity=6,weeklyExperience=40,costPerCardCost=1}},
+            correctionCost=100,partnerCost=100,researchCost=100,researchWeights=new[]{50,35,15},
             slogans=new[]{new OwnerSloganDefinition{id="contact",name="정교한 야구",target=OwnerSupportTarget.Batter,requiredAbility=PlayerAbility.Contact,
                 minimumAbility=1,cardsRequired=new[]{1,2,3,4,5,6},bonusAbility=PlayerAbility.Contact,bonusByLevel=new[]{1,1,2,2,3,4},
                 penaltyAbility=PlayerAbility.Power,penaltyByLevel=new[]{-1,-1,-1,-1,-1,0}}},
@@ -43,35 +42,46 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 new OwnerStudyTierDefinition{weeks=3,cost=750000,growth=12,greatProbability=.1,greatBonus=3}}
         };
         [Test]
-        public void 초기여섯칸은_잠금배치를거부하고_인접칸만개방한다()
+        public void 새성장판은_16칸에배치하고_경계와겹침을거부한다()
         {
-            var board=new OwnedCardSkillBoardState(); int unlocked=0;
-            for(int y=0;y<4;y++) for(int x=0;x<4;x++) if(board.IsCellUnlocked(x,y)) unlocked++;
-            Assert.That(unlocked,Is.EqualTo(6));
-            board.AddSlotExperience(100);
-            Assert.Throws<InvalidOperationException>(()=>board.UnlockCell(3,3,100));
-            Assert.That(board.SlotExperience,Is.EqualTo(100));
-            board.UnlockCell(3,0,100); Assert.That(board.IsCellUnlocked(3,0),Is.True); Assert.That(board.SlotExperience,Is.Zero);
-            var growth=GrowthBalanceTable.CreateDefault(); var inventory=new OwnerSkillBlockInventoryState();
-            var block=inventory.Add(growth.SkillBlocks[0].BlockId);
-            Assert.Throws<InvalidOperationException>(()=>new OwnerSkillBoardService(growth).Place(inventory,board,block.InstanceId,3,3,0));
-            Assert.That(board.Placements,Is.Empty);
+            var growth = GrowthBalanceTable.CreateDefault();
+            var inventory = new OwnerSkillBlockInventoryState();
+            var board = new OwnedCardSkillBoardState();
+            var service = new OwnerSkillBoardService(growth);
+            string definitionId = growth.SkillBlocks.First(block => block.ShapeCells.All(cell => cell.Y == 0)).BlockId;
+            for (int y = 0; y < 4; y++)
+                service.Place(inventory, board, inventory.Add(definitionId).InstanceId, 0, y, 0);
+            Assert.That(board.Placements.Count, Is.EqualTo(4));
+            int extra = inventory.Add(definitionId).InstanceId;
+            Assert.Throws<InvalidOperationException>(() => service.Place(inventory, board, extra, 0, 3, 0));
+            Assert.Throws<InvalidOperationException>(() => service.Place(inventory, board, extra, 1, 0, 0));
+            Assert.Throws<InvalidOperationException>(() => service.Place(inventory, board, extra, -1, 0, 0));
+            Assert.That(board.Placements.Count, Is.EqualTo(4));
         }
+
         [Test]
-        public void 캠프는_경험치를보존하며_세주뒤자동귀환한다()
+        public void 마지막칸배치는_저장복원후에도유지되고_재배치할수있다()
         {
-            var runtime=Runtime(out var adapter); string id=Reserve(runtime); var balance=Balance();
-            OwnerCampService.Start(runtime,id,balance.camps[0],100);
-            var coordinator=new ManagerModeCoordinator(BalanceTable.CreateDefault());
-            coordinator.AdvanceOffseasonWeek(runtime,0); coordinator.AdvanceOffseasonWeek(runtime,1);
-            runtime=adapter.Restore(adapter.CreateSaveData(runtime));
-            // 복원으로 월드가 다시 구성돼도 테스트의 완료된 오프시즌 상태는 동일하게 유지한다.
-            typeof(ManagerHistoricalRuntimeState).GetProperty("LeagueWorld").SetValue(runtime,null);
-            coordinator.AdvanceOffseasonWeek(runtime,2);
-            Assert.That(runtime.PlayerGrowth.Camps,Is.Empty); runtime.TryGetOwnedCard(id,out var card);
-            Assert.That(card.SkillBoard.SlotExperience,Is.EqualTo(120));
-            OwnerCampService.Unlock(runtime,id,3,0,100); Assert.That(card.SkillBoard.SlotExperience,Is.EqualTo(20));
+            var runtime = Runtime(out var adapter);
+            string id = Reserve(runtime);
+            runtime.TryGetOwnedCard(id, out var owned);
+            var growth = GrowthBalanceTable.CreateDefault();
+            var service = new OwnerSkillBoardService(growth);
+            string definitionId = growth.SkillBlocks.First(block => block.ShapeCells.All(cell => cell.Y == 0)).BlockId;
+            int instanceId = runtime.PlayerGrowth.Inventory.Add(definitionId).InstanceId;
+            service.Place(runtime.PlayerGrowth.Inventory, owned.SkillBoard, instanceId, 0, 3, 0);
+
+            var save = adapter.CreateSaveData(runtime);
+            Assert.That(save.saveVersion, Is.EqualTo(ManagerHistoricalSaveAdapter.CurrentSaveVersion));
+            runtime = adapter.Restore(save);
+            runtime.TryGetOwnedCard(id, out owned);
+            Assert.That(owned.SkillBoard.Placements.Single().OriginX, Is.Zero);
+            Assert.That(owned.SkillBoard.Placements.Single().OriginY, Is.EqualTo(3));
+            Assert.That(service.Remove(owned.SkillBoard, instanceId), Is.True);
+            service.Place(runtime.PlayerGrowth.Inventory, owned.SkillBoard, instanceId, 0, 2, 0);
+            Assert.That(owned.SkillBoard.Placements.Single().OriginY, Is.EqualTo(2));
         }
+
         [Test]
         public void 교정은_총합유지와_세번제한_저장후중복요청을검증한다()
         {

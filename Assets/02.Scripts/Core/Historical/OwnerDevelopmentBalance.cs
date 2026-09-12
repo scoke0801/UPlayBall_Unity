@@ -2,7 +2,7 @@ using System;
 
 namespace Baseball.Core.Historical
 {
-    /// <summary>오프시즌 성장 관리의 PT 비용과 시설 경험치를 저작한다.</summary>
+    /// <summary>오프시즌 성장 관리의 PT 비용과 성장 조건를 저작한다.</summary>
     [Serializable]
     public sealed class OwnerDevelopmentBalance
     {
@@ -10,25 +10,19 @@ namespace Baseball.Core.Historical
         public long partnerCost;
         public long researchCost;
         public int[] researchWeights;
-        public int slotExperienceRequired;
         public int skillSetBonus = 1;
         public OwnerPartnerBalance partner = new OwnerPartnerBalance();
-        public OwnerCampDefinition[] camps;
         public OwnerSloganDefinition[] slogans;
         public OwnerStudyTierDefinition[] studyTiers;
         public void Validate()
         {
             if (partner == null) throw new ArgumentException("파트너 성장 계수가 없습니다.");
             partner.Validate();
-            if (correctionCost <= 0 || partnerCost <= 0 || researchCost <= 0 || slotExperienceRequired <= 0 || camps == null || camps.Length == 0)
+            if (correctionCost <= 0 || partnerCost <= 0 || researchCost <= 0)
                 throw new ArgumentException("성장 관리 밸런스가 올바르지 않습니다.");
             if (researchWeights == null || researchWeights.Length != 3 || researchWeights[0] < 0 || researchWeights[1] < 0
                 || researchWeights[2] < 0 || researchWeights[0] + researchWeights[1] + researchWeights[2] != 100)
                 throw new ArgumentException("연구 등급 확률 합계는 100이어야 합니다.");
-            foreach (var camp in camps)
-                if (camp == null || string.IsNullOrWhiteSpace(camp.id) || string.IsNullOrWhiteSpace(camp.name)
-                    || camp.capacity < 1 || camp.weeklyExperience < 1 || camp.costPerCardCost < 1)
-                    throw new ArgumentException("전지훈련 시설 정의가 올바르지 않습니다.");
             if (slogans == null || slogans.Length == 0) throw new ArgumentException("슬로건 목록이 없습니다.");
             foreach (var slogan in slogans) slogan.Validate();
             if (studyTiers == null || studyTiers.Length != 3) throw new ArgumentException("해외 훈련 세 등급이 필요합니다.");
@@ -74,18 +68,6 @@ namespace Baseball.Core.Historical
             if (ageScale <= 0 || complementScale <= 0 || Math.Abs(ageWeight + positionWeight + teamWeight + complementWeight + personalityWeight - 1) > .000001)
                 throw new ArgumentException("파트너 궁합 가중치 합계는 1이어야 합니다.");
         }
-    }
-    [Serializable]
-    public sealed class OwnerCampDefinition
-    {
-        public string id;
-        public string name;
-        public int capacity;
-        public int weeklyExperience;
-        public long costPerCardCost;
-        public LeagueGrade requiredLeague;
-        public int requiredChampionships;
-        public LeagueGrade requiredChampionshipLeague;
     }
     [Serializable]
     public sealed class OwnerStudyTierDefinition
