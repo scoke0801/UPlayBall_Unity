@@ -21,7 +21,8 @@ namespace Baseball.Simulation.Match
             int outs = 0,
             DecisionReasonCode reasonCode = DecisionReasonCode.None,
             PitchPlayData pitchPlayData = default,
-            BallInPlayEventData ballInPlayData = default)
+            BallInPlayEventData ballInPlayData = default,
+            Baseball.Core.Historical.CardTraitKind cardTrait = Baseball.Core.Historical.CardTraitKind.None)
         {
             if (!state.RecordsEvents)
             {
@@ -48,7 +49,7 @@ namespace Baseball.Simulation.Match
                 state.Home.BoxScore.Runs,
                 reasonCode,
                 pitchPlayData,
-                ballInPlayData));
+                ballInPlayData, cardTrait));
         }
     }
 }

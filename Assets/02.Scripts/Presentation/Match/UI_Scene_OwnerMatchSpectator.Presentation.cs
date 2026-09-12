@@ -502,6 +502,8 @@ namespace Baseball.Presentation.Match
 
         private static string FormatEventResult(MatchEvent matchEvent)
         {
+            if (matchEvent.EventType == MatchEventType.CardTraitActivated)
+                return Baseball.Presentation.Owner.OwnerCardGrowthBadgeBuilder.TraitName(matchEvent.CardTrait) + " · 특성 발동";
             if (matchEvent.EventType == MatchEventType.Contact) return "타구가 뻗어갑니다";
             if (matchEvent.EventType == MatchEventType.RunnerAdvance)
                 return matchEvent.ToBase == 4 ? "주자가 홈에 들어옵니다" : matchEvent.ToBase + "루 진루";

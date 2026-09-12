@@ -51,7 +51,8 @@ namespace Baseball.Simulation.Match
         PitcherFatigueBandChanged = 31,
         HighLeverageSituationStarted = 32,
         GameTiedAtRegulationLimit = 33,
-        MatchEndedAsDraw = 34
+        MatchEndedAsDraw = 34,
+        CardTraitActivated = 35
     }
 
     /// <summary>시뮬레이션이 확정한 타구와 수비 결과를 Presentation에 그대로 전달한다.</summary>
@@ -121,7 +122,8 @@ namespace Baseball.Simulation.Match
             int homeScore,
             DecisionReasonCode reasonCode = DecisionReasonCode.None,
             PitchPlayData pitchPlayData = default,
-            BallInPlayEventData ballInPlayData = default)
+            BallInPlayEventData ballInPlayData = default,
+            Baseball.Core.Historical.CardTraitKind cardTrait = Baseball.Core.Historical.CardTraitKind.None)
         {
             Sequence = sequence;
             EventType = eventType;
@@ -142,6 +144,7 @@ namespace Baseball.Simulation.Match
             ReasonCode = reasonCode;
             PitchPlayData = pitchPlayData;
             BallInPlayData = ballInPlayData;
+            CardTrait = cardTrait;
         }
 
         public int Sequence { get; }
@@ -163,6 +166,7 @@ namespace Baseball.Simulation.Match
         public DecisionReasonCode ReasonCode { get; }
         public PitchPlayData PitchPlayData { get; }
         public BallInPlayEventData BallInPlayData { get; }
+        public Baseball.Core.Historical.CardTraitKind CardTrait { get; }
 
         /// <summary>
         /// 결정론 테스트를 위해 모든 이벤트 필드가 같은지 비교한다.
@@ -187,7 +191,7 @@ namespace Baseball.Simulation.Match
                    HomeScore == other.HomeScore &&
                    ReasonCode == other.ReasonCode &&
                    PitchPlayData.Equals(other.PitchPlayData) &&
-                   BallInPlayData.Equals(other.BallInPlayData);
+                   BallInPlayData.Equals(other.BallInPlayData) && CardTrait == other.CardTrait;
         }
 
         /// <summary>
@@ -224,6 +228,7 @@ namespace Baseball.Simulation.Match
                 hash = hash * 397 ^ (int)ReasonCode;
                 hash = hash * 397 ^ PitchPlayData.GetHashCode();
                 hash = hash * 397 ^ BallInPlayData.GetHashCode();
+                if (CardTrait != Baseball.Core.Historical.CardTraitKind.None) hash = hash * 397 ^ (int)CardTrait;
                 return hash;
             }
         }

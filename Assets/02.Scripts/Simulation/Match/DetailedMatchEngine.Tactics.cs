@@ -176,6 +176,8 @@ namespace Baseball.Simulation.Match
                 return false;
 
             DetailedBaseRunner runner = bases.First;
+            if (runner.Player.CardTrait.Kind == Baseball.Core.Historical.CardTraitKind.Running)
+                Emit(state,MatchEventType.CardTraitActivated,inning,half,playerId:runner.Player.PlayerId,cardTrait:runner.Player.CardTrait.Kind);
             double successChance = _tacticalAi.CalculateStealSuccess(
                 runner.Player,
                 catcher,

@@ -456,6 +456,7 @@ namespace Baseball.Simulation.Match
             MatchPlateAppearanceModifiers historicalModifiers)
         {
             int plateAppearanceIndex = state.NextPlateAppearanceIndex++;
+            bool hasRecordedBatterTrait = false, hasRecordedPitcherTrait = false;
             int timesFaced = defense.ActivePitcherState.BeginPlateAppearance(batter.Player.PlayerId);
             double contactBonus;
             double hardHitBonus;
@@ -588,6 +589,28 @@ namespace Baseball.Simulation.Match
                     selectedApproach,
                     balls,
                     strikes);
+                if (state.RecordsEvents)
+                {
+                    var batterTrait = batter.Player.CardTrait; var pitcherTrait = defense.ActivePitcher.CardTrait;
+                    bool scoring = bases.Second.IsOccupied || bases.Third.IsOccupied;
+                    bool empty = !bases.First.IsOccupied && !scoring;
+                    if (!hasRecordedBatterTrait && (CardTraitEffectResolver.Contact(batterTrait,scoring,empty) > 0
+                        || batterTrait.Get(Baseball.Core.Historical.CardTraitKind.Power) > 0
+                        || batterTrait.Get(Baseball.Core.Historical.CardTraitKind.Bunt) > 0 && pitchApproach == BattingApproach.Bunt))
+                    {
+                        Emit(state,MatchEventType.CardTraitActivated,inning,half,batter.Player.PlayerId,defense.ActivePitcher.PlayerId,
+                            batter.Player.PlayerId,cardTrait:batterTrait.Kind); hasRecordedBatterTrait = true;
+                    }
+                    if (!hasRecordedPitcherTrait && (CardTraitEffectResolver.Control(pitcherTrait,inning,scoring,
+                        defense.BoxScore.Runs > offense.BoxScore.Runs,defense.ActivePitcherState.Role) > 0
+                        || CardTraitEffectResolver.Stuff(pitcherTrait,strikes) > 0
+                        || pitcherTrait.Get(Baseball.Core.Historical.CardTraitKind.Groundball) > 0
+                        || pitcherTrait.Get(Baseball.Core.Historical.CardTraitKind.Endurance) > 0))
+                    {
+                        Emit(state,MatchEventType.CardTraitActivated,inning,half,batter.Player.PlayerId,defense.ActivePitcher.PlayerId,
+                            defense.ActivePitcher.PlayerId,cardTrait:pitcherTrait.Kind); hasRecordedPitcherTrait = true;
+                    }
+                }
                 PitcherFatigueBand bandBefore = _fatigueResolver.GetBand(defense.ActivePitcherState.FatigueRatio);
                 PitchPlayData pitchPlayData = default;
                 ContactProfile contactProfile = default;
@@ -719,6 +742,9 @@ namespace Baseball.Simulation.Match
                     return new DetailedPlateAppearanceOutcome(PlateAppearanceResult.HomeRun, ball, default);
 
                 Player fielder = defense.GetFielderForZone(ball.FieldZone, out PlayerPosition position);
+                if (fielder.CardTrait.Kind == Baseball.Core.Historical.CardTraitKind.Defense)
+                    Emit(state,MatchEventType.CardTraitActivated,inning,half,batter.Player.PlayerId,defense.ActivePitcher.PlayerId,
+                        fielder.PlayerId,cardTrait:fielder.CardTrait.Kind);
                 Emit(state, MatchEventType.FieldingPlayStarted, inning, half,
                     batter.Player.PlayerId, defense.ActivePitcher.PlayerId, fielder.PlayerId,
                     outs: outs,
