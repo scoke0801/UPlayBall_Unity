@@ -244,7 +244,7 @@ namespace Baseball.Game.Data
         [SerializeField] private string _ownerPlayerTeamSeasonKey = string.Empty;
         [SerializeField] private string _ownerLeagueInstanceId = "OWNER-ROOKIE-01";
         [SerializeField, Min(0)] private long _ownerInitialMoney = 1_000_000_000L;
-        [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 10_000;
+        [SerializeField, Min(0)] private int _ownerInitialScoutingPoints = 3_000;
         [SerializeField, Min(0)] private int _ownerInitialDevelopmentPoints = 3_000;
         [SerializeField, Min(10)] private int _ownerMaximumMainCost = 60;
         [SerializeField, Range(0, 30)] private int _ownerMaximumFillerRerolls = 30;
@@ -602,6 +602,16 @@ namespace Baseball.Game.Data
             OwnerExpansionBalanceTables ownerExpansion =
                 OwnerExpansionBalanceConfig.Parse(_ownerExpansionBalanceConfig.text);
             BalanceTable common = ToConfiguration().Balance;
+            return ComposeOwnerModeBalanceTable(common, ownerExpansion);
+        }
+
+        /// <summary>공통 Balance를 보존하고 구단주 확장 Config가 소유한 표만 교체한다.</summary>
+        internal static BalanceTable ComposeOwnerModeBalanceTable(
+            BalanceTable common,
+            OwnerExpansionBalanceTables ownerExpansion)
+        {
+            if (common == null)
+                throw new ArgumentNullException(nameof(common));
             return new BalanceTable(
                 checked(common.Version + OwnerExpansionBalanceConfig.CurrentSchemaVersion),
                 common.PlateDiscipline,
@@ -633,8 +643,13 @@ namespace Baseball.Game.Data
                 $"{common.ContentHash}:{ownerExpansion.ContentHash}",
                 common.PitchArsenal,
                 common.MatchRatingCurve,
-                ownerExpansion.LeaguePromotion,
-                aggregateMatch: ownerExpansion.AggregateMatch);
+                leaguePromotion: ownerExpansion.LeaguePromotion,
+                ownerCardGrowth: common.OwnerCardGrowth,
+                teamColor: common.TeamColor,
+                ownerPlayerMarket: common.OwnerPlayerMarket,
+                aggregateMatch: ownerExpansion.AggregateMatch,
+                historicalPitcherUsage: common.HistoricalPitcherUsage,
+                scoutEconomy: ownerExpansion.ScoutEconomy);
         }
 
         /// <summary>

@@ -99,7 +99,8 @@ namespace Baseball.Game.Shop
                         : ScoutPoolDefinition.CreateNormalOnlyEditionWeights(),
                     GeneralScoutPriceSp * 12 / 5,
                     franchiseFilter: franchiseFilter,
-                    yearFilter: yearFilter));
+                    yearFilter: yearFilter,
+                    rosterScope: ScoutRosterScope.ActiveRoster));
             }
 
             if (featurePolicy.IsAwardScoutEnabled)
@@ -120,6 +121,9 @@ namespace Baseball.Game.Shop
         /// <summary>
         /// 월드에 실제 존재하는 모든 구단·연도를 대상으로 구단 집중, 연도 집중, 정밀 Scout 풀을 만든다.
         /// 후보가 없는 구단·연도 조합은 만들지 않아 빈 상품이 진열되지 않게 한다.
+        /// 정밀 Scout는 그 해 1군 25인만 후보로 둔다. 전체 명단(약 55명)으로 두면 확률 가중치가 가장 높은
+        /// Cost 2~4 버킷이 비주전 예비 선수로 채워져, 1군을 모으는 뽑기의 40% 이상이 헛돌기 때문이다.
+        /// 예비 선수는 구단 집중·연도 집중·일반 Scout에서 계속 나온다.
         /// </summary>
         public static IReadOnlyList<ScoutPoolDefinition> CreateScoutPools(
             ScoutFeaturePolicy featurePolicy,
@@ -178,7 +182,8 @@ namespace Baseball.Game.Shop
                     GeneralScoutPriceSp * 12 / 5,
                     editionWeights,
                     target.FranchiseId,
-                    target.Year));
+                    target.Year,
+                    ScoutRosterScope.ActiveRoster));
             }
 
             if (featurePolicy.IsAwardScoutEnabled)
@@ -200,7 +205,8 @@ namespace Baseball.Game.Shop
             int priceSp,
             IReadOnlyList<double> editionWeights,
             string franchiseFilter = null,
-            int? yearFilter = null)
+            int? yearFilter = null,
+            ScoutRosterScope rosterScope = ScoutRosterScope.AllPlayers)
         {
             return new ScoutPoolDefinition(
                 poolId,
@@ -209,7 +215,8 @@ namespace Baseball.Game.Shop
                 editionWeights,
                 priceSp,
                 franchiseFilter,
-                yearFilter);
+                yearFilter,
+                rosterScope: rosterScope);
         }
 
         private static List<ScoutMarketTarget> CopyDistinctTargets(

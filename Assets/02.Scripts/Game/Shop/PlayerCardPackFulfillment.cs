@@ -11,6 +11,7 @@ namespace Baseball.Game.Shop
     /// <summary>
     /// 선수 카드 상품을 기존 <see cref="ScoutRoller"/>로 지급한다.
     /// SP 차감·카드 편입·Pity 누적을 한 트랜잭션으로 처리하고, 결과 카드는 즉시 확정된다.
+    /// 재화가 <see cref="ShopCurrency.ScoutPity"/>인 상품은 게이지를 소비하는 보장 영입이다.
     /// </summary>
     public sealed class PlayerCardPackFulfillment : IShopProductFulfillment
     {
@@ -56,17 +57,23 @@ namespace Baseball.Game.Shop
             if (runtime == null)
                 return ShopFulfillmentResult.Failure("구단주 모드 진행 상태가 없습니다.");
 
+            bool isGuaranteed = product.Currency == ShopCurrency.ScoutPity;
             if (!_wallet.TrySpend(product.Currency, product.Price))
-                return ShopFulfillmentResult.Failure("스카우트 포인트가 부족합니다.");
+                return ShopFulfillmentResult.Failure(isGuaranteed
+                    ? "보장 영입 게이지가 부족합니다."
+                    : "스카우트 포인트가 부족합니다.");
 
             IRandomSource random = _randomFactory();
             var items = new ShopGrantedItem[product.DrawCount];
             for (int index = 0; index < product.DrawCount; index++)
             {
-                PlayerCardDefinition card = _roller.Roll(pool, runtime.WorldCardCatalog, _featurePolicy, random);
+                PlayerCardDefinition card = isGuaranteed
+                    ? RollGuaranteed(pool, runtime, random)
+                    : _roller.Roll(pool, runtime.WorldCardCatalog, _featurePolicy, random);
                 PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
                 CardAcquisitionCommitResult acquisition = runtime.AcquireCardWithResult(card.CardId);
-                runtime.Economy.AddPityGauge(_pityBalance.GaugeGainPerScout, _pityBalance.Threshold);
+                if (!isGuaranteed)
+                    runtime.Economy.AddPityGauge(_pityBalance.GetGaugeGain(pool), _pityBalance.Threshold);
                 items[index] = new ShopGrantedItem(
                     card.CardId,
                     DescribeCard(season),
@@ -77,6 +84,30 @@ namespace Baseball.Game.Shop
                     wasWishlisted: acquisition.WasWishlisted);
             }
             return ShopFulfillmentResult.Success(items);
+        }
+
+        private PlayerCardDefinition RollGuaranteed(
+            ScoutPoolDefinition pool,
+            ManagerHistoricalRuntimeState runtime,
+            IRandomSource random)
+        {
+            HashSet<string> ownedSeasonIds = CollectOwnedSeasonIds(runtime);
+            return _roller.RollGuaranteed(
+                pool, runtime.WorldCardCatalog, _featurePolicy, _pityBalance, ownedSeasonIds.Contains, random);
+        }
+
+        /// <summary>어느 Edition이든 한 장이라도 가진 선수 시즌은 보유한 것으로 본다.</summary>
+        public static HashSet<string> CollectOwnedSeasonIds(ManagerHistoricalRuntimeState runtime)
+        {
+            if (runtime == null) throw new ArgumentNullException(nameof(runtime));
+            var seasonIds = new HashSet<string>(StringComparer.Ordinal);
+            IReadOnlyList<OwnedPlayerCardState> owned = runtime.OwnedCards;
+            for (int index = 0; index < owned.Count; index++)
+            {
+                if (runtime.WorldCardCatalog.TryGetCard(owned[index].CardId, out PlayerCardDefinition card))
+                    seasonIds.Add(card.PlayerSeasonId);
+            }
+            return seasonIds;
         }
 
         private bool TryFindPool(string scoutPoolId, out ScoutPoolDefinition pool)

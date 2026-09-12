@@ -11,13 +11,19 @@ namespace Baseball.Core.Historical
         private readonly Dictionary<string, PlayerCardDefinition> _cardsById;
         private readonly Dictionary<string, PlayerSeasonDefinition> _seasonsById;
         private readonly Dictionary<string, PlayerPersonDefinition> _personsById;
+        private readonly HashSet<string> _activeRosterSeasonIds;
 
+        /// <param name="activeRosterPlayerSeasonIds">
+        /// 원 소속 구단 연도의 1군 25인에 든 선수 시즌이다. null이면 1군 여부를 모르는 카탈로그로 보고
+        /// 1군 한정 Scout가 전체 선수를 후보로 쓴다.
+        /// </param>
         public WorldCardCatalog(
             IReadOnlyList<PlayerSeasonDefinition> playerSeasons,
             IReadOnlyList<PlayerCardDefinition> cards,
             IReadOnlyList<PlayerPersonDefinition> playerPersons = null,
             TeamColorLineageMap teamColorLineages = null,
-            IReadOnlyList<SpecialRecruitRecipe> specialRecruitRecipes = null)
+            IReadOnlyList<SpecialRecruitRecipe> specialRecruitRecipes = null,
+            IReadOnlyCollection<string> activeRosterPlayerSeasonIds = null)
         {
             if (playerSeasons == null)
                 throw new ArgumentNullException(nameof(playerSeasons));
@@ -77,6 +83,17 @@ namespace Baseball.Core.Historical
 
             if (normalSeasonIds.Count != _seasonsById.Count)
                 throw new ArgumentException("모든 PlayerSeason에는 Normal 카드가 있어야 합니다.", nameof(cards));
+            if (activeRosterPlayerSeasonIds != null)
+            {
+                _activeRosterSeasonIds = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string seasonId in activeRosterPlayerSeasonIds)
+                {
+                    if (seasonId == null || !_seasonsById.ContainsKey(seasonId))
+                        throw new ArgumentException("1군 명단이 존재하지 않는 PlayerSeason을 참조합니다.",
+                            nameof(activeRosterPlayerSeasonIds));
+                    _activeRosterSeasonIds.Add(seasonId);
+                }
+            }
             if (specialRecruitRecipes != null)
                 SpecialCards = new SpecialCardCatalog(this, teamColorLineages, specialRecruitRecipes);
         }
@@ -84,6 +101,16 @@ namespace Baseball.Core.Historical
         public IReadOnlyList<PlayerCardDefinition> Cards => _cards;
         public TeamColorLineageMap TeamColorLineages { get; }
         public SpecialCardCatalog SpecialCards { get; }
+
+        /// <summary>1군 명단 정보가 없는 카탈로그는 모든 선수 시즌을 1군으로 취급한다.</summary>
+        public bool IsActiveRosterSeason(string playerSeasonId)
+        {
+            if (string.IsNullOrWhiteSpace(playerSeasonId))
+                return false;
+            return _activeRosterSeasonIds == null
+                ? _seasonsById.ContainsKey(playerSeasonId)
+                : _activeRosterSeasonIds.Contains(playerSeasonId);
+        }
 
         public bool TryGetCard(string cardId, out PlayerCardDefinition card)
         {
@@ -183,6 +210,16 @@ namespace Baseball.Core.Historical
         Award
     }
 
+    /// <summary>Scout 후보를 원 소속 구단의 어떤 선수까지 넓힐지 정한다.</summary>
+    public enum ScoutRosterScope
+    {
+        /// <summary>그 해 기록이 있는 모든 선수 시즌이다.</summary>
+        AllPlayers,
+
+        /// <summary>원 소속 구단 연도의 1군 25인(Core25)만이다.</summary>
+        ActiveRoster
+    }
+
     /// <summary>Joint Bucket 스카우트의 필터, 가중치와 SP 가격을 보관한다.</summary>
     public sealed class ScoutPoolDefinition
     {
@@ -197,7 +234,8 @@ namespace Baseball.Core.Historical
             int priceSp,
             string franchiseFilter = null,
             int? yearFilter = null,
-            PlayerCardEdition? editionFilter = null)
+            PlayerCardEdition? editionFilter = null,
+            ScoutRosterScope rosterScope = ScoutRosterScope.AllPlayers)
         {
             if (string.IsNullOrWhiteSpace(scoutPoolId))
                 throw new ArgumentException("ScoutPoolId는 비어 있을 수 없습니다.", nameof(scoutPoolId));
@@ -222,6 +260,7 @@ namespace Baseball.Core.Historical
             FranchiseFilter = string.IsNullOrWhiteSpace(franchiseFilter) ? null : franchiseFilter.Trim();
             YearFilter = yearFilter;
             EditionFilter = editionFilter;
+            RosterScope = rosterScope;
             _costWeights = CopyWeights(costWeights, 11, nameof(costWeights));
             if (editionWeights == null || (editionWeights.Count != 4 && editionWeights.Count != 8))
                 throw new ArgumentException("Edition 가중치는 기존 4종 또는 전체 8종이어야 합니다.", nameof(editionWeights));
@@ -234,6 +273,7 @@ namespace Baseball.Core.Historical
         public string FranchiseFilter { get; }
         public int? YearFilter { get; }
         public PlayerCardEdition? EditionFilter { get; }
+        public ScoutRosterScope RosterScope { get; }
 
         public double GetCostWeight(int cost)
         {
@@ -307,25 +347,81 @@ namespace Baseball.Core.Historical
         public static ScoutFeaturePolicy FullWorldAwards => new ScoutFeaturePolicy(true, true);
     }
 
-    /// <summary>일반 Scout Pity 증가량과 집중 Scout 소비 조건을 정의한다.</summary>
+    /// <summary>
+    /// Scout에 쓴 SP만큼 차는 Pity 게이지와 보장 영입 조건을 정의한다.
+    /// 게이지를 뽑기 횟수가 아니라 SP로 채우는 이유는, 싼 일반 Scout를 반복해 게이지만 채운 뒤
+    /// 정밀 보장 영입으로 원하는 선수를 확정하는 우회로가 정밀 Scout보다 싸지지 않게 하기 위해서다.
+    /// </summary>
     public sealed class ScoutPityBalanceTable
     {
-        public ScoutPityBalanceTable(int gaugeGainPerScout, int threshold, int guaranteedMinimumCost)
+        public ScoutPityBalanceTable(int thresholdScoutingPoints, int guaranteedMinimumCost)
         {
-            if (gaugeGainPerScout <= 0 || threshold <= 0)
-                throw new ArgumentOutOfRangeException(nameof(gaugeGainPerScout));
+            if (thresholdScoutingPoints <= 0)
+                throw new ArgumentOutOfRangeException(nameof(thresholdScoutingPoints));
             if (guaranteedMinimumCost < 1 || guaranteedMinimumCost > 10)
                 throw new ArgumentOutOfRangeException(nameof(guaranteedMinimumCost));
-            GaugeGainPerScout = gaugeGainPerScout;
-            Threshold = threshold;
+            Threshold = thresholdScoutingPoints;
             GuaranteedMinimumCost = guaranteedMinimumCost;
         }
 
-        public int GaugeGainPerScout { get; }
+        /// <summary>보장 영입 1회에 필요한 게이지다. 게이지 1은 Scout에 쓴 SP 1이다.</summary>
         public int Threshold { get; }
         public int GuaranteedMinimumCost { get; }
 
-        public static ScoutPityBalanceTable CreateInitial() => new ScoutPityBalanceTable(10, 100, 7);
+        /// <summary>Scout 1회가 게이지에 더하는 양이다. 지불한 SP와 같다.</summary>
+        public int GetGaugeGain(ScoutPoolDefinition pool)
+        {
+            if (pool == null) throw new ArgumentNullException(nameof(pool));
+            return pool.PriceSp;
+        }
+
+        /// <summary>정밀 Scout 10회(2,400 SP)마다 보장 영입 1회가 열리는 기본값이다.</summary>
+        public static ScoutPityBalanceTable CreateInitial() => new ScoutPityBalanceTable(2400, 7);
+    }
+
+    /// <summary>
+    /// 구단주 모드 SP 수입과 Pity 규칙을 묶는다. SP는 선수 Scout에만 쓰이는 재화라서
+    /// 이 값들이 곧 "원하는 연도 구단의 1군 25인을 모으는 기간"을 정한다.
+    /// </summary>
+    public sealed class ScoutEconomyBalance
+    {
+        public ScoutEconomyBalance(
+            ScoutPityBalanceTable pity,
+            int scoutingPointsPerCompletedGame,
+            int scoutingPointsPerWin)
+        {
+            if (scoutingPointsPerCompletedGame < 0)
+                throw new ArgumentOutOfRangeException(nameof(scoutingPointsPerCompletedGame));
+            if (scoutingPointsPerWin < 0)
+                throw new ArgumentOutOfRangeException(nameof(scoutingPointsPerWin));
+            Pity = pity ?? throw new ArgumentNullException(nameof(pity));
+            ScoutingPointsPerCompletedGame = scoutingPointsPerCompletedGame;
+            ScoutingPointsPerWin = scoutingPointsPerWin;
+        }
+
+        public ScoutPityBalanceTable Pity { get; }
+
+        /// <summary>플레이어 구단이 정규시즌·포스트시즌 경기를 하나 마칠 때마다 받는 SP다.</summary>
+        public int ScoutingPointsPerCompletedGame { get; }
+
+        /// <summary>승리한 경기에 추가로 받는 SP다. 무승부와 패배에는 주지 않는다.</summary>
+        public int ScoutingPointsPerWin { get; }
+
+        public int GetMatchReward(bool isPlayerWin)
+        {
+            return isPlayerWin
+                ? checked(ScoutingPointsPerCompletedGame + ScoutingPointsPerWin)
+                : ScoutingPointsPerCompletedGame;
+        }
+
+        /// <summary>
+        /// 144경기·승률 5할이면 시즌당 약 2,900 SP다. 시작 SP 3,000과 합쳐 정밀 Scout에 모두 쓰면
+        /// 한 연도 구단의 1군 25인이 중앙값 3~4시즌에 모이도록 1982~2025 전 구단으로 맞춘 값이다.
+        /// </summary>
+        public static ScoutEconomyBalance CreateDefault()
+        {
+            return new ScoutEconomyBalance(ScoutPityBalanceTable.CreateInitial(), 15, 10);
+        }
     }
 
     /// <summary>구단주 모드 카드 한 장에만 귀속되는 DP 훈련 누적치다.</summary>

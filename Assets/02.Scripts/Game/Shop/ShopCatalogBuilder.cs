@@ -23,10 +23,11 @@ namespace Baseball.Game.Shop
             IReadOnlyList<ScoutPoolDefinition> scoutPools,
             IReadOnlyList<TacticResearchPoolDefinition> tacticResearchPools,
             Func<string, string> franchiseDisplayNameResolver = null,
-            ConditionChemistryBalanceTable conditionBalance = null)
+            ConditionChemistryBalanceTable conditionBalance = null,
+            ScoutPityBalanceTable scoutPity = null)
         {
             var products = new List<ShopProductDefinition>();
-            AppendPlayerCardProducts(products, scoutPools, franchiseDisplayNameResolver);
+            AppendPlayerCardProducts(products, scoutPools, franchiseDisplayNameResolver, scoutPity);
             AppendSkillBlockProducts(products, skillGacha);
             AppendTacticProducts(products, tacticResearchPools);
             if (conditionBalance != null)
@@ -40,7 +41,8 @@ namespace Baseball.Game.Shop
         private static void AppendPlayerCardProducts(
             List<ShopProductDefinition> products,
             IReadOnlyList<ScoutPoolDefinition> scoutPools,
-            Func<string, string> franchiseDisplayNameResolver)
+            Func<string, string> franchiseDisplayNameResolver,
+            ScoutPityBalanceTable scoutPity)
         {
             if (scoutPools == null)
                 return;
@@ -61,7 +63,7 @@ namespace Baseball.Game.Shop
                     price: pool.PriceSp,
                     badge: pool.ScoutType == ScoutType.General ? ShopProductBadge.None : ShopProductBadge.New,
                     isFeatured: pool.ScoutType == ScoutType.General,
-                    sortOrder: PlayerCardSortBase + index * 2,
+                    sortOrder: PlayerCardSortBase + index * 3,
                     targetFranchiseId: pool.FranchiseFilter,
                     targetFranchiseName: franchiseName,
                     targetYear: pool.YearFilter));
@@ -79,11 +81,35 @@ namespace Baseball.Game.Shop
                     drawCount: 10,
                     badge: ShopProductBadge.Best,
                     isFeatured: pool.ScoutType == ScoutType.General,
-                    sortOrder: PlayerCardSortBase + index * 2 + 1,
+                    sortOrder: PlayerCardSortBase + index * 3 + 1,
+                    targetFranchiseId: pool.FranchiseFilter,
+                    targetFranchiseName: franchiseName,
+                    targetYear: pool.YearFilter));
+
+                if (scoutPity == null || pool.ScoutType != ScoutType.YearFranchise)
+                    continue;
+                // 보장 영입은 목표 구단 연도를 고르는 정밀 Scout에만 둔다. 게이지는 어느 Scout로 채워도 되지만,
+                // 확정 대상은 "이 팀 1군 중 아직 없는 선수"라서 범위가 좁은 풀에서만 의미가 있다.
+                products.Add(new ShopProductDefinition(
+                    productId: GetGuaranteedProductId(pool.ScoutPoolId),
+                    kind: ShopProductKind.PlayerCardPack,
+                    sourceId: pool.ScoutPoolId,
+                    displayName: "보장 영입",
+                    scopeLabel: DescribeScoutScope(pool, franchiseDisplayNameResolver),
+                    gradeLabel: "1군 미보유 선수 확정",
+                    currency: ShopCurrency.ScoutPity,
+                    price: scoutPity.Threshold,
+                    sortOrder: PlayerCardSortBase + index * 3 + 2,
                     targetFranchiseId: pool.FranchiseFilter,
                     targetFranchiseName: franchiseName,
                     targetYear: pool.YearFilter));
             }
+        }
+
+        /// <summary>정밀 Scout 풀에 붙는 Pity 보장 영입 상품 ID다.</summary>
+        public static string GetGuaranteedProductId(string scoutPoolId)
+        {
+            return "shop.player." + scoutPoolId + ".guaranteed";
         }
 
         private static void AppendSkillBlockProducts(

@@ -26,8 +26,11 @@ namespace Baseball.Game.Historical
             string headCoachId,
             ManagerTacticalProfile effectiveManagerProfile,
             string managerDisplayName,
-            string headCoachDisplayName)
+            string headCoachDisplayName,
+            int scoutingPointsEarned = 0)
         {
+            if (scoutingPointsEarned < 0)
+                throw new ArgumentOutOfRangeException(nameof(scoutingPointsEarned));
             Match = match ?? throw new ArgumentNullException(nameof(match));
             PlayerPlan = playerPlan ?? throw new ArgumentNullException(nameof(playerPlan));
             PlayerLineupChemistry = playerLineupChemistry ??
@@ -39,6 +42,7 @@ namespace Baseball.Game.Historical
             EffectiveManagerProfile = effectiveManagerProfile;
             ManagerDisplayName = managerDisplayName ?? string.Empty;
             HeadCoachDisplayName = headCoachDisplayName ?? string.Empty;
+            ScoutingPointsEarned = scoutingPointsEarned;
         }
 
         public MatchResult Match { get; }
@@ -51,6 +55,9 @@ namespace Baseball.Game.Historical
         public ManagerTacticalProfile EffectiveManagerProfile { get; }
         public string ManagerDisplayName { get; }
         public string HeadCoachDisplayName { get; }
+
+        /// <summary>이 경기로 받은 SP다. 경기 완료와 같은 트랜잭션에서 지급된다.</summary>
+        public int ScoutingPointsEarned { get; }
     }
 
     /// <summary>남은 정규시즌을 기존 경기 경로로 완주한 경기 수와 최종 구단 성적을 반환한다.</summary>
@@ -299,6 +306,7 @@ namespace Baseball.Game.Historical
             // 경제 적용이 거부된 경기를 완료 처리하면 Load 후 재시도할 수 없으므로,
             // 영수증 경계를 먼저 통과한 뒤 일정과 선수 상태를 확정한다.
             game.Complete(match.AwayBoxScore.Runs, match.HomeBoxScore.Runs);
+            int scoutingPointsEarned = GrantMatchScoutingPoints(runtime, match, playerIsHome);
             ApplyPostGameState(mode, playerBuild, opponentBuild, match);
             RecordStatistics(mode, game, match);
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
@@ -324,7 +332,8 @@ namespace Baseball.Game.Historical
                 mode.Dugout.HeadCoachId,
                 playerBuild.Roster.ManagerProfile,
                 _dugoutCatalog.GetManager(mode.Dugout.ManagerId).DisplayName,
-                _dugoutCatalog.GetHeadCoach(mode.Dugout.HeadCoachId).DisplayName);
+                _dugoutCatalog.GetHeadCoach(mode.Dugout.HeadCoachId).DisplayName,
+                scoutingPointsEarned);
         }
 
         /// <summary>남은 대진을 조별 경기 해상도와 저장 Seed로 모두 완료한다.</summary>
@@ -455,6 +464,7 @@ namespace Baseball.Game.Historical
                 return match;
             }
 
+            int scoutingPointsEarned = GrantMatchScoutingPoints(runtime, match, playerIsHome);
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
             runtime.ManagerMode.ClearSelectedTactics();
             runtime.ManagerMode.Dugout.RecordMatchCompleted();
@@ -463,8 +473,22 @@ namespace Baseball.Game.Historical
                 finance, financeStatus, runtime.ManagerMode.Dugout.ManagerId, runtime.ManagerMode.Dugout.HeadCoachId,
                 ownedBuild.Roster.ManagerProfile,
                 _dugoutCatalog.GetManager(runtime.ManagerMode.Dugout.ManagerId).DisplayName,
-                _dugoutCatalog.GetHeadCoach(runtime.ManagerMode.Dugout.HeadCoachId).DisplayName);
+                _dugoutCatalog.GetHeadCoach(runtime.ManagerMode.Dugout.HeadCoachId).DisplayName,
+                scoutingPointsEarned);
             return match;
+        }
+
+        /// <summary>
+        /// 플레이어 구단 경기 한 판의 SP를 지급한다. 주간 결산과 달리 경기 완료에 묶여 있어
+        /// 반복 조작으로 늘릴 수 없고, 경기를 진행하는 만큼만 선수 수집이 앞으로 간다.
+        /// </summary>
+        private int GrantMatchScoutingPoints(ManagerHistoricalRuntimeState runtime, MatchResult match, bool playerIsHome)
+        {
+            int playerRuns = playerIsHome ? match.HomeBoxScore.Runs : match.AwayBoxScore.Runs;
+            int opponentRuns = playerIsHome ? match.AwayBoxScore.Runs : match.HomeBoxScore.Runs;
+            int reward = _balance.ScoutEconomy.GetMatchReward(playerRuns > opponentRuns);
+            runtime.Economy.AddScoutingPoints(reward);
+            return reward;
         }
 
         private static int CountPostseasonGames(OwnerPostseasonState postseason)

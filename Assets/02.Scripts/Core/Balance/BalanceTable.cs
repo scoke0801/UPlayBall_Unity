@@ -174,7 +174,8 @@ namespace Baseball.Core.Balance
             Baseball.Core.Historical.TeamColorBalanceTable teamColor = null,
             Baseball.Core.Historical.OwnerPlayerMarketBalanceTable ownerPlayerMarket = null,
             AggregateMatchBalance aggregateMatch = null,
-            HistoricalPitcherUsageBalance historicalPitcherUsage = null)
+            HistoricalPitcherUsageBalance historicalPitcherUsage = null,
+            Baseball.Core.Historical.ScoutEconomyBalance scoutEconomy = null)
         {
             if (string.IsNullOrWhiteSpace(contentHash))
                 throw new System.ArgumentException("ContentHash는 비어 있을 수 없습니다.", nameof(contentHash));
@@ -216,9 +217,13 @@ namespace Baseball.Core.Balance
             OwnerPlayerMarket = ownerPlayerMarket ?? Baseball.Core.Historical.OwnerPlayerMarketBalanceTable.CreateInitial();
             AggregateMatch = aggregateMatch ?? AggregateMatchBalance.CreateDefault();
             HistoricalPitcherUsage = historicalPitcherUsage ?? HistoricalPitcherUsageBalance.CreateDefault();
+            ScoutEconomy = scoutEconomy ?? Baseball.Core.Historical.ScoutEconomyBalance.CreateDefault();
         }
 
         public int Version { get; }
+
+        /// <summary>구단주 모드 SP 경기 보상과 Scout Pity 규칙이다.</summary>
+        public Baseball.Core.Historical.ScoutEconomyBalance ScoutEconomy { get; }
         public AggregateMatchBalance AggregateMatch { get; }
         public HistoricalPitcherUsageBalance HistoricalPitcherUsage { get; }
         public string ContentHash { get; }

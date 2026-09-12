@@ -52,7 +52,8 @@ namespace Baseball.Game.Data
                     data.staff.Build(),
                     data.scoutingConfidence.Build(),
                     CreateContentHash(json),
-                    data.aggregateMatch?.Build() ?? AggregateMatchBalance.CreateDefault());
+                    data.aggregateMatch?.Build() ?? AggregateMatchBalance.CreateDefault(),
+                    data.scoutEconomy?.Build() ?? ScoutEconomyBalance.CreateDefault());
             }
             catch (Exception exception) when (!(exception is InvalidOperationException))
             {
@@ -83,7 +84,8 @@ namespace Baseball.Game.Data
             StaffBalanceTable staff,
             ScoutingConfidenceDefinition scoutingConfidence,
             string contentHash,
-            AggregateMatchBalance aggregateMatch = null)
+            AggregateMatchBalance aggregateMatch = null,
+            ScoutEconomyBalance scoutEconomy = null)
         {
             LeaguePromotion = leaguePromotion ?? throw new ArgumentNullException(nameof(leaguePromotion));
             ConditionChemistry = conditionChemistry ?? throw new ArgumentNullException(nameof(conditionChemistry));
@@ -91,6 +93,7 @@ namespace Baseball.Game.Data
             Staff = staff ?? throw new ArgumentNullException(nameof(staff));
             ScoutingConfidence = scoutingConfidence ?? throw new ArgumentNullException(nameof(scoutingConfidence));
             AggregateMatch = aggregateMatch ?? AggregateMatchBalance.CreateDefault();
+            ScoutEconomy = scoutEconomy ?? ScoutEconomyBalance.CreateDefault();
             ContentHash = string.IsNullOrWhiteSpace(contentHash)
                 ? throw new ArgumentException("ContentHash가 필요합니다.", nameof(contentHash))
                 : contentHash.Trim();
@@ -102,6 +105,7 @@ namespace Baseball.Game.Data
         public ClubOperationBalanceTable ClubOperation { get; }
         public StaffBalanceTable Staff { get; }
         public ScoutingConfidenceDefinition ScoutingConfidence { get; }
+        public ScoutEconomyBalance ScoutEconomy { get; }
         public string ContentHash { get; }
     }
 
@@ -116,6 +120,21 @@ namespace Baseball.Game.Data
         public StaffBalanceData staff;
         public ScoutingConfidenceBalanceData scoutingConfidence;
         public AggregateMatchBalanceData aggregateMatch;
+        public ScoutEconomyBalanceData scoutEconomy;
+    }
+
+    [Serializable]
+    internal sealed class ScoutEconomyBalanceData
+    {
+        public int pityThresholdScoutingPoints = 2400;
+        public int pityGuaranteedMinimumCost = 7;
+        public int scoutingPointsPerCompletedGame = 15;
+        public int scoutingPointsPerWin = 10;
+
+        public ScoutEconomyBalance Build() => new ScoutEconomyBalance(
+            new ScoutPityBalanceTable(pityThresholdScoutingPoints, pityGuaranteedMinimumCost),
+            scoutingPointsPerCompletedGame,
+            scoutingPointsPerWin);
     }
 
     [Serializable]
@@ -140,6 +159,7 @@ namespace Baseball.Game.Data
     {
         public int groupTeamCount = 10;
         public double groupRepeatAvoidanceChance = LeagueDefinition.DefaultGroupRepeatAvoidanceChance;
+        public double fillerStarCostMargin = LeagueDefinition.DefaultFillerStarCostMargin;
         public LeaguePromotionRuleData[] rules;
         public OwnerLeagueRankRuleData[] rankRules;
 
@@ -157,7 +177,7 @@ namespace Baseball.Game.Data
             var ranks = new OwnerLeagueRankRule[rankRules.Length];
             for (int index = 0; index < ranks.Length; index++)
                 ranks[index] = rankRules[index]?.Build() ?? throw new InvalidOperationException("rankRules에 null 행이 있습니다.");
-            return new LeagueDefinition(definitions, groupTeamCount, ranks, groupRepeatAvoidanceChance);
+            return new LeagueDefinition(definitions, groupTeamCount, ranks, groupRepeatAvoidanceChance, fillerStarCostMargin);
         }
     }
 
@@ -170,6 +190,7 @@ namespace Baseball.Game.Data
         public int relegationFirstRank;
         public int relegationTarget = -1;
         public string fillerDeck;
+        public double fillerTargetCost;
 
         public OwnerLeagueRankRule Build()
         {
@@ -178,7 +199,7 @@ namespace Baseball.Game.Data
                 throw new InvalidOperationException($"rankRules의 LeagueGrade {leagueGrade} fillerDeck '{fillerDeck}'가 잘못되었습니다.");
             return new OwnerLeagueRankRule((LeagueGrade)leagueGrade,
                 promotionLastRank, promotionTarget < 0 ? null : (LeagueGrade?)promotionTarget,
-                relegationFirstRank, relegationTarget < 0 ? null : (LeagueGrade?)relegationTarget, deck);
+                relegationFirstRank, relegationTarget < 0 ? null : (LeagueGrade?)relegationTarget, deck, fillerTargetCost);
         }
     }
 

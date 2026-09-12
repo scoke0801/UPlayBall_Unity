@@ -27,7 +27,7 @@ MonoBehaviour:
   _ownerPlayerTeamSeasonKey: 
   _ownerLeagueInstanceId: OWNER-ROOKIE-01
   _ownerInitialMoney: 1000000000
-  _ownerInitialScoutingPoints: 10000
+  _ownerInitialScoutingPoints: 3000
   _ownerInitialDevelopmentPoints: 3000
   _ownerMaximumMainCost: 60
   _ownerMaximumFillerRerolls: 30

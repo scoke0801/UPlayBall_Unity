@@ -19,7 +19,8 @@ namespace Baseball.Core.Shop
             return new ShopWalletBalance(
                 _economy.Money,
                 _economy.ScoutingPoints,
-                _economy.DevelopmentPoints);
+                _economy.DevelopmentPoints,
+                _economy.PityGauge);
         }
 
         public bool TrySpend(ShopCurrency currency, long amount)
@@ -34,6 +35,8 @@ namespace Baseball.Core.Shop
                     return amount <= int.MaxValue && _economy.TrySpendScoutingPoints((int)amount);
                 case ShopCurrency.DevelopmentPoint:
                     return amount <= int.MaxValue && _economy.TrySpendDevelopmentPoints((int)amount);
+                case ShopCurrency.ScoutPity:
+                    return amount > 0L && amount <= int.MaxValue && _economy.TryConsumePity((int)amount);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(currency));
             }

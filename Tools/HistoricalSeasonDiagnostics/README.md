@@ -21,6 +21,10 @@ Runtime은 기존 14타자·11투수와 고정 5선발 계약을 검사한다.
 
 ## 역사 베이크 성능 검증
 
+게시할 Unity 산출물은 `--validate-world-bakes <BakedWorldHistory 경로>`로 복원·재인코딩
+바이트 일치와 개인 기록의 H ≤ AB ≤ PA를 검사한다. 이 검사는 현재 콘텐츠·설정과의 Key
+일치 검사를 대체하지 않으므로 게시 전에 두 조건을 함께 확인한다.
+
 전체 44시즌을 기존 경기 엔진으로 실행하고 산출물 SHA-256, 시간, 전체 할당량,
 프로세스 최대 Working Set, 완료 파일 재사용 시간을 기록한다.
 동시 실행 수가 달라도 동일 입력의 산출물 해시는 같아야 한다.
@@ -195,3 +199,15 @@ dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- --roster-ab
 ```
 
 상세 검토와 적용하지 않은 후보는 `docs/reports/historical-strength-precision/README.md`를 따른다.
+
+## 구단주 선수 수집 기간
+
+실제 `ScoutRoller`·`ShopDefaultPools`·`ScoutEconomyBalance` 기본값으로 모든 구단 연도의 1군 25인을
+정밀 Scout로 모으는 시즌 수를 잰다. SP는 모두 목표 구단 정밀 Scout에 쓰고 보장 영입은 즉시 쓴다고 가정한다.
+`--facility`는 스카우트 시설을 가장 빠르게 올린 주간 생산을, `--legacy`는 이전 규칙(전체 명단·Pity 없음·
+시작 SP 10,000·시설 SP만)을 쓴다. 수치 해석은 `BaseballManager_PROJECT.md` 43.9절을 따른다.
+
+```powershell
+dotnet run --project Tools/HistoricalSeasonDiagnostics -c Release -- `
+  --scout-collection Assets/10.Datas/HistoricalSimulation/1982-2025 .tmp/scout-collection/current.json 30 0.5 [--facility] [--legacy]
+```

@@ -39,7 +39,8 @@ namespace Baseball.Game.Shop
             WorldCardCatalog worldCardCatalog,
             IReadOnlyList<TacticResearchPoolDefinition> tacticPools,
             IReadOnlyList<TacticCardDefinition> tacticCatalog,
-            ScoutPityBalanceTable pityBalance)
+            ScoutPityBalanceTable pityBalance,
+            Func<string, bool> isPlayerSeasonOwned = null)
         {
             if (scoutPools == null) throw new ArgumentNullException(nameof(scoutPools));
             if (scoutFeaturePolicy == null) throw new ArgumentNullException(nameof(scoutFeaturePolicy));
@@ -58,6 +59,14 @@ namespace Baseball.Game.Shop
                     case ShopProductKind.ConditionItem:
                         return new ShopProductDetails(product.ProductId, product.ScopeLabel + " · " + product.GradeLabel,
                             Array.Empty<ShopProbabilityEntry>(), "구매 즉시 등록 선수 전원에게 적용됩니다. 최대 100이며 전원이 100이면 결제하지 않습니다.");
+                    case ShopProductKind.PlayerCardPack when product.Currency == ShopCurrency.ScoutPity:
+                        return BuildGuaranteedDetails(
+                            product,
+                            FindScoutPool(scoutPools, product.SourceId),
+                            scoutFeaturePolicy,
+                            worldCardCatalog,
+                            pityBalance,
+                            isPlayerSeasonOwned ?? (_ => false));
                     case ShopProductKind.PlayerCardPack:
                         return BuildScoutDetails(
                             product,
@@ -107,8 +116,46 @@ namespace Baseball.Game.Shop
                 probabilities,
                 string.Concat(
                     "각 결합 확률은 후보가 실제로 존재하는 Bucket만 재정규화한 값입니다. ",
-                    "스카우트마다 Pity가 ", pity.GaugeGainPerScout.ToString(), " 증가하며 ",
-                    pity.Threshold.ToString(), "에서 Cost ", pity.GuaranteedMinimumCost.ToString(), " 이상을 보장합니다."));
+                    pool.RosterScope == ScoutRosterScope.ActiveRoster ? "후보는 그 해 1군 25인입니다. " : string.Empty,
+                    "스카우트에 쓴 SP만큼 보장 영입 게이지가 차며, ",
+                    pity.Threshold.ToString("N0"), "에 도달하면 정밀 스카우트에서 보장 영입을 쓸 수 있습니다."));
+        }
+
+        private static ShopProductDetails BuildGuaranteedDetails(
+            ShopProductDefinition product,
+            ScoutPoolDefinition pool,
+            ScoutFeaturePolicy featurePolicy,
+            WorldCardCatalog catalog,
+            ScoutPityBalanceTable pity,
+            Func<string, bool> isPlayerSeasonOwned)
+        {
+            List<PlayerCardDefinition> candidates = ScoutRoller.CollectGuaranteedCandidates(
+                pool, catalog, featurePolicy, pity, isPlayerSeasonOwned);
+            string candidateLabel = DescribeGuaranteedStage(candidates, catalog, pity, isPlayerSeasonOwned);
+            return new ShopProductDetails(
+                product.ProductId,
+                "보장 영입 게이지를 모두 써서 이 팀 1군 선수 1명을 확정 영입합니다.",
+                new[] { new ShopProbabilityEntry(candidateLabel, 1d, candidates.Count) },
+                string.Concat(
+                    "아직 없는 Cost ", pity.GuaranteedMinimumCost.ToString(), " 이상 선수를 먼저 고르고, ",
+                    "모두 가졌다면 아직 없는 1군 선수, 그것도 모두 가졌다면 Cost ",
+                    pity.GuaranteedMinimumCost.ToString(), " 이상 선수 중에서 균등하게 뽑습니다."));
+        }
+
+        private static string DescribeGuaranteedStage(
+            List<PlayerCardDefinition> candidates,
+            WorldCardCatalog catalog,
+            ScoutPityBalanceTable pity,
+            Func<string, bool> isPlayerSeasonOwned)
+        {
+            if (candidates.Count == 0)
+                return "후보 없음";
+            PlayerSeasonDefinition first = catalog.GetPlayerSeason(candidates[0]);
+            if (isPlayerSeasonOwned(first.PlayerSeasonId))
+                return "1군 25인 모두 보유 · 중복 영입";
+            return first.Cost >= pity.GuaranteedMinimumCost
+                ? string.Concat("미보유 Cost ", pity.GuaranteedMinimumCost.ToString(), "+ 선수")
+                : "미보유 1군 선수";
         }
 
         private static ShopProductDetails BuildSkillDetails(

@@ -221,7 +221,61 @@ namespace Baseball.Tests.EditMode.Simulation
         }
 
         [Test]
-        public void ScoutRoller_SP를_소비하고_Pity100에서_Cost7이상을_보장한다()
+        public void ScoutRoller_쓴_SP만큼_Pity가_차고_보장영입은_미보유_고코스트를_먼저_고른다()
+        {
+            WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
+                new[] { CreateSeason("low", 2), CreateSeason("high", 8), CreateSeason("ace", 9) },
+                null,
+                CardEditionBalanceTable.CreateInitial());
+            var pool = new ScoutPoolDefinition(
+                "general", ScoutType.General,
+                ScoutPoolDefinition.CreateInitialCostWeights(),
+                ScoutPoolDefinition.CreateNormalOnlyEditionWeights(), 100);
+            var economy = new ManagerEconomyState(scoutingPoints: 1000, pityGauge: 2350);
+            var pity = ScoutPityBalanceTable.CreateInitial();
+            var roller = new ScoutRoller();
+
+            roller.RollAndSpend(pool, catalog, ScoutFeaturePolicy.Phase4NormalOnly, pity, economy, new Pcg32Random(3UL));
+
+            Assert.That(economy.ScoutingPoints, Is.EqualTo(900));
+            Assert.That(economy.PityGauge, Is.EqualTo(pity.Threshold), "쓴 SP 100이 게이지에 더해지고 임계치에서 멈춘다.");
+            for (int seed = 0; seed < 50; seed++)
+            {
+                PlayerCardDefinition guaranteed = roller.RollGuaranteed(pool, catalog, ScoutFeaturePolicy.Phase4NormalOnly,
+                    pity, seasonId => seasonId == "high", new Pcg32Random((ulong)seed));
+                Assert.That(guaranteed.PlayerSeasonId, Is.EqualTo("ace"), "보유한 high를 건너뛰고 미보유 Cost 7+만 고른다.");
+            }
+        }
+
+        [Test]
+        public void 정밀Scout는_1군25인만_후보로_두고_1군정보가_없으면_전체를_쓴다()
+        {
+            var seasons = new List<PlayerSeasonDefinition>();
+            for (int index = 0; index < 25; index++) seasons.Add(CreateSeason("core" + index, 5));
+            for (int index = 0; index < 5; index++) seasons.Add(CreateSeason("reserve" + index, 3));
+            WorldCardCatalog unaware = WorldCardCatalogBuilder.Build(seasons, null, CardEditionBalanceTable.CreateInitial());
+            var aware = new WorldCardCatalog(seasons, unaware.Cards,
+                activeRosterPlayerSeasonIds: seasons.Take(25).Select(season => season.PlayerSeasonId).ToList());
+            var precise = new ScoutPoolDefinition("precise", ScoutType.YearFranchise,
+                ScoutPoolDefinition.CreateInitialCostWeights(), ScoutPoolDefinition.CreateNormalOnlyEditionWeights(),
+                240, "COMETS", 2011, rosterScope: ScoutRosterScope.ActiveRoster);
+            var franchise = new ScoutPoolDefinition("franchise", ScoutType.Franchise,
+                ScoutPoolDefinition.CreateInitialCostWeights(), ScoutPoolDefinition.CreateNormalOnlyEditionWeights(),
+                160, "COMETS");
+            PlayerCardDefinition reserve = aware.GetRequiredCard("reserve0:Normal");
+            var roller = new ScoutRoller();
+            var random = new Pcg32Random(9UL);
+
+            Assert.That(ScoutRoller.IsCandidate(precise, aware, ScoutFeaturePolicy.Phase4NormalOnly, reserve), Is.False);
+            Assert.That(ScoutRoller.IsCandidate(franchise, aware, ScoutFeaturePolicy.Phase4NormalOnly, reserve), Is.True);
+            Assert.That(ScoutRoller.IsCandidate(precise, unaware, ScoutFeaturePolicy.Phase4NormalOnly, reserve), Is.True);
+            for (int draw = 0; draw < 500; draw++)
+                Assert.That(roller.Roll(precise, aware, ScoutFeaturePolicy.Phase4NormalOnly, random).PlayerSeasonId,
+                    Does.StartWith("core"));
+        }
+
+        [Test]
+        public void 보장영입은_고코스트를_모두_가지면_미보유_선수로_넘어가고_전부_가지면_고코스트로_돌아간다()
         {
             WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(
                 new[] { CreateSeason("low", 2), CreateSeason("high", 8) },
@@ -231,17 +285,16 @@ namespace Baseball.Tests.EditMode.Simulation
                 "general", ScoutType.General,
                 ScoutPoolDefinition.CreateInitialCostWeights(),
                 ScoutPoolDefinition.CreateNormalOnlyEditionWeights(), 100);
-            var economy = new ManagerEconomyState(scoutingPoints: 1000, pityGauge: 90);
             var pity = ScoutPityBalanceTable.CreateInitial();
             var roller = new ScoutRoller();
 
-            roller.RollAndSpend(pool, catalog, ScoutFeaturePolicy.Phase4NormalOnly, pity, economy, new Pcg32Random(3UL));
-            PlayerCardDefinition focused = roller.RollFocused(
-                "COMETS", 2011, catalog, ScoutFeaturePolicy.Phase4NormalOnly, pity, economy, new Pcg32Random(5UL));
+            PlayerCardDefinition missingLow = roller.RollGuaranteed(pool, catalog, ScoutFeaturePolicy.Phase4NormalOnly,
+                pity, seasonId => seasonId == "high", new Pcg32Random(1UL));
+            PlayerCardDefinition allOwned = roller.RollGuaranteed(pool, catalog, ScoutFeaturePolicy.Phase4NormalOnly,
+                pity, _ => true, new Pcg32Random(1UL));
 
-            Assert.That(economy.ScoutingPoints, Is.EqualTo(900));
-            Assert.That(economy.PityGauge, Is.Zero);
-            Assert.That(catalog.GetPlayerSeason(focused).Cost, Is.GreaterThanOrEqualTo(7));
+            Assert.That(missingLow.PlayerSeasonId, Is.EqualTo("low"));
+            Assert.That(allOwned.PlayerSeasonId, Is.EqualTo("high"));
         }
 
         [Test]

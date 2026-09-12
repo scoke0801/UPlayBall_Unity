@@ -37,6 +37,8 @@ internal static class Program
         }
         if (args.Length == 2 && args[0] == "--validate-content")
             return ContentValidation.Run(args[1]);
+        if (args.Length == 2 && args[0] == "--validate-world-bakes")
+            return WorldBakeValidation.Run(args[1]);
         string balancePath = Baseball.Tools.CommonMatchBalanceInput.DefaultPath;
         string ratingCurvePath = Baseball.Tools.CommonMatchBalanceInput.RatingCurvePath;
         if (args.Length >= 2 && args[0] == "--rating-curve")
@@ -61,6 +63,8 @@ internal static class Program
             return OwnerWorldPerformance.Run(args);
         if (args.Length > 0 && args[0] == "--bake-performance")
             return BakePerformance.Run(args);
+        if (args.Length > 0 && args[0] == "--scout-collection")
+            return ScoutCollection.Run(args);
         if ((args.Length != 4 && args.Length != 6 && args.Length != 7 && args.Length != 9) || !int.TryParse(args[2], out int repeats) || repeats < 1)
         {
             Console.Error.WriteLine("사용법: <Runtime 경로> <출력 JSON> <반복 수> <연도,연도> [Rating center slope [inputOffset [pitcherSlope pitcherInputOffset]]]");

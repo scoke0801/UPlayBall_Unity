@@ -6,7 +6,7 @@ namespace Baseball.Core.Shop
     /// <summary>구매 판정 시점의 재화 잔액 스냅샷이다. 상태를 바꾸지 않는 순수 값이다.</summary>
     public readonly struct ShopWalletBalance
     {
-        public ShopWalletBalance(long money, int scoutingPoints, int developmentPoints)
+        public ShopWalletBalance(long money, int scoutingPoints, int developmentPoints, int scoutPityGauge = 0)
         {
             if (money < 0L)
                 throw new ArgumentOutOfRangeException(nameof(money));
@@ -14,14 +14,18 @@ namespace Baseball.Core.Shop
                 throw new ArgumentOutOfRangeException(nameof(scoutingPoints));
             if (developmentPoints < 0)
                 throw new ArgumentOutOfRangeException(nameof(developmentPoints));
+            if (scoutPityGauge < 0)
+                throw new ArgumentOutOfRangeException(nameof(scoutPityGauge));
             Money = money;
             ScoutingPoints = scoutingPoints;
             DevelopmentPoints = developmentPoints;
+            ScoutPityGauge = scoutPityGauge;
         }
 
         public long Money { get; }
         public int ScoutingPoints { get; }
         public int DevelopmentPoints { get; }
+        public int ScoutPityGauge { get; }
 
         public long Get(ShopCurrency currency)
         {
@@ -30,6 +34,7 @@ namespace Baseball.Core.Shop
                 case ShopCurrency.Money: return Money;
                 case ShopCurrency.ScoutingPoint: return ScoutingPoints;
                 case ShopCurrency.DevelopmentPoint: return DevelopmentPoints;
+                case ShopCurrency.ScoutPity: return ScoutPityGauge;
                 default: throw new ArgumentOutOfRangeException(nameof(currency));
             }
         }

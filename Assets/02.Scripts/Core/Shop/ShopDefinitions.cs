@@ -8,7 +8,10 @@ namespace Baseball.Core.Shop
     {
         Money,
         ScoutingPoint,
-        DevelopmentPoint
+        DevelopmentPoint,
+
+        /// <summary>Scout에 쓴 SP로 차는 Pity 게이지다. 보장 영입 상품만 이 재화로 구매한다.</summary>
+        ScoutPity
     }
 
     /// <summary>상점 상단 탭. Featured는 다른 탭 상품 중 추천 표시된 것을 모아 보여주는 가상 탭이다.</summary>

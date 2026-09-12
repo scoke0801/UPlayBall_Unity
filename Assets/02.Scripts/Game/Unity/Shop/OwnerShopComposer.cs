@@ -33,14 +33,16 @@ namespace Baseball.Game.Shop
             IReadOnlyList<TacticResearchPoolDefinition> tacticPools = ShopDefaultPools.CreateTacticResearchPools(
                 manager.GetFacilityEffects().TacticResearchEfficiencyModifier);
             IReadOnlyList<TacticCardDefinition> tacticCatalog = manager.GetTacticCardCatalog();
-            ScoutPityBalanceTable pityBalance = ScoutPityBalanceTable.CreateInitial();
+            ScoutPityBalanceTable pityBalance = manager.Balance.ScoutEconomy.Pity;
+            HashSet<string> ownedSeasonIds = PlayerCardPackFulfillment.CollectOwnedSeasonIds(runtime);
 
             ShopCatalog catalog = ShopCatalogBuilder.Build(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
                 tacticPools,
                 runtime.IdentityRegistry.GetFranchiseDisplayName,
-                manager.Balance.ConditionChemistry);
+                manager.Balance.ConditionChemistry,
+                pityBalance);
             var detailsResolver = OwnerShopDetailsBuilder.CreateResolver(
                 manager.Balance.Growth.SkillGacha,
                 scoutPools,
@@ -48,7 +50,8 @@ namespace Baseball.Game.Shop
                 runtime.WorldCardCatalog,
                 tacticPools,
                 tacticCatalog,
-                pityBalance);
+                pityBalance,
+                ownedSeasonIds.Contains);
             var wallet = new ManagerEconomyShopWallet(runtime.Economy);
 
             var fulfillments = new List<IShopProductFulfillment>

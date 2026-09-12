@@ -50,9 +50,8 @@ namespace Baseball.Tests.EditMode.Simulation
             {
                 Assert.That(roller.Roll(pool, catalog, ScoutFeaturePolicy.FullWorldAwards, random).Edition,
                     Is.EqualTo(PlayerCardEdition.Normal));
-                var economy = new ManagerEconomyState(0, 0, 0, 100);
-                Assert.That(roller.RollFocused("franchise", null, catalog, ScoutFeaturePolicy.FullWorldAwards,
-                    ScoutPityBalanceTable.CreateInitial(), economy, random).Edition, Is.EqualTo(PlayerCardEdition.Normal));
+                Assert.That(roller.RollGuaranteed(pool, catalog, ScoutFeaturePolicy.FullWorldAwards,
+                    ScoutPityBalanceTable.CreateInitial(), _ => false, random).Edition, Is.EqualTo(PlayerCardEdition.Normal));
             }
         }
 

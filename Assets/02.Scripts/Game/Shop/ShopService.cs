@@ -172,6 +172,7 @@ namespace Baseball.Game.Shop
                 case ShopCurrency.Money: return "자금";
                 case ShopCurrency.ScoutingPoint: return "스카우트 포인트";
                 case ShopCurrency.DevelopmentPoint: return "육성 포인트";
+                case ShopCurrency.ScoutPity: return "보장 영입 게이지";
                 default: throw new ArgumentOutOfRangeException(nameof(currency));
             }
         }
@@ -184,6 +185,7 @@ namespace Baseball.Game.Shop
                 case ShopCurrency.Money: return "₩";
                 case ShopCurrency.ScoutingPoint: return "SP";
                 case ShopCurrency.DevelopmentPoint: return "DP";
+                case ShopCurrency.ScoutPity: return "게이지";
                 default: throw new ArgumentOutOfRangeException(nameof(currency));
             }
         }

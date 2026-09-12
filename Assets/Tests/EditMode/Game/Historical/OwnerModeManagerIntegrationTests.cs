@@ -32,7 +32,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(configuration.WorldSeed, Is.GreaterThan(0UL));
             Assert.That(configuration.OriginYear, Is.GreaterThan(0));
             Assert.That(configuration.InitialMoney, Is.GreaterThanOrEqualTo(0L));
-            Assert.That(configuration.InitialScoutingPoints, Is.EqualTo(10_000));
+            Assert.That(configuration.InitialScoutingPoints, Is.EqualTo(3_000));
             Assert.That(configuration.InitialDevelopmentPoints, Is.EqualTo(3_000));
             Assert.That(configuration.StarterTacticCards.Count, Is.EqualTo(2));
             Assert.That(configuration.StarterTacticCards[0].CardId,
@@ -87,7 +87,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             GameManager.Instance.TryGetManager(out OwnerModeManager manager);
 
             Assert.That(manager.StartNewGame(), Is.True, manager.LastError);
-            Assert.That(manager.Runtime.Economy.ScoutingPoints, Is.EqualTo(10_000));
+            Assert.That(manager.Runtime.Economy.ScoutingPoints, Is.EqualTo(3_000));
             Assert.That(manager.Runtime.Economy.DevelopmentPoints, Is.EqualTo(3_000));
             OwnerModeRosterStatus rosterStatus = manager.BuildRosterStatus();
             Assert.That(rosterStatus.Strength.PlayerCount, Is.EqualTo(25));

@@ -18,6 +18,92 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class ManagerModeMatchServiceTests
     {
         [Test]
+        public void 포스트시즌관전은한경기씩중단저장해도일괄진행과같은결과를낸다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var service = new ManagerModeMatchService(provider, balance);
+            // 플레이어의 진출을 고정하고 실제 포스트시즌 경기 계산과 저장 경로를 검증한다.
+            foreach (var group in runtime.LeagueWorld.Groups)
+                foreach (var game in group.Season.Schedule.Games)
+                    if (!game.IsCompleted)
+                        game.Complete(game.AwayTeamId == group.Season.PlayerTeamId ? 5 : 1,
+                            game.AwayTeamId == group.Season.PlayerTeamId ? 1 : 5);
+            var adapter = new ManagerHistoricalSaveAdapter(provider, CardEditionBalanceTable.CreateInitial());
+            new OwnerPostseasonService(balance).EnsureInitialized(runtime);
+            var expected = adapter.Restore(adapter.CreateSaveData(runtime));
+            new OwnerPostseasonService(balance).Complete(expected, new ManagerModeMatchService(provider, balance));
+            int watched = 0;
+            while (!runtime.LeagueWorld.IsPostseasonCompleted)
+            {
+                var session = new OwnerPostseasonSimulationSession(runtime, service, balance);
+                bool playerGame = session.IsNextGamePlayerMatch;
+                var events = new MatchEventBuffer();
+                int before = session.CreateProgressSnapshot().CompletedGames;
+                var result = session.AdvanceNextStep(events, new MatchExecutionProfile(
+                    SimulationEngineKind.Detailed, MatchDecisionMode.InternalAiOnly,
+                    MatchEventMode.Full, MatchDecisionTraceMode.Full, MatchStatisticsMode.FullBoxScore));
+                Assert.That(result.PlayerMatch != null, Is.EqualTo(playerGame));
+                Assert.That(session.CreateProgressSnapshot().CompletedGames, Is.EqualTo(before + 1));
+                if (playerGame)
+                {
+                    Assert.That(events.ToArray().Length, Is.GreaterThan(0));
+                    watched++;
+                    runtime = adapter.Restore(adapter.CreateSaveData(runtime));
+                    service = new ManagerModeMatchService(provider, balance);
+                }
+            }
+            Assert.That(watched, Is.GreaterThan(0));
+            TestContext.WriteLine($"포스트시즌 관전 {watched}경기 · 경기별 저장 복원 · 전체 조 결과 일치");
+            for (int group = 0; group < runtime.LeagueWorld.Groups.Count; group++)
+            {
+                var actualSeries = runtime.LeagueWorld.Groups[group].Postseason.Series;
+                var expectedSeries = expected.LeagueWorld.Groups[group].Postseason.Series;
+                Assert.That(actualSeries.Count, Is.EqualTo(expectedSeries.Count));
+                for (int series = 0; series < actualSeries.Count; series++)
+                {
+                    Assert.That(actualSeries[series].WinnerTeamId, Is.EqualTo(expectedSeries[series].WinnerTeamId));
+                    Assert.That(actualSeries[series].Games.Count, Is.EqualTo(expectedSeries[series].Games.Count));
+                    for (int game = 0; game < actualSeries[series].Games.Count; game++)
+                    {
+                        var actual = actualSeries[series].Games[game];
+                        var baseline = expectedSeries[series].Games[game];
+                        Assert.That(actual.GameId, Is.EqualTo(baseline.GameId));
+                        Assert.That(actual.RandomSeed, Is.EqualTo(baseline.RandomSeed));
+                        Assert.That(actual.AwayRuns, Is.EqualTo(baseline.AwayRuns));
+                        Assert.That(actual.HomeRuns, Is.EqualTo(baseline.HomeRuns));
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void 포스트시즌출전실패는미완료경기의Seed와차전을보존해재개한다()
+        {
+            CreateRuntime(out var runtime, out var provider);
+            var balance = BalanceTable.CreateDefault();
+            var service = new ManagerModeMatchService(provider, balance);
+            foreach (var group in runtime.LeagueWorld.Groups)
+                foreach (var game in group.Season.Schedule.Games)
+                    if (!game.IsCompleted)
+                        game.Complete(game.AwayTeamId == group.Season.PlayerTeamId ? 5 : 1,
+                            game.AwayTeamId == group.Season.PlayerTeamId ? 1 : 5);
+            var session = new OwnerPostseasonSimulationSession(runtime, service, balance);
+            while (!session.IsNextGamePlayerMatch) session.AdvanceNextStep();
+            int completed = session.CreateProgressSnapshot().CompletedGames;
+            Assert.Throws<InvalidOperationException>(() =>
+                session.AdvanceNextStep(null, MatchExecutionProfile.AggregateBackground));
+            var series = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey).Postseason.CurrentSeries;
+            var pending = series.Games[series.Games.Count - 1];
+            int count = series.Games.Count;
+            Assert.That(pending.IsCompleted, Is.False);
+            var result = session.AdvanceNextStep();
+            Assert.That(result.Game, Is.SameAs(pending));
+            Assert.That(series.Games.Count, Is.EqualTo(count));
+            Assert.That(session.CreateProgressSnapshot().CompletedGames, Is.EqualTo(completed + 1));
+        }
+
+        [Test]
         public void AI준비캐시는로스터교체뒤새서비스와같은경기를만든다()
         {
             CreateRuntime(out var runtime, out var provider);

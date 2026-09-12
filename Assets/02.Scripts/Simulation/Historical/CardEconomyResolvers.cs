@@ -52,7 +52,33 @@ namespace Baseball.Simulation.Historical
                     cards.Add(new PlayerCardDefinition(card.CardId, card.PlayerSeasonId, card.Edition, modifiers,
                         preferences[card.PlayerSeasonId], card.TeamColorLineageId));
                 }
-            return new WorldCardCatalog(sortedSeasons, cards, playerPersons, specialCards?.Lineages, specialCards?.Recipes);
+            return new WorldCardCatalog(sortedSeasons, cards, playerPersons, specialCards?.Lineages, specialCards?.Recipes,
+                ResolveActiveRosterSeasonIds(cards, teamSeasons));
+        }
+
+        /// <summary>구단 연도 Core25 카드가 가리키는 선수 시즌을 1군 명단으로 모은다. 구단 정보가 없으면 null이다.</summary>
+        private static List<string> ResolveActiveRosterSeasonIds(
+            List<PlayerCardDefinition> cards,
+            IReadOnlyList<TeamSeasonDefinition> teamSeasons)
+        {
+            if (teamSeasons == null)
+                return null;
+            var seasonIdByCardId = new Dictionary<string, string>(cards.Count, StringComparer.Ordinal);
+            for (int index = 0; index < cards.Count; index++)
+                seasonIdByCardId[cards[index].CardId] = cards[index].PlayerSeasonId;
+
+            var seasonIds = new List<string>(teamSeasons.Count * 25);
+            for (int teamIndex = 0; teamIndex < teamSeasons.Count; teamIndex++)
+            {
+                IReadOnlyList<string> core = teamSeasons[teamIndex].Core25CardIds;
+                for (int index = 0; index < core.Count; index++)
+                {
+                    if (!seasonIdByCardId.TryGetValue(core[index], out string seasonId))
+                        throw new ArgumentException("Core25가 카탈로그에 없는 카드를 참조합니다.", nameof(teamSeasons));
+                    seasonIds.Add(seasonId);
+                }
+            }
+            return seasonIds;
         }
 
         private static bool HasMvpAward(WorldAwardRecord awards, string playerSeasonId)
@@ -205,6 +231,8 @@ namespace Baseball.Simulation.Historical
                 return false;
             if (pool.YearFilter.HasValue && pool.YearFilter.Value != season.OriginYear)
                 return false;
+            if (pool.RosterScope == ScoutRosterScope.ActiveRoster && !catalog.IsActiveRosterSeason(season.PlayerSeasonId))
+                return false;
             return pool.GetCostWeight(season.Cost) * pool.GetEditionWeight(card.Edition) > 0d;
         }
 
@@ -257,57 +285,71 @@ namespace Baseball.Simulation.Historical
             PlayerCardDefinition card = Roll(pool, catalog, featurePolicy, random);
             if (!economy.TrySpendScoutingPoints(pool.PriceSp))
                 throw new InvalidOperationException("SP 소비에 실패했습니다.");
-            economy.AddPityGauge(pityBalance.GaugeGainPerScout, pityBalance.Threshold);
+            economy.AddPityGauge(pityBalance.GetGaugeGain(pool), pityBalance.Threshold);
             return card;
         }
 
-        public PlayerCardDefinition RollFocused(
-            string franchiseFilter,
-            int? yearFilter,
+        /// <summary>
+        /// Pity 게이지로 여는 보장 영입이다. 게이지 소비는 호출자(지갑)가 맡고, 여기서는 후보만 확정한다.
+        /// 후보는 풀과 같은 범위의 Normal 카드이며 아래 순서로 처음 비지 않은 단계에서 균등 추첨한다.
+        /// 1) 아직 보유하지 않은 Cost 보장선 이상 선수 2) 아직 보유하지 않은 선수 3) Cost 보장선 이상 전체.
+        /// 수집의 마지막 몇 장이 전체 기간 대부분을 차지하는 꼬리를 끊으려고 "미보유 우선"을 둔다.
+        /// </summary>
+        public PlayerCardDefinition RollGuaranteed(
+            ScoutPoolDefinition pool,
             WorldCardCatalog catalog,
             ScoutFeaturePolicy featurePolicy,
             ScoutPityBalanceTable pityBalance,
-            ManagerEconomyState economy,
+            Func<string, bool> isPlayerSeasonOwned,
             IRandomSource random)
         {
-            if (catalog == null)
-                throw new ArgumentNullException(nameof(catalog));
-            if (featurePolicy == null)
-                throw new ArgumentNullException(nameof(featurePolicy));
-            if (pityBalance == null)
-                throw new ArgumentNullException(nameof(pityBalance));
-            if (economy == null)
-                throw new ArgumentNullException(nameof(economy));
-            if (random == null)
-                throw new ArgumentNullException(nameof(random));
-            if (string.IsNullOrWhiteSpace(franchiseFilter) && !yearFilter.HasValue)
-                throw new ArgumentException("집중 Scout에는 구단 또는 연도 필터가 필요합니다.");
-            if (economy.PityGauge < pityBalance.Threshold)
-                throw new InvalidOperationException("Pity Gauge가 부족합니다.");
+            if (pool == null) throw new ArgumentNullException(nameof(pool));
+            if (catalog == null) throw new ArgumentNullException(nameof(catalog));
+            if (featurePolicy == null) throw new ArgumentNullException(nameof(featurePolicy));
+            if (pityBalance == null) throw new ArgumentNullException(nameof(pityBalance));
+            if (isPlayerSeasonOwned == null) throw new ArgumentNullException(nameof(isPlayerSeasonOwned));
+            if (random == null) throw new ArgumentNullException(nameof(random));
 
-            var candidates = new List<PlayerCardDefinition>();
+            List<PlayerCardDefinition> candidates = CollectGuaranteedCandidates(
+                pool, catalog, featurePolicy, pityBalance, isPlayerSeasonOwned);
+            if (candidates.Count == 0)
+                throw new InvalidOperationException("보장 영입 후보가 없습니다.");
+            int selectedIndex = (int)(RequireUnitRandom(random.NextDouble()) * candidates.Count);
+            return candidates[selectedIndex];
+        }
+
+        /// <summary>보장 영입이 실제로 고를 후보 단계와 후보 목록을 추첨과 같은 규칙으로 돌려준다.</summary>
+        public static List<PlayerCardDefinition> CollectGuaranteedCandidates(
+            ScoutPoolDefinition pool,
+            WorldCardCatalog catalog,
+            ScoutFeaturePolicy featurePolicy,
+            ScoutPityBalanceTable pityBalance,
+            Func<string, bool> isPlayerSeasonOwned)
+        {
+            var unownedHighCost = new List<PlayerCardDefinition>();
+            var unowned = new List<PlayerCardDefinition>();
+            var highCost = new List<PlayerCardDefinition>();
+            var all = new List<PlayerCardDefinition>();
             IReadOnlyList<PlayerCardDefinition> cards = catalog.Cards;
             for (int index = 0; index < cards.Count; index++)
             {
                 PlayerCardDefinition card = cards[index];
+                if (card.Edition != PlayerCardEdition.Normal || !IsCandidate(pool, catalog, featurePolicy, card))
+                    continue;
                 PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
-                if (!card.CanAcquireFromScout || card.Edition == PlayerCardEdition.Rare ||
-                    season.Cost < pityBalance.GuaranteedMinimumCost || !featurePolicy.IsEditionEnabled(card.Edition))
-                    continue;
-                if (!string.IsNullOrWhiteSpace(franchiseFilter) &&
-                    !string.Equals(franchiseFilter.Trim(), season.OriginFranchiseId, StringComparison.Ordinal))
-                    continue;
-                if (yearFilter.HasValue && yearFilter.Value != season.OriginYear)
-                    continue;
-                candidates.Add(card);
+                bool isHighCost = season.Cost >= pityBalance.GuaranteedMinimumCost;
+                bool isOwned = isPlayerSeasonOwned(season.PlayerSeasonId);
+                if (isHighCost && !isOwned) unownedHighCost.Add(card);
+                if (!isOwned) unowned.Add(card);
+                if (isHighCost) highCost.Add(card);
+                all.Add(card);
             }
-            if (candidates.Count == 0)
-                throw new InvalidOperationException("선택한 조건에 Cost 보장 후보가 없습니다.");
-            candidates.Sort((left, right) => string.CompareOrdinal(left.CardId, right.CardId));
-            int selectedIndex = (int)(RequireUnitRandom(random.NextDouble()) * candidates.Count);
-            if (!economy.TryConsumePity(pityBalance.Threshold))
-                throw new InvalidOperationException("Pity Gauge 소비에 실패했습니다.");
-            return candidates[selectedIndex];
+            List<PlayerCardDefinition> selected = unownedHighCost.Count > 0 ? unownedHighCost
+                : unowned.Count > 0 ? unowned
+                : highCost.Count > 0 ? highCost
+                : all;
+            selected.Sort((left, right) => string.CompareOrdinal(left.CardId, right.CardId));
+            return selected;
         }
 
         private static List<Bucket> BuildBuckets(
