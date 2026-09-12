@@ -23,6 +23,19 @@ namespace Baseball.Presentation.Owner
         private const int MaximumUiBatchCount = 1_000;
         private const float WindowWidth = 1_040f;
 
+        /// <summary>타입별 일괄 지급 대상. 테스트 수요가 큰 특수 카드를 앞에 두고 일반 계열은 뒤에 둔다.</summary>
+        private static readonly PlayerCardEdition[] GrantableEditions =
+        {
+            PlayerCardEdition.Ex,
+            PlayerCardEdition.CareerHigh,
+            PlayerCardEdition.Legend,
+            PlayerCardEdition.Rare,
+            PlayerCardEdition.Mvp,
+            PlayerCardEdition.GoldenGlove,
+            PlayerCardEdition.AllStar,
+            PlayerCardEdition.Normal
+        };
+
         private static UI_System_OwnerCheat _instance;
 
         private readonly List<CardOption> _cardOptions = new List<CardOption>();
@@ -46,6 +59,9 @@ namespace Baseball.Presentation.Owner
         private int _selectedYearIndex;
         private int _selectedFranchiseIndex;
         private int _selectedRarityIndex;
+        private int _selectedEditionIndex;
+        private bool _isEditionYearLimited;
+        private string _editionBatchCount = "1";
         private string _cardSearch = string.Empty;
         private string _skillSearch = string.Empty;
         private string _filteredCardSearch;
@@ -197,6 +213,23 @@ namespace Baseball.Presentation.Owner
             GUI.enabled = _years.Count > 0 && _franchiseOptions.Count > 0;
             if (GUILayout.Button("조건 카드 N장씩 획득", GUILayout.Width(190f), GUILayout.Height(42f)))
                 AcquireCardBatch(manager);
+            GUI.enabled = true;
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(8f);
+            GUILayout.BeginHorizontal();
+            DrawCycleSelector("카드 타입", GrantableEditions, ref _selectedEditionIndex, DescribeEdition, 260f);
+            GUILayout.BeginVertical(GUILayout.Width(170f));
+            GUILayout.Label("연도 범위");
+            _isEditionYearLimited = GUILayout.Toggle(
+                _isEditionYearLimited,
+                _isEditionYearLimited && _years.Count > 0 ? $"선택 연도({_years[_selectedYearIndex]})만" : "전체 연도",
+                GUILayout.Height(24f));
+            GUILayout.EndVertical();
+            DrawTextField("장씩 (1~1,000)", ref _editionBatchCount, 130f);
+            GUI.enabled = !_isEditionYearLimited || _years.Count > 0;
+            if (GUILayout.Button("타입 카드 N장씩 획득", GUILayout.Width(190f), GUILayout.Height(42f)))
+                AcquireEditionCardBatch(manager);
             GUI.enabled = true;
             GUILayout.EndHorizontal();
 
@@ -384,6 +417,18 @@ namespace Baseball.Presentation.Owner
             ExecuteGrant(
                 () => manager.CheatAcquireCards(year, franchise.FranchiseId, count),
                 $"{year}년 {franchise.DisplayName} 카드");
+        }
+
+        private void AcquireEditionCardBatch(OwnerModeManager manager)
+        {
+            if (!TryParseBatchCount(_editionBatchCount, out int count))
+                return;
+            PlayerCardEdition edition = GrantableEditions[_selectedEditionIndex];
+            int? year = _isEditionYearLimited ? _years[_selectedYearIndex] : (int?)null;
+            string scope = year.HasValue ? $"{year.Value}년 " : "전체 연도 ";
+            ExecuteGrant(
+                () => manager.CheatAcquireCardsByEdition(edition, year, count),
+                $"{scope}{DescribeEdition(edition)} 카드");
         }
 
         private void AcquireRaritySkillBlocks(OwnerModeManager manager, SkillBlockRarity rarity)

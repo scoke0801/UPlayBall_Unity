@@ -151,6 +151,42 @@ namespace Baseball.Tests.EditMode.Game.Historical
         }
 
         [Test]
+        public void AcquireCardsByEdition_EditionAndOptionalYear_GrantsOnlyMatchingCards()
+        {
+            ManagerHistoricalRuntimeState runtime = CreateRuntime();
+            var service = new OwnerCheatService();
+            WorldCardCatalog catalog = runtime.WorldCardCatalog;
+            PlayerCardDefinition sample = catalog.Cards[0];
+            int year = catalog.GetPlayerSeason(sample).OriginYear;
+
+            var before = CaptureOwnedCounts(runtime);
+            OwnerCheatGrantResult yearLimited = service.AcquireCardsByEdition(runtime, sample.Edition, year, 2);
+            int expectedYearLimited = 0;
+            for (int index = 0; index < catalog.Cards.Count; index++)
+            {
+                PlayerCardDefinition card = catalog.Cards[index];
+                bool matches = card.Edition == sample.Edition && catalog.GetPlayerSeason(card).OriginYear == year;
+                if (matches) expectedYearLimited++;
+                AssertOwnedDelta(runtime, card.CardId, before[card.CardId], matches ? 2 : 0);
+            }
+            Assert.That(yearLimited.DefinitionCount, Is.EqualTo(expectedYearLimited));
+
+            before = CaptureOwnedCounts(runtime);
+            OwnerCheatGrantResult allYears = service.AcquireCardsByEdition(runtime, sample.Edition, null, 1);
+            int expectedAllYears = 0;
+            for (int index = 0; index < catalog.Cards.Count; index++)
+            {
+                PlayerCardDefinition card = catalog.Cards[index];
+                bool matches = card.Edition == sample.Edition;
+                if (matches) expectedAllYears++;
+                AssertOwnedDelta(runtime, card.CardId, before[card.CardId], matches ? 1 : 0);
+            }
+            Assert.That(allYears.DefinitionCount, Is.EqualTo(expectedAllYears));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => service.AcquireCardsByEdition(runtime, sample.Edition, 0, 1));
+        }
+
+        [Test]
         public void AcquireCard_SelectedCard_GrantsExactlyOneCopy()
         {
             ManagerHistoricalRuntimeState runtime = CreateRuntime();

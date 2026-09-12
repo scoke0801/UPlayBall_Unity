@@ -1,5 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using Baseball.Core.Growth;
+using Baseball.Core.Historical;
 
 namespace Baseball.Game.Historical
 {
@@ -27,6 +28,15 @@ namespace Baseball.Game.Historical
         {
             OwnerCheatGrantResult result = _cheatService.AcquireCards(
                 RequireRuntime(), originYear, franchiseId, countPerCard);
+            NotifyRuntimeChanged();
+            return result;
+        }
+
+        /// <summary>개발 치트로 특정 Edition의 활성 카드를 N장씩 지급한다. originYear가 null이면 전 연도.</summary>
+        public OwnerCheatGrantResult CheatAcquireCardsByEdition(PlayerCardEdition edition, int? originYear, int countPerCard)
+        {
+            OwnerCheatGrantResult result = _cheatService.AcquireCardsByEdition(
+                RequireRuntime(), edition, originYear, countPerCard);
             NotifyRuntimeChanged();
             return result;
         }

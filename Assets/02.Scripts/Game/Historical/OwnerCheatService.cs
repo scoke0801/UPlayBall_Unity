@@ -108,6 +108,25 @@ namespace Baseball.Game.Historical
                                string.Equals(season.OriginFranchiseId, franchiseId, StringComparison.Ordinal));
         }
 
+        /// <summary>지정 Edition의 활성 카드 정의를 N장씩 지급한다. originYear가 null이면 모든 연도를 대상으로 한다.</summary>
+        public OwnerCheatGrantResult AcquireCardsByEdition(
+            ManagerHistoricalRuntimeState runtime,
+            PlayerCardEdition edition,
+            int? originYear,
+            int countPerCard)
+        {
+            RequireRuntime(runtime);
+            if (!Enum.IsDefined(typeof(PlayerCardEdition), edition))
+                throw new ArgumentOutOfRangeException(nameof(edition));
+            if (originYear.HasValue && originYear.Value <= 0)
+                throw new ArgumentOutOfRangeException(nameof(originYear));
+            return AcquireMatchingCards(
+                runtime,
+                countPerCard,
+                (card, season) => card.Edition == edition &&
+                                  (!originYear.HasValue || season.OriginYear == originYear.Value));
+        }
+
         /// <summary>현재 월드에 활성화된 모든 카드 정의를 한 장씩 지급한다.</summary>
         public OwnerCheatGrantResult AcquireAllCards(ManagerHistoricalRuntimeState runtime)
         {
