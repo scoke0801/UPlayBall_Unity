@@ -19,13 +19,24 @@ namespace Baseball.Presentation.Match
         private bool _showHomeRecords;
         private bool _wasComplete;
         private int _lastVisibleCount = -1;
+        private bool _hasNextGame;
+        private bool _isPreparingNextGame;
 
         public event Action HomeRequested;
+        public event Action NextGameRequested;
         public event Action PresentationCompleted;
         /// <summary>경기 기록으로 복귀할 때 완료 화면의 기본 행동에 포커스를 복원한다.</summary>
         public void FocusCompletedResult()
         {
-            if (IsComplete) _homeButton.Select();
+            if (IsComplete) (_nextGameButton.gameObject.activeSelf ? _nextGameButton : _homeButton).Select();
+        }
+        /// <summary>다음 경기 유무와 준비 상태를 결과 화면의 행동에 반영한다.</summary>
+        public void SetNextGameAvailability(bool hasNextGame, bool isPreparing = false)
+        {
+            _hasNextGame = hasNextGame;
+            _isPreparingNextGame = isPreparing;
+            _nextGameButton.GetComponentInChildren<Text>().text = isPreparing ? "다음 경기 준비 중…" : "다음 경기";
+            SetCompletionControlVisibility(IsComplete);
         }
         public event Action<bool> MatchAudioEnabledChanged;
         public bool IsPresenting { get; private set; }
@@ -55,6 +66,7 @@ namespace Baseball.Presentation.Match
         {
             if (manager == null) throw new ArgumentNullException(nameof(manager));
             _showResults = _showPitching = _showHomeRecords = _wasComplete = false;
+            _hasNextGame = _isPreparingNextGame = false;
             _lastVisibleCount = -1;
             ResetGameCast();
             bool isPostseason = manager.IsNextPostseasonGamePlayerMatch;
@@ -73,6 +85,7 @@ namespace Baseball.Presentation.Match
             SetVisible(true);
             ScheduleNextAutomaticAdvance();
             RefreshControls();
+            if (!IsComplete) _viewingModeButtons[(int)_session.State.ViewingMode].Select();
         }
 
         /// <summary>공용 HUD 계약의 현재 공개 점수와 참가자를 표시한다.</summary>

@@ -12,6 +12,59 @@ namespace Baseball.Presentation.Owner
         private bool _isCelebrationFromReview;
         private readonly System.Collections.Generic.HashSet<string> _shownSeasonCelebrations =
             new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+        private bool _isNextOwnerMatchPending;
+        private bool _continueAfterCelebration;
+        private int _nextOwnerMatchRequestedFrame;
+
+        private bool HasNextOwnerMatch()
+        {
+            var runtime = _manager?.Runtime;
+            if (runtime == null) return false;
+            if (!_isPostseasonMatchVisible)
+                return runtime.ManagerMode.LiveSeason.NextPlayerGame != null;
+            var group = runtime.LeagueWorld.GetGroup(runtime.PlayerTeamSeasonKey);
+            return group.Postseason?.HasRemainingGames(group.Season.PlayerTeamId) == true;
+        }
+
+        private void HandleNextOwnerMatchRequested()
+        {
+            if (!_isOwnerMatchVisible || _isTransitioningToOwnerMatch ||
+                _matchSpectatorView?.IsComplete != true || !HasNextOwnerMatch()) return;
+            _continueAfterCelebration = true;
+            if (ShowPendingCelebration()) return;
+            _continueAfterCelebration = false;
+            _isNextOwnerMatchPending = true;
+            _isTransitioningToOwnerMatch = true;
+            _nextOwnerMatchRequestedFrame = Time.frameCount;
+            _matchSpectatorView.SetNextGameAvailability(true, true);
+        }
+
+        // 앞선 다른 대진은 프레임별로 확정하고, 우리 구단 경기 직전에 기존 관전 경로로 넘긴다.
+        private bool UpdateNextOwnerMatch()
+        {
+            if (!_isNextOwnerMatchPending) return false;
+            if (Time.frameCount <= _nextOwnerMatchRequestedFrame) return true;
+            if (_isPostseasonMatchVisible)
+            {
+                bool succeeded = _manager.IsPostseasonSimulationRunning || _manager.BeginPostseasonSimulation();
+                if (succeeded && !_manager.IsNextPostseasonGamePlayerMatch)
+                    succeeded = _manager.AdvancePostseasonSimulationFrame();
+                if (!succeeded || !HasNextOwnerMatch())
+                {
+                    ReportSeasonProgressError("다음 경기를 준비하지 못했습니다. 대진으로 돌아가 진행 상태를 확인해 주세요.");
+                    _manager.StopPostseasonSimulation();
+                    _isNextOwnerMatchPending = _isTransitioningToOwnerMatch = false;
+                    _matchSpectatorView.SetNextGameAvailability(HasNextOwnerMatch());
+                    _matchSpectatorView.FocusCompletedResult();
+                    return true;
+                }
+                if (!_manager.IsNextPostseasonGamePlayerMatch) return true;
+            }
+            _isNextOwnerMatchPending = false;
+            ExecuteOperation(() => _manager.PublishGuideMatchResult());
+            PlayOwnerMatchSpectator();
+            return true;
+        }
 
         private void BeginPostseasonPresentation()
         {
@@ -83,6 +136,13 @@ namespace Baseball.Presentation.Owner
                 _isCelebrationFromReview = false;
                 _seasonReviewPopup.Show();
                 return;
+            }
+            if (_continueAfterCelebration)
+            {
+                _continueAfterCelebration = false;
+                HandleNextOwnerMatchRequested();
+                return;
+            }
             HandleOwnerMatchHomeRequested();
         }
 
@@ -97,6 +157,7 @@ namespace Baseball.Presentation.Owner
         {
             _isCelebrationResultCaptured = false;
             _isCelebrationFromReview = false;
+            _continueAfterCelebration = false;
             _celebrationGate.Clear();
             _pendingCelebration = null;
             _celebrationPopup?.Hide();

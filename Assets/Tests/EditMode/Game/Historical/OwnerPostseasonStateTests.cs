@@ -6,6 +6,27 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed class OwnerPostseasonStateTests
     {
         [Test]
+        public void HasRemainingGames_결승상대대기는유지하고탈락과우승후에는종료한다()
+        {
+            var postseason = new OwnerPostseasonState("OWNER-NEXT", new[] { 11, 22, 33, 44 });
+            Assert.That(postseason.HasRemainingGames(11), Is.True);
+            Assert.That(postseason.HasRemainingGames(99), Is.False);
+            var first = postseason.EnsureCurrentSeries(3, 5);
+            Assert.That(postseason.HasRemainingGames(44), Is.True);
+            WinSeries(first, 11, 100);
+            Assert.That(postseason.HasRemainingGames(11), Is.True);
+            Assert.That(postseason.HasRemainingGames(44), Is.False);
+            WinSeries(postseason.EnsureCurrentSeries(3, 5), 22, 200);
+            var final = postseason.EnsureCurrentSeries(3, 5);
+            Assert.That(postseason.HasRemainingGames(11), Is.True);
+            Assert.That(postseason.HasRemainingGames(22), Is.True);
+            Assert.That(postseason.HasRemainingGames(33), Is.False);
+            WinSeries(final, 11, 300);
+            Assert.That(postseason.HasRemainingGames(11), Is.False);
+            Assert.That(postseason.HasRemainingGames(22), Is.False);
+        }
+
+        [Test]
         public void EnsureCurrentSeries_4강두경기뒤시드순서로결승을만든다()
         {
             var postseason = new OwnerPostseasonState("OWNER-S01", new[] { 11, 22, 33, 44 });

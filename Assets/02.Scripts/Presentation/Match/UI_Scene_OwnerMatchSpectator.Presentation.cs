@@ -118,6 +118,9 @@ namespace Baseball.Presentation.Match
             _revealAllButton.gameObject.SetActive(!isComplete);
             _advanceButton.gameObject.SetActive(false);
             _homeButton.gameObject.SetActive(isComplete);
+            _homeButton.interactable = !_isPreparingNextGame;
+            _nextGameButton.gameObject.SetActive(isComplete && _hasNextGame);
+            _nextGameButton.interactable = !_isPreparingNextGame;
             _resultButton.gameObject.SetActive(isComplete);
         }
 

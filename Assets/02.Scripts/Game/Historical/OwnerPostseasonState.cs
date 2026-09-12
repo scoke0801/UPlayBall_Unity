@@ -176,6 +176,19 @@ namespace Baseball.Game.Historical
 
         public bool IsQualified(int teamId) => GetSeedIndex(teamId) >= 0;
 
+        /// <summary>대진 상대 결정 대기를 포함해 해당 구단의 남은 포스트시즌 출전 여부를 반환한다.</summary>
+        public bool HasRemainingGames(int teamId)
+        {
+            if (IsCompleted || !IsQualified(teamId)) return false;
+            for (int index = 0; index < _series.Count; index++)
+            {
+                OwnerPostseasonSeriesState series = _series[index];
+                if (series.IncludesTeam(teamId) && series.IsCompleted && series.WinnerTeamId != teamId)
+                    return false;
+            }
+            return true;
+        }
+
         public OwnerTeamPostseasonResult GetTeamResult(int teamId)
         {
             if (!IsQualified(teamId)) return OwnerTeamPostseasonResult.DidNotQualify;

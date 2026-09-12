@@ -223,6 +223,7 @@ namespace Baseball.Presentation.Owner
         private void Update()
         {
             UpdatePostseasonCelebration();
+            if (UpdateNextOwnerMatch()) return;
             if (!_isSeasonSimulationVisible || _manager == null)
                 return;
             bool isRunning = _isPostseasonSimulationVisible
@@ -330,6 +331,7 @@ namespace Baseball.Presentation.Owner
             if (_matchSpectatorView != null)
             {
                 _matchSpectatorView.HomeRequested -= HandleOwnerMatchHomeRequested;
+                _matchSpectatorView.NextGameRequested -= HandleNextOwnerMatchRequested;
                 _matchSpectatorView.PresentationCompleted -= HandlePostseasonPresentationCompleted;
                 _matchSpectatorView.MatchAudioEnabledChanged -= HandleOwnerMatchAudioEnabledChanged;
                 if (Application.isPlaying) Destroy(_matchSpectatorView.gameObject);
@@ -376,6 +378,8 @@ namespace Baseball.Presentation.Owner
         private void HandleModeChanged(UiGameMode? mode)
         {
             if (mode != UiGameMode.OwnerCareer) _frontManagerPopup?.Hide();
+            if (mode != UiGameMode.OwnerCareer && _isNextOwnerMatchPending)
+                _isNextOwnerMatchPending = _isTransitioningToOwnerMatch = false;
             if (mode != UiGameMode.OwnerCareer) ResetPostseasonPresentation();
             if (mode != UiGameMode.OwnerCareer && _manager != null &&
                 (_manager.IsRegularSeasonSimulationRunning || _manager.IsPostseasonSimulationRunning))
@@ -985,6 +989,7 @@ namespace Baseball.Presentation.Owner
 
             _matchSpectatorView = UI_Scene_OwnerMatchSpectator.CreateRuntime(_shell.MainWorkspaceHost);
             _matchSpectatorView.HomeRequested += HandleOwnerMatchHomeRequested;
+            _matchSpectatorView.NextGameRequested += HandleNextOwnerMatchRequested;
             _matchSpectatorView.PresentationCompleted += HandlePostseasonPresentationCompleted;
             _matchSpectatorView.MatchAudioEnabledChanged += HandleOwnerMatchAudioEnabledChanged;
         }
@@ -1010,6 +1015,12 @@ namespace Baseball.Presentation.Owner
             if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch)
                 return;
 
+            PlayOwnerMatchSpectator();
+        }
+
+        private void PlayOwnerMatchSpectator()
+        {
+            bool isContinuing = _isOwnerMatchVisible;
             EnsureMatchSpectatorView();
             BeginPostseasonPresentation();
             _isTransitioningToOwnerMatch = true;
@@ -1017,7 +1028,9 @@ namespace Baseball.Presentation.Owner
             _navigationState.OpenContext(OwnerNavigationRoutes.MatchSpectator);
             ShowOwnerMatchSpectator();
             OwnerMatchPresentationOptions settings = OwnerMatchPresentationSettings.Load();
-            SetOwnerMatchBgm(true, _isPostseasonMatchVisible || settings.ShouldPlayMatchAudio);
+            // 연속 관전에서는 현재 무음 설정까지 포함해 오디오 상태를 유지한다.
+            if (!isContinuing)
+                SetOwnerMatchBgm(true, _isPostseasonMatchVisible || settings.ShouldPlayMatchAudio);
             try
             {
                 // PlayNextGame 내부 RuntimeChanged가 먼저 발생해도 위 전환 상태가 관전 View를 유지한다.
@@ -1065,7 +1078,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleOwnerMatchHomeRequested()
         {
-            if (_matchSpectatorView == null || !_matchSpectatorView.IsComplete)
+            if (_isTransitioningToOwnerMatch || _matchSpectatorView == null || !_matchSpectatorView.IsComplete)
                 return;
             if (ShowPendingCelebration()) return;
 

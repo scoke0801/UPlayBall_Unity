@@ -19,6 +19,38 @@ namespace Baseball.Tests.EditMode.Presentation.Match
     public sealed class OwnerMatchSpectatorTests
     {
         [Test]
+        public void 다음경기는종료후에만표시하고준비중에는중복입력과복귀를막는다()
+        {
+            var hostObject = new GameObject("Host", typeof(RectTransform));
+            try
+            {
+                var view = UI_Scene_OwnerMatchSpectator.CreateRuntime(hostObject.GetComponent<RectTransform>());
+                var canvas = view.transform.Find("BroadcastCanvas");
+                var next = canvas.Find("NextGame").GetComponent<Button>();
+                var home = canvas.Find("ReturnHome").GetComponent<Button>();
+                var refresh = typeof(UI_Scene_OwnerMatchSpectator).GetMethod(
+                    "SetCompletionControlVisibility", BindingFlags.Instance | BindingFlags.NonPublic);
+                view.SetNextGameAvailability(true);
+                Assert.That(next.gameObject.activeSelf, Is.False);
+                refresh.Invoke(view, new object[] { true });
+                Assert.That(next.gameObject.activeSelf, Is.True);
+                Assert.That(next.interactable, Is.True);
+                view.SetNextGameAvailability(true, true);
+                refresh.Invoke(view, new object[] { true });
+                Assert.That(next.interactable, Is.False);
+                Assert.That(home.interactable, Is.False);
+                view.SetNextGameAvailability(false);
+                refresh.Invoke(view, new object[] { true });
+                Assert.That(next.gameObject.activeSelf, Is.False);
+                Assert.That(home.interactable, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void 관전화면은중계와결과에필요한계층을구성한다()
         {
             var hostObject = new GameObject("Host", typeof(RectTransform));

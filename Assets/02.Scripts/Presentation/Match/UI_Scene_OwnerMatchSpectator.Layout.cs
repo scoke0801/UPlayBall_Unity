@@ -17,7 +17,7 @@ namespace Baseball.Presentation.Match
         private Text _pitcherLabel, _batterLabel, _pitcherDetail, _batterDetail;
         private Text _announcement, _commentary, _resultHeading, _resultSummary, _recordHeader;
         private Text _scoreCaption, _resultToggleLabel;
-        private Button _pauseButton, _advanceButton, _revealAllButton, _homeButton, _resultButton;
+        private Button _pauseButton, _advanceButton, _revealAllButton, _homeButton, _resultButton, _nextGameButton;
         private Button[] _speedButtons;
         private Button[] _viewingModeButtons;
         private readonly Image[] _balls = new Image[4];
@@ -48,7 +48,7 @@ namespace Baseball.Presentation.Match
             _canvas.pivot = new Vector2(0.5f, 0.5f);
             _canvas.anchoredPosition = Vector2.zero;
             _gameCastConfig = MatchGameCastConfig.Load();
-            _font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font ??= Baseball.Presentation.UI.UIProjectFonts.Default;
             RectTransform field = Panel("Field", _canvas, new Color32(27, 56, 42, 255), 12, 124, 900, 552);
             field.gameObject.AddComponent<RectMask2D>();
             // 원본 3:2 비율을 유지하고 외곽만 여백 처리한다.
@@ -223,6 +223,12 @@ namespace Baseball.Presentation.Match
             });
             _resultToggleLabel = _resultButton.GetComponentInChildren<Text>();
             _homeButton = Control("ReturnHome", _canvas, "구단 홈으로", 1242, 752, 176, () => HomeRequested?.Invoke());
+            _nextGameButton = Control("NextGame", _canvas, "다음 경기", 1046, 752, 184, () =>
+            {
+                if (IsComplete && _hasNextGame && !_isPreparingNextGame) NextGameRequested?.Invoke();
+            });
+            _nextGameButton.targetGraphic.color = Blue;
+            _nextGameButton.GetComponentInChildren<Text>().color = Color.white;
         }
 
         private void BuildResults()
@@ -335,7 +341,7 @@ namespace Baseball.Presentation.Match
             go.transform.SetParent(parent, false);
             Place(go.GetComponent<RectTransform>(), x, y, width, height);
             var label = go.GetComponent<Text>();
-            label.font = _font ??= Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.font = _font ??= Baseball.Presentation.UI.UIProjectFonts.Default;
             label.text = value;
             label.fontSize = size;
             label.color = color;
