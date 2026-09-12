@@ -18,14 +18,35 @@ class SpecialCardBakeTests(unittest.TestCase):
                    qualifiedNormalCardIds=[f'ps-{year}:Normal' for year in range(2000, 2008)])
         pitcher = dict(row, role='Pitcher', playerSeasonId='ps-pitcher')
         evaluation = dict(policy=dict(version='evaluation-v1'), ex=[row, pitcher],
-                          careerHigh=[row], legendShortlist=[row], inputHash='fixed')
+                          careerHigh=[row], legendShortlist=[dict(row, playerPersonId='person-2',
+                                                                 playerSeasonId='ps-legend')], inputHash='fixed')
         policy = dict(version='bake-v1', evaluationPolicyVersion='evaluation-v1', supportedYears=[2000],
                       careerHighAllBonus=2, legendAllBonus=2,
-                      legends=[dict(playerPersonId='person-1', lineage='lineage-1', enabled=True,
+                      legends=[dict(playerPersonId='person-2', lineage='lineage-1', enabled=True,
                                     curatedReasonTags=['Fixture'], materialGroups=[
                                         dict(groupId=f'g-{i}', candidateCardIds=[f'legend-{i}:Normal'])
                                         for i in range(8)])])
         return evaluation, policy
+
+    def test_career_high_excludes_legend_across_years_lineages_and_partial_scope(self):
+        for lineage in ('lineage-1', 'transferred-lineage'):
+            for editions in (['CareerHigh', 'Legend'], ['Legend']):
+                with self.subTest(lineage=lineage, editions=editions):
+                    evaluation, policy = self.fixture()
+                    policy['legends'][0].update(playerPersonId='person-1', lineage=lineage,
+                                                basePlayerSeasonId='another-year')
+                    result = build_catalog(evaluation, policy, editions)
+                    self.assertFalse(any(card['edition'] == 'Legend' for card in result['cards']))
+                    self.assertEqual(1, len(result['excludedLegends']))
+                    self.assertEqual(len(result['cards']), len(result['recipes']))
+
+    def test_ineligible_career_high_does_not_exclude_legend(self):
+        evaluation, policy = self.fixture()
+        evaluation['careerHigh'][0]['status'] = 'InsufficientYears'
+        policy['legends'][0]['playerPersonId'] = 'person-1'
+        result = build_catalog(evaluation, policy, ['CareerHigh', 'Legend'])
+        self.assertEqual(['Legend'], [card['edition'] for card in result['cards']])
+        self.assertEqual([], result['excludedLegends'])
 
     def test_bake_preserves_ids_and_is_deterministic(self):
         evaluation, policy = self.fixture()
@@ -114,8 +135,8 @@ class SpecialCardBakeTests(unittest.TestCase):
             evaluation['runtimeArchiveRoot'] = 'Assets/Editor Default Resources/HistoricalSimulation/Test/Runtime'
             path = root / relative
             path.parent.mkdir(parents=True)
-            ids = ['ps-peak', 'ps-pitcher'] + [f'ps-{year}' for year in range(2000, 2008)] + [f'legend-{i}' for i in range(8)]
-            seasons = [dict(playerSeasonId=sid, playerPersonId='person-1', originFranchiseId='runtime-franchise',
+            ids = ['ps-peak', 'ps-pitcher', 'ps-legend'] + [f'ps-{year}' for year in range(2000, 2008)] + [f'legend-{i}' for i in range(8)]
+            seasons = [dict(playerSeasonId=sid, playerPersonId='person-2' if sid == 'ps-legend' else 'person-1', originFranchiseId='runtime-franchise',
                             originYear=2000 + index, cost=10) for index, sid in enumerate(ids)]
             normals = [dict(cardId=sid + ':Normal', playerSeasonId=sid, edition='Normal') for sid in ids]
             path.write_text(json.dumps(dict(playerSeasons=seasons, normalCards=normals)), encoding='utf-8')

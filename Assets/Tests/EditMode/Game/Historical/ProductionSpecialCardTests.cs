@@ -23,7 +23,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Ex), Is.EqualTo(73));
             Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Rare), Is.EqualTo(363));
             Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.CareerHigh), Is.EqualTo(116));
-            Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Legend), Is.EqualTo(105));
+            Assert.That(special.Cards.Count(c => c.Edition == PlayerCardEdition.Legend), Is.EqualTo(19));
             Assert.That(special.Recipes.Count, Is.EqualTo(special.Cards.Count(c => c.IsUniqueOwnedCard)));
             var catalog = WorldCardCatalogBuilder.Build(content.PlayerSeasons, null, CardEditionBalanceTable.CreateInitial(),
                 content.PlayerPersons, content.TeamSeasons, special);
@@ -35,6 +35,11 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 if (issued.IsUniqueOwnedCard)
                     Assert.That(catalog.SpecialCards.GetRequiredRecipe(card.CardId).MaterialGroups.Count, Is.EqualTo(8));
             }
+            var personsBySeason = content.PlayerSeasons.ToDictionary(s => s.PlayerSeasonId, s => s.PlayerPersonId);
+            var careerHighPersons = special.Cards.Where(c => c.Edition == PlayerCardEdition.CareerHigh)
+                .Select(c => personsBySeason[c.PlayerSeasonId]).ToHashSet();
+            Assert.That(special.Cards.Where(c => c.Edition == PlayerCardEdition.Legend)
+                .Any(c => careerHighPersons.Contains(personsBySeason[c.PlayerSeasonId])), Is.False);
             var pool = new ScoutPoolDefinition("production", ScoutType.General,
                 ScoutPoolDefinition.CreateInitialCostWeights(), ScoutPoolDefinition.CreateStandardEditionWeights(), 0);
             var buckets = new ScoutRoller().GetProbabilities(pool, catalog, ScoutFeaturePolicy.FullWorldAwards);

@@ -56,7 +56,8 @@ namespace Baseball.Presentation.SharedUI
             IReadOnlyList<PlayerMiniCardStatModel> stats = null,
             PlayerCardEdition? frameEdition = null,
             int? cost = null,
-            int? conditionLevel = null)
+            int? conditionLevel = null,
+            PlayerCardGrowthBadgeModel growthBadges = null)
         {
             if (string.IsNullOrWhiteSpace(playerId))
                 throw new ArgumentException("선수 식별자는 비어 있을 수 없습니다.", nameof(playerId));
@@ -78,6 +79,7 @@ namespace Baseball.Presentation.SharedUI
             FrameEdition = frameEdition;
             Cost = cost;
             ConditionLevel = conditionLevel;
+            GrowthBadges = growthBadges ?? PlayerCardGrowthBadgeModel.Empty;
         }
 
         /// <summary>
@@ -118,6 +120,9 @@ namespace Baseball.Presentation.SharedUI
 
         /// <summary>정본 컨디션 테이블의 1~10 단계다. 비공개·미확인은 null이다.</summary>
         public int? ConditionLevel { get; }
+
+        /// <summary>모드에서 공급하는 유학·특성훈련 배지다.</summary>
+        public PlayerCardGrowthBadgeModel GrowthBadges { get; }
 
         /// <summary>
         /// Condition, 감독 결정, 경고처럼 모드 Presenter가 공급한 보조 상태다.

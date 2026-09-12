@@ -163,6 +163,19 @@ namespace Baseball.Presentation.Career
 
             CardDesignGalleryFx fx = target.gameObject.AddComponent<CardDesignGalleryFx>();
             fx.Initialize(CardDesignVariants[index], isCompact, index == _selectedCardDesign);
+            if (_showCardArtworkOnly) return;
+
+            // 공용 카드 렌더러에는 FX를 넣지 않는다. 갤러리의 FX 토글만 초상 뒤 광채를 소유한다.
+            RectTransform window = target.Find("PortraitWindow") as RectTransform;
+            if (window != null)
+            {
+                UIPlayerCardFlipbook.Bind(window, Vector2.zero, Vector2.one, window.Find("Silhouette"));
+                return;
+            }
+            Transform portrait = target.Find("Portrait");
+            if (isCompact && portrait != null)
+                UIPlayerCardFlipbook.Bind(target, new Vector2(.025f, .89f * .31f),
+                    new Vector2(.975f, .89f * .98f), portrait);
         }
 
         private static PlayerCardEdition PreviewEdition(int index) =>

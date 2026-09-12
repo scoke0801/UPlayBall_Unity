@@ -46,6 +46,80 @@ namespace Baseball.Tests.EditMode.Presentation
             Assert.That(_view.transform.Find("AssignmentBadge").gameObject.activeSelf, Is.False);
         }
 
+        [TestCase(1280, 720)]
+        [TestCase(1920, 1080)]
+        [TestCase(2560, 1440)]
+        [TestCase(3440, 1440)]
+        public void SmallCards_모든등급의선수이름을실제로렌더링한다(int width, int height)
+        {
+            var host = new GameObject("SmallCardCanvas", typeof(Canvas));
+            var cameraObject = new GameObject("CardCamera", typeof(Camera));
+            var target = new RenderTexture(width, height, 24);
+            try
+            {
+                var camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = Color.gray;
+                camera.targetTexture = target;
+                var canvas = host.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 1;
+                var panel = new GameObject("Cards", typeof(RectTransform)).GetComponent<RectTransform>();
+                panel.SetParent(host.transform, false);
+                panel.sizeDelta = new Vector2(1100, 560);
+                panel.localScale = Vector3.one * Mathf.Min(width / 1100f, height / 560f);
+                int column = 0;
+                foreach (PlayerCardEdition edition in System.Enum.GetValues(typeof(PlayerCardEdition)))
+                {
+                    for (int row = 0; row < 3; row++)
+                    {
+                        var card = PlayerMiniCardView.CreateRuntime(panel);
+                        card.UseLineupSlotLayout();
+                        if (row == 0) card.UseRosterPresentation();
+                        card.Bind(new PlayerMiniCardModel("sample", row == 2 ? "크리스토퍼" : "함창건",
+                            "중견수", "25", "10", "", "잠금", frameEdition: edition, cost: 10));
+                        card.SetPortrait(Resources.Load<Sprite>("UI/Portraits/img_hitter_default"));
+                        var rect = card.GetComponent<RectTransform>();
+                        rect.sizeDelta = row == 0 ? new Vector2(56, 92) : new Vector2(70, 116);
+                        rect.anchoredPosition = new Vector2(-470 + column * 110, 170 - row * 160);
+                        Canvas.ForceUpdateCanvases();
+                        foreach (string label in new[] { "Name", "Position", "Year", "Cost" })
+                        {
+                            var text = card.transform.Find(label).GetComponent<Text>();
+                            Assert.That(text.cachedTextGenerator.vertexCount, Is.GreaterThanOrEqualTo(text.text.Length * 4),
+                                $"{edition}, {rect.sizeDelta}, {label}: 전체 글자가 생성되어야 한다.");
+                        }
+                    }
+                    column++;
+                }
+                camera.Render();
+                var previous = RenderTexture.active;
+                var image = new Texture2D(width, height, TextureFormat.RGB24, false);
+                try
+                {
+                    RenderTexture.active = target;
+                    image.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                    image.Apply();
+                    string folder = System.Environment.GetEnvironmentVariable("BASEBALL_SMALL_CARD_CAPTURE");
+                    if (!string.IsNullOrEmpty(folder))
+                    {
+                        System.IO.Directory.CreateDirectory(folder);
+                        System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder, width + "x" + height + ".png"), image.EncodeToPNG());
+                    }
+                }
+                finally { RenderTexture.active = previous; Object.DestroyImmediate(image); }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+                Object.DestroyImmediate(cameraObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
         [Test]
         public void Bind_선수표시값과읽기전용상태를그린다()
         {

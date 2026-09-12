@@ -208,6 +208,7 @@ namespace Baseball.Game.Historical
 
         private bool IsCardInUse(string id)
         {
+            foreach (var camp in PlayerGrowth.Camps) if (camp.CardId == id) return true;
             foreach (var entry in GetRoster(PlayerTeamSeasonKey).Entries)
                 if (entry.CardId == id) return true;
             foreach (var study in PlayerGrowth.StudyProjects)

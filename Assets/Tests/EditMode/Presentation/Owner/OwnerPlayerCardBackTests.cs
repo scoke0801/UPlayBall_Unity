@@ -13,6 +13,151 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
     /// <summary>카드 시각 구성 변경 뒤에도 실제 구종·기록·성장판 정보가 보존되는지 검증한다.</summary>
     public sealed class OwnerPlayerCardBackTests
     {
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator Navigation_실행중같은프레임에이전카드를분리한다()
+        {
+            yield return new UnityEngine.TestTools.EnterPlayMode();
+            var host = new GameObject("NavigationCanvas", typeof(RectTransform), typeof(Canvas));
+            UI_Popup_OwnerPlayerCard view = null;
+            try
+            {
+                UI_Popup_OwnerPlayerCard.Show(host.transform,
+                    new[] { CreatePitcher(5), CreateHitter("H", "다음타자") }, 0);
+                // 실행 중에는 공용 UIManager가 팝업을 자신의 레이어로 옮긴다.
+                view = Object.FindFirstObjectByType<UI_Popup_OwnerPlayerCard>();
+                Transform popup = view.transform;
+                Transform front = popup.Find("CardDetail/Front");
+                Transform back = popup.Find("CardDetail/Back");
+                Transform oldFrame = front.Find("MainFrame");
+                Transform oldDecoration = front.Find("CardDecoration");
+                Transform oldRole = back.Find("RoleInformation");
+                popup.Find("NextCard").GetComponent<Button>().onClick.Invoke();
+
+                // 프레임을 넘기기 전에 검사해야 Destroy 지연으로 인한 재참조를 재현할 수 있다.
+                Assert.That(oldFrame.parent, Is.Null);
+                Assert.That(oldFrame.gameObject.activeSelf, Is.False);
+                Assert.That(oldDecoration.parent, Is.Null);
+                Assert.That(front.Find("CardDecoration"), Is.Not.Null);
+                Assert.That(front.Find("CardDecoration"), Is.Not.SameAs(oldDecoration));
+                Assert.That(oldRole.parent, Is.Null);
+                Assert.That(front.Find("MainFrame"), Is.Not.SameAs(oldFrame));
+                Assert.That(front.Find("Name").GetComponent<Text>().text, Is.EqualTo("다음타자"));
+                Assert.That(front.Find("Enhancement"), Is.Null);
+                Assert.That(back.Find("RoleInformation/PitchSlot0"), Is.Null);
+
+                popup.Find("PreviousCard").GetComponent<Button>().onClick.Invoke();
+                Assert.That(front.Find("Name").GetComponent<Text>().text, Is.EqualTo("가상투수"));
+                Assert.That(front.Find("Enhancement"), Is.Not.Null);
+                Assert.That(back.Find("RoleInformation/PitchSlot4"), Is.Not.Null);
+                int frameCount = 0;
+                foreach (Transform child in front)
+                    if (child.name == "MainFrame") frameCount++;
+                Assert.That(frameCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                if (view != null) view.Close();
+                Object.Destroy(host);
+            }
+            yield return null;
+            yield return new UnityEngine.TestTools.ExitPlayMode();
+        }
+
+        [TestCase(1280, 720, 5)]
+        [TestCase(1920, 1080, 5)]
+        [TestCase(2560, 1440, 6)]
+        [TestCase(3440, 1440, 2)]
+        [TestCase(1280, 720, 0, false)]
+        [TestCase(1920, 1080, 0, false)]
+        [TestCase(2560, 1440, 0, false)]
+        [TestCase(3440, 1440, 0, false)]
+        public void PitcherBack_구종과구속을해상도별로렌더링한다(int width, int height, int count, bool pitcher = true)
+        {
+            var host = new GameObject("BackCanvas", typeof(Canvas));
+            var cameraObject = new GameObject("BackCamera", typeof(Camera));
+            var target = new RenderTexture(width, height, 24);
+            try
+            {
+                Camera camera = cameraObject.GetComponent<Camera>();
+                camera.orthographic = true;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = new Color32(25, 29, 36, 255);
+                camera.targetTexture = target;
+                Canvas canvas = host.GetComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = camera;
+                canvas.planeDistance = 1;
+                Canvas.ForceUpdateCanvases();
+                var card = new GameObject("Back", typeof(RectTransform)).GetComponent<RectTransform>();
+                card.SetParent(host.transform, false);
+                card.sizeDelta = new Vector2(400, 600);
+                card.localScale = Vector3.one * (height * .9f / 600f);
+                typeof(UI_Popup_OwnerPlayerCard).GetMethod("BuildReferenceBack",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(null, new object[] { card, pitcher ? CreatePitcher(count, true) : CreateVisualSkillHitter(), pitcher });
+                Canvas.ForceUpdateCanvases();
+                // EditMode에서는 프레임이 흐르지 않으므로 동적 폰트 아틀라스 갱신 뒤 메시를 한 번 더 만든다.
+                camera.Render();
+                foreach (Text label in card.GetComponentsInChildren<Text>()) label.SetAllDirty();
+                Canvas.ForceUpdateCanvases();
+                if (!pitcher)
+                {
+                    var field = card.Find("RoleInformation/DefenseDiagram/Field").GetComponent<UICardDefenseField>();
+                    Assert.That(field.sprite, Is.Not.Null);
+                    Assert.That(field.sprite.name, Is.EqualTo("PlayerCard_DefenseField"));
+                    Assert.That(field.preserveAspect, Is.True);
+                    Assert.That(field.raycastTarget, Is.False);
+                    var corners = new Vector3[4];
+                    field.rectTransform.GetWorldCorners(corners);
+                    RectTransform area = (RectTransform)field.transform.parent;
+                    foreach (Vector3 corner in corners)
+                    {
+                        Vector3 local = area.InverseTransformPoint(corner);
+                        Assert.That(local.x, Is.InRange(area.rect.xMin - .1f, area.rect.xMax + .1f));
+                        Assert.That(local.y, Is.InRange(area.rect.yMin - .1f, area.rect.yMax + .1f));
+                    }
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    Transform slot = card.Find("RoleInformation/PitchSlot" + i);
+                    foreach (string name in new[] { "PitchName", "Grade", "Velocity" })
+                    {
+                        Text label = slot.Find(name).GetComponent<Text>();
+                        Assert.That(label.cachedTextGenerator.vertexCount, Is.GreaterThan(0), name);
+                        Assert.That(label.cachedTextGenerator.lineCount, Is.EqualTo(1), name);
+                    }
+                    var rect = (RectTransform)slot;
+                    Assert.That(rect.anchorMin.x, Is.GreaterThanOrEqualTo(0));
+                    Assert.That(rect.anchorMin.y, Is.GreaterThanOrEqualTo(0));
+                    Assert.That(rect.anchorMax.x, Is.LessThanOrEqualTo(1));
+                    Assert.That(rect.anchorMax.y, Is.LessThanOrEqualTo(1));
+                }
+                camera.Render();
+                string folder = System.Environment.GetEnvironmentVariable("BASEBALL_CARD_BACK_CAPTURE");
+                if (!string.IsNullOrEmpty(folder))
+                {
+                    var previous = RenderTexture.active;
+                    var image = new Texture2D(width, height, TextureFormat.RGB24, false);
+                    try
+                    {
+                        RenderTexture.active = target;
+                        image.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                        image.Apply();
+                        System.IO.Directory.CreateDirectory(folder);
+                        System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder, (pitcher ? "" : "hitter-") + width + "x" + height + ".png"), image.EncodeToPNG());
+                    }
+                    finally { RenderTexture.active = previous; Object.DestroyImmediate(image); }
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+                Object.DestroyImmediate(cameraObject);
+                target.Release();
+                Object.DestroyImmediate(target);
+            }
+        }
+
         [TestCase(2)]
         [TestCase(3)]
         [TestCase(4)]
@@ -117,13 +262,23 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
 
                 UI_Popup_OwnerPlayerCard.Show(sourceObject.transform, card);
 
-                Image block = canvasObject.transform.Find(
+                Transform block = canvasObject.transform.Find(
                     "UI_Popup_OwnerPlayerCard/CardDetail/Back/SkillBoardInformation/Grid/PlacedBlock_0")
-                    .GetComponent<Image>();
-                Assert.That(block.sprite, Is.Not.Null);
-                Assert.That(block.sprite.name, Is.EqualTo("SkillBlock_" + shape));
-                Assert.That(block.color, Is.EqualTo((Color)new Color32((byte)red, (byte)green, (byte)blue, 255)));
-                Assert.That(Mathf.DeltaAngle(block.rectTransform.localEulerAngles.z, rotation * 90f),
+                    .transform;
+                RawImage[] tiles = block.GetComponentsInChildren<RawImage>();
+                Assert.That(tiles.Length, Is.EqualTo(4));
+                string mark = rarity == SkillBlockRarity.Elite || rarity == SkillBlockRarity.Unique ||
+                              rarity == SkillBlockRarity.Legendary ? "star" : "circle";
+                foreach (RawImage tile in tiles)
+                {
+                    Assert.That(tile.texture, Is.Not.Null);
+                    Assert.That(tile.texture.name, Is.EqualTo("skill_tile_" + mark + "_v3"));
+                    Assert.That(tile.color, Is.EqualTo((Color)new Color32((byte)red, (byte)green, (byte)blue, 255)));
+                    Assert.That(tile.raycastTarget, Is.False);
+                    Assert.That(Mathf.DeltaAngle(tile.transform.localEulerAngles.z, -rotation * 90f),
+                        Is.EqualTo(0f).Within(.01f));
+                }
+                Assert.That(Mathf.DeltaAngle(block.localEulerAngles.z, rotation * 90f),
                     Is.EqualTo(0f).Within(.01f));
             }
             finally
@@ -277,6 +432,21 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
             finally { Object.DestroyImmediate(host); }
         }
 
+        private static OwnerCollectionCardSnapshot CreateVisualSkillHitter()
+        {
+            return new OwnerCollectionCardSnapshot(
+                "FIELD", "P-FIELD", "수비필드", 2025, PlayerPosition.Shortstop, 8,
+                PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities(),
+                placedSkillBlockCount: 4,
+                skillBlockPlacements: new[]
+                {
+                    new OwnerSkillBlockPlacementSnapshot(TetrominoShapeCatalog.CreateCells(TetrominoShape.I), 0, 0, 0, SkillBlockRarity.Rare),
+                    new OwnerSkillBlockPlacementSnapshot(TetrominoShapeCatalog.CreateCells(TetrominoShape.O), 0, 1, 0, SkillBlockRarity.Unique),
+                    new OwnerSkillBlockPlacementSnapshot(TetrominoShapeCatalog.CreateCells(TetrominoShape.O), 2, 1, 0, SkillBlockRarity.Normal),
+                    new OwnerSkillBlockPlacementSnapshot(TetrominoShapeCatalog.CreateCells(TetrominoShape.I), 0, 3, 0, SkillBlockRarity.Legendary)
+                });
+        }
+
         private static OwnerCollectionCardSnapshot CreateHitter(string cardId, string displayName)
         {
             return new OwnerCollectionCardSnapshot(
@@ -284,12 +454,14 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 PlayerCardEdition.Normal, 0, 0, false, false, CreateAbilities());
         }
 
-        private static OwnerCollectionCardSnapshot CreatePitcher(int pitchCount)
+        private static OwnerCollectionCardSnapshot CreatePitcher(int pitchCount, bool usePitchNames = false)
         {
             var pitches = new List<OwnerPitchCardSnapshot>(pitchCount);
+            string[] names = { "포심 패스트볼", "투심 패스트볼", "커터", "슬라이더", "커브", "체인지업" };
             for (int index = 0; index < pitchCount; index++)
                 pitches.Add(new OwnerPitchCardSnapshot(
-                    (PitchType)index, "긴 구종 이름 " + index, index == pitchCount - 1 ? "SS" : "B+", 151d - index * 4d));
+                    (PitchType)index, usePitchNames ? names[index] : "긴 구종 이름 " + index,
+                    index == pitchCount - 1 ? "SS" : "B+", 151d - index * 4d));
             return new OwnerCollectionCardSnapshot(
                 "C-P", "P-P", "가상투수", 2025, PlayerPosition.StartingPitcher, 9,
                 PlayerCardEdition.Mvp, 5, 0, false, false,

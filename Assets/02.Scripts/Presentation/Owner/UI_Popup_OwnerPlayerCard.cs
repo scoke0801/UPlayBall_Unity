@@ -21,6 +21,7 @@ namespace Baseball.Presentation.Owner
         private RectTransform _front;
         private RectTransform _back;
         private OwnerCollectionCardSnapshot[] _cards;
+        private Func<OwnerCollectionCardSnapshot, OwnerCollectionCardSnapshot> _detailResolver;
         private int _cardIndex;
         private RectTransform _closeButton;
         private Button _previousButton;
@@ -48,7 +49,8 @@ namespace Baseball.Presentation.Owner
         public static void Show(
             Transform source,
             IReadOnlyList<OwnerCollectionCardSnapshot> cards,
-            int selectedIndex)
+            int selectedIndex,
+            Func<OwnerCollectionCardSnapshot, OwnerCollectionCardSnapshot> detailResolver = null)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (cards == null || cards.Count == 0) throw new ArgumentException("표시할 선수 카드가 필요합니다.", nameof(cards));
@@ -59,6 +61,7 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.Stretch(root);
             var view = root.gameObject.AddComponent<UI_Popup_OwnerPlayerCard>();
             view._source = source;
+            view._detailResolver = detailResolver;
             view._cards = new OwnerCollectionCardSnapshot[cards.Count];
             for (int index = 0; index < cards.Count; index++)
                 view._cards[index] = cards[index] ?? throw new ArgumentException("null 선수 카드가 있습니다.", nameof(cards));
@@ -83,6 +86,7 @@ namespace Baseball.Presentation.Owner
             view._back = Surface(panel, "Back", Ink, 0, 0, 1, 1);
             view._previousButton = CreateNavigationButton(root, "PreviousCard", "<", .5f, 0, .5f, 0, view.ShowPrevious);
             view._nextButton = CreateNavigationButton(root, "NextCard", ">", .5f, 0, .5f, 0, view.ShowNext);
+            view.BuildGrowthHistory(root);
             view.ResizeCard();
             view.RenderCard();
             view.Show();
@@ -93,9 +97,11 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(_front);
             OwnerRuntimeUiFactory.ClearChildren(_back);
             OwnerCollectionCardSnapshot card = _cards[_cardIndex];
+            if (_detailResolver != null) card = _detailResolver(card);
             bool pitcher = card.Position == PlayerPosition.StartingPitcher || card.Position == PlayerPosition.ReliefPitcher;
             BuildFrontCard(_front, card);
             BuildReferenceBack(_back, card, pitcher);
+            BindGrowthHistory(card);
             _front.gameObject.SetActive(!_isBack);
             _back.gameObject.SetActive(_isBack);
             _previousButton.interactable = _cardIndex > 0;
@@ -207,16 +213,18 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.SetAnchors(stars, new Vector2(.20f, costBottom), new Vector2(.81f, costTop), Vector2.zero, Vector2.zero);
             OwnerPlayerCardFrames.SetCostStars(stars, card.Edition, card.Cost);
             Label(parent, "Cost", card.Cost.ToString(), .83f, costBottom, .96f, costTop, 23, Color.white);
+            PlayerCardGrowthBadgesView.Bind(parent, card.GrowthBadges, isDetail: true);
         }
 
         private static void CreateAbilityLegend(Transform parent)
         {
-            CreateLegendItem(parent, "BaseLegend", "기본", new Color32(218, 224, 235, 255), .05f, .145f);
-            CreateLegendItem(parent, "TrainingLegend", "훈련", TrainingColor, .195f, .29f);
-            CreateLegendItem(parent, "SkillLegend", "블록", SkillBlockColor, .34f, .435f);
-            CreateLegendItem(parent, "TeamColorLegend", "팀컬러", TeamColorColor, .485f, .61f);
-            CreateLegendItem(parent, "StudyLegend", "유학", StudyColor, .66f, .755f);
-            CreateLegendItem(parent, "EnhancementLegend", "강화", EnhancementColor, .805f, .90f);
+            CreateLegendItem(parent, "BaseLegend", "기본", new Color32(218, 224, 235, 255), .05f, .14f);
+            CreateLegendItem(parent, "TrainingLegend", "훈련", TrainingColor, .17f, .26f);
+            CreateLegendItem(parent, "SkillLegend", "블록", SkillBlockColor, .29f, .38f);
+            CreateLegendItem(parent, "TeamColorLegend", "팀컬러", TeamColorColor, .41f, .53f);
+            CreateLegendItem(parent, "StudyLegend", "유학", StudyColor, .56f, .65f);
+            CreateLegendItem(parent, "EnhancementLegend", "강화", EnhancementColor, .68f, .77f);
+            CreateLegendItem(parent, "GrowthLedgerLegend", "추가", new Color32(169,137,211,255), .80f, .92f);
         }
 
         private static void CreateLegendItem(
@@ -240,7 +248,8 @@ namespace Baseball.Presentation.Owner
             int maximum)
         {
             float cursor = 0f;
-            AddAbilitySegment(parent, "BaseFill" + index, y, breakdown.BaseCard,
+            int operations = breakdown.Mentoring + breakdown.Correction + breakdown.Support + breakdown.Slogan + breakdown.Staff;
+            AddAbilitySegment(parent, "BaseFill" + index, y, Math.Max(1, breakdown.BaseCard + Math.Min(0, operations)),
                 Color.white, new Color32(194, 205, 225, 255), maximum, ref cursor);
             AddAbilitySegment(parent, "TrainingFill" + index, y, breakdown.Training,
                 TrainingColor, TrainingColor, maximum, ref cursor);
@@ -252,6 +261,8 @@ namespace Baseball.Presentation.Owner
                 StudyColor, StudyColor, maximum, ref cursor);
             AddAbilitySegment(parent, "EnhancementFill" + index, y, breakdown.Enhancement,
                 EnhancementColor, EnhancementColor, maximum, ref cursor);
+            AddAbilitySegment(parent, "DevelopmentFill" + index, y, Math.Max(0, operations),
+                new Color32(153, 128, 220, 255), new Color32(153, 128, 220, 255), maximum, ref cursor);
         }
 
         private static void AddAbilitySegment(
@@ -372,7 +383,10 @@ namespace Baseball.Presentation.Owner
             PositionCardControl(
                 _closeButton,
                 new Vector2(width * .5f + closeButtonWidth * .5f, height * .5f - closeButtonHeight * .5f),
-                new Vector2(closeButtonWidth, closeButtonHeight));
+                  new Vector2(closeButtonWidth, closeButtonHeight));
+            if (_growthHistoryButton != null)
+                PositionCardControl(_growthHistoryButton.GetComponent<RectTransform>(),
+                    new Vector2(0, -height * .5f - 25), new Vector2(180, 40));
         }
 
         private static void PositionCardControl(RectTransform rect, Vector2 anchoredPosition, Vector2 size)

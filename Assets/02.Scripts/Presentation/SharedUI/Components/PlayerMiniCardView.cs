@@ -159,6 +159,7 @@ namespace Baseball.Presentation.SharedUI
             float conditionTop = _usesLineupSlotLayout ? .89f : 1f;
             PlayerCardConditionSprites.Bind(transform, model.ConditionLevel,
                 new Vector2(.035f, .38f * conditionTop), new Vector2(.24f, .53f * conditionTop));
+            PlayerCardGrowthBadgesView.Bind((RectTransform)transform, model.GrowthBadges, cardTop: conditionTop);
         }
 
         /// <summary>
@@ -225,7 +226,7 @@ namespace Baseball.Presentation.SharedUI
             _editionText.fontSize = 7;
             _statusText.fontSize = 7;
             SetBestFitRange(_nameText, 10, 26);
-            SetBestFitRange(_positionText, 9, 20);
+            SetBestFitRange(_positionText, 6, 20);
             SetBestFitRange(_yearText, 9, 18);
             SetBestFitRange(_costText, 9, 24);
             SetBestFitRange(_editionText, 9, 20);
@@ -324,13 +325,14 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_portrait.rectTransform, new Vector2(0f, 0.38f), new Vector2(1f, 1f),
                 new Vector2(8f, 5f), new Vector2(-8f, -10f));
 
-            _yearText = CreateText("Year", root, 11, FontStyle.Bold, TextAnchor.MiddleCenter, TextPrimary);
+            _yearText = CreateText("Year", root, 11, FontStyle.Normal, TextAnchor.MiddleCenter, TextPrimary);
             SetAnchors(_yearText.rectTransform, new Vector2(.76f, .23f), new Vector2(.97f, .39f), Vector2.zero, Vector2.zero);
             _costText = CreateText("Cost", root, 12, FontStyle.Bold, TextAnchor.MiddleLeft, TextPrimary);
             SetAnchors(_costText.rectTransform, new Vector2(.03f, .11f), new Vector2(.49f, .23f),
                 new Vector2(5f, 0f), Vector2.zero);
 
-            _nameText = CreateText("Name", root, 18, FontStyle.Bold, TextAnchor.MiddleCenter, TextPrimary);
+            // 작은 이름표는 Medium 자체의 획을 유지해 추가 Bold로 한글 내부 공간이 메워지지 않게 한다.
+            _nameText = CreateText("Name", root, 18, FontStyle.Normal, TextAnchor.MiddleCenter, TextPrimary);
             SetAnchors(_nameText.rectTransform, new Vector2(.03f, .23f), new Vector2(.75f, .39f),
                 new Vector2(3f, 0f), Vector2.zero);
             _positionText = CreateText("Position", root, 14, FontStyle.Bold, TextAnchor.MiddleLeft, TextSecondary);
@@ -339,7 +341,7 @@ namespace Baseball.Presentation.SharedUI
             _editionText = CreateText("Edition", root, 12, FontStyle.Normal, TextAnchor.MiddleRight, TextMuted);
             SetAnchors(_editionText.rectTransform, new Vector2(0.50f, 0.11f), new Vector2(1f, 0.23f),
                 Vector2.zero, new Vector2(-10f, 0f));
-            _statusText = CreateText("Status", root, 11, FontStyle.Bold, TextAnchor.MiddleLeft, TextSecondary);
+            _statusText = CreateText("Status", root, 11, FontStyle.Normal, TextAnchor.MiddleLeft, TextSecondary);
             SetAnchors(_statusText.rectTransform, Vector2.zero, new Vector2(1f, 0.12f),
                 new Vector2(10f, 1f), new Vector2(-10f, 0f));
             _statusText.gameObject.SetActive(false);
@@ -404,6 +406,9 @@ namespace Baseball.Presentation.SharedUI
             _portrait.color = _portrait.sprite == null ? Color.clear : Color.white;
             float top = _usesLineupSlotLayout ? .89f : 1f;
             Rect name = OwnerPlayerCardFrames.GetNameRect(_model.FrameEdition.Value, true);
+            // 원화의 좁은 명찰 높이를 그대로 쓰면 92px 카드에서 한글의 행 높이가 잘려 이름 전체가 사라진다.
+            // 명찰 중심은 보존하고 초상과 별 사이의 여백까지 텍스트 행 영역으로 확보한다.
+            name = new Rect(name.x, name.center.y - .06f, name.width, .12f);
             SetAnchors(_lineupFrame.rectTransform, Vector2.zero, new Vector2(1f, top), Vector2.zero, Vector2.zero);
             SetAnchors(_portrait.rectTransform, new Vector2(.12f, top * OwnerPlayerCardFrames.GetPortraitBottom(_model.FrameEdition.Value, true)), new Vector2(.88f, top * .86f), Vector2.zero, Vector2.zero);
             OwnerPlayerCardFrames.SetDecoration((RectTransform)transform, frame, _model.FrameEdition.Value,
@@ -431,7 +436,7 @@ namespace Baseball.Presentation.SharedUI
                 SetAnchors(_costStars, new Vector2(.045f, top * .095f), new Vector2(.79f, top * .16f), Vector2.zero, Vector2.zero);
                 OwnerPlayerCardFrames.SetCostStars(_costStars, _model.FrameEdition.Value, _model.Cost.Value);
                 _costText.text = _model.Cost.Value.ToString();
-                SetAnchors(_costText.rectTransform, new Vector2(.81f, top * .085f), new Vector2(.97f, top * .165f), Vector2.zero, Vector2.zero);
+                SetAnchors(_costText.rectTransform, new Vector2(.81f, top * .075f), new Vector2(.97f, top * .175f), Vector2.zero, Vector2.zero);
             }
             if (_usesRosterPresentation)
             {
@@ -620,7 +625,7 @@ namespace Baseball.Presentation.SharedUI
             TextAnchor alignment,
             Color color)
         {
-            var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var textObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Baseball.Presentation.UI.UIProjectText));
             textObject.transform.SetParent(parent, false);
             Text text = textObject.GetComponent<Text>();
             text.font = DefaultFont;

@@ -427,41 +427,49 @@ namespace Baseball.Core.Historical
     /// <summary>구단주 모드 카드 한 장에만 귀속되는 DP 훈련 누적치다.</summary>
     public sealed class CardTrainingState
     {
-        private readonly int[] _bonuses;
-        private readonly int[] _studyBonuses;
+        public OwnerGrowthLedger Ledger { get; }
 
         public CardTrainingState()
         {
-            _bonuses = new int[PlayerAbilityCatalog.AbilityCount];
-            _studyBonuses = new int[PlayerAbilityCatalog.AbilityCount];
+            Ledger = new OwnerGrowthLedger();
         }
 
         public CardTrainingState(
             IReadOnlyList<int> bonuses,
-            IReadOnlyList<int> studyBonuses = null)
+            IReadOnlyList<int> studyBonuses = null,
+            OwnerGrowthLedger ledger = null)
         {
             if (bonuses == null || bonuses.Count != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("모든 능력치의 훈련 누적치가 필요합니다.", nameof(bonuses));
             if (studyBonuses != null && studyBonuses.Count != PlayerAbilityCatalog.AbilityCount)
                 throw new ArgumentException("모든 능력치의 유학 누적치가 필요합니다.", nameof(studyBonuses));
-            _bonuses = new int[bonuses.Count];
-            _studyBonuses = new int[bonuses.Count];
+            Ledger = ledger ?? new OwnerGrowthLedger();
+            var direct = new int[bonuses.Count];
+            var study = new int[bonuses.Count];
             for (int index = 0; index < bonuses.Count; index++)
             {
                 if (bonuses[index] < 0)
                     throw new ArgumentOutOfRangeException(nameof(bonuses));
-                _bonuses[index] = bonuses[index];
                 int studyBonus = studyBonuses == null ? 0 : studyBonuses[index];
                 if (studyBonus < 0 || studyBonus > bonuses[index])
                     throw new ArgumentOutOfRangeException(nameof(studyBonuses));
-                _studyBonuses[index] = studyBonus;
+                direct[index] = bonuses[index] - studyBonus;
+                study[index] = studyBonus;
+                if (ledger != null && (ledger.Get(OwnerGrowthSource.Training, (PlayerAbility)index) != direct[index]
+                    || ledger.Get(OwnerGrowthSource.OverseasTraining, (PlayerAbility)index) != study[index]))
+                    throw new ArgumentException("성장 원장과 저장 합계가 일치하지 않습니다.", nameof(ledger));
+            }
+            if (ledger == null)
+            {
+                Ledger.Add(new OwnerGrowthModifier("initial_training", OwnerGrowthSource.Training, "기존 카드 훈련", direct));
+                Ledger.Add(new OwnerGrowthModifier("initial_study", OwnerGrowthSource.OverseasTraining, "기존 해외 훈련", study));
             }
         }
 
-        public int GetBonus(PlayerAbility ability) => _bonuses[(int)ability];
-        public int GetStudyBonus(PlayerAbility ability) => _studyBonuses[(int)ability];
+        public int GetBonus(PlayerAbility ability) => checked(GetDirectTrainingBonus(ability) + GetStudyBonus(ability));
+        public int GetStudyBonus(PlayerAbility ability) => Ledger.Get(OwnerGrowthSource.OverseasTraining, ability);
         public int GetDirectTrainingBonus(PlayerAbility ability) =>
-            _bonuses[(int)ability] - _studyBonuses[(int)ability];
+            Ledger.Get(OwnerGrowthSource.Training, ability);
 
         public void AddBonus(PlayerAbility ability, int amount)
         {
@@ -469,20 +477,30 @@ namespace Baseball.Core.Historical
                 throw new ArgumentOutOfRangeException(nameof(ability));
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount));
-            checked { _bonuses[(int)ability] += amount; }
+            AddEntry(OwnerGrowthSource.Training, ability, amount, "카드 훈련");
         }
 
-        public void AddStudyBonus(PlayerAbility ability, int amount)
+        /// <summary>일반 훈련을 보존하고 유학으로 누적된 능력치만 제거한다.</summary>
+        public void ResetStudyBonuses()
+        {
+            Ledger.Expire(OwnerGrowthSource.OverseasTraining);
+        }
+
+        public void AddStudyBonus(PlayerAbility ability, int amount, string programName = "해외 훈련")
         {
             if (ability < 0 || ability >= PlayerAbility.Count)
                 throw new ArgumentOutOfRangeException(nameof(ability));
             if (amount < 0)
                 throw new ArgumentOutOfRangeException(nameof(amount));
-            checked
-            {
-                _bonuses[(int)ability] += amount;
-                _studyBonuses[(int)ability] += amount;
-            }
+            AddEntry(OwnerGrowthSource.OverseasTraining, ability, amount, programName);
+        }
+
+        private void AddEntry(OwnerGrowthSource source, PlayerAbility ability, int amount, string name)
+        {
+            if (amount == 0) return;
+            var values = new int[PlayerAbilityCatalog.AbilityCount];
+            values[(int)ability] = amount;
+            Ledger.Add(new OwnerGrowthModifier("growth_" + Ledger.Count, source, name, values));
         }
     }
 
@@ -526,11 +544,19 @@ namespace Baseball.Core.Historical
         public OwnedCardSkillBoardState SkillBoard { get; }
         public int LastStudySeason { get; private set; }
 
+        /// <summary>유학 누적 효과와 참가 시즌을 초기화한다.</summary>
+        public void ResetStudy()
+        {
+            Training.ResetStudyBonuses();
+            LastStudySeason = -1;
+        }
+
         public void RecordStudySeason(int season)
         {
             if (season < 0) throw new ArgumentOutOfRangeException(nameof(season));
             LastStudySeason = season;
         }
+        public void CancelStudyParticipation() => LastStudySeason = -1;
 
         public void AddDuplicate(int count = 1)
         {

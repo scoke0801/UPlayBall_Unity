@@ -3,12 +3,36 @@ using System.Collections.Generic;
 using System.Linq;
 using Baseball.Core.Growth;
 using Baseball.Core.Historical;
+using Baseball.Core.Players;
 using NUnit.Framework;
 
 namespace Baseball.Tests.EditMode.Core
 {
     public sealed class HistoricalCardEconomyTests
     {
+        [Test]
+        public void Study_야수투수각열두과정이동일예산으로서로다른성장방향을제공한다()
+        {
+            var balance = OwnerCardGrowthBalanceTable.CreateDefault();
+            Assert.That(balance.StudyPrograms.Count, Is.EqualTo(24));
+            foreach (PlayerType type in new[] { PlayerType.Batter, PlayerType.Pitcher })
+            {
+                var programs = balance.StudyPrograms.Where(program => program.PlayerType == type).ToArray();
+                Assert.That(programs.Length, Is.EqualTo(12));
+                Assert.That(programs.Select(program => program.DestinationName).Distinct().Count(), Is.EqualTo(12));
+                foreach (var program in programs)
+                {
+                    Assert.That(program.DevelopmentPointCost, Is.EqualTo(100));
+                    Assert.That(program.DurationWeeks, Is.EqualTo(4));
+                    Assert.That(program.Rewards.Sum(reward => reward.Amount), Is.EqualTo(3));
+                    Assert.That(balance.GetStudyProgram(program.ProgramId), Is.SameAs(program));
+                }
+            }
+            Assert.That(balance.StudyPrograms.Select(program => program.ProgramId).Distinct().Count(), Is.EqualTo(24));
+            Assert.Throws<ArgumentException>(() => new OwnerCardGrowthBalanceTable(balance.TrainingPrograms,
+                new[] { balance.StudyPrograms[0], balance.StudyPrograms[0] }));
+        }
+
         [Test]
         public void ContractArrears_PartialPaymentAndIncome_PreserveMoneyAndPreventBorrowedPurchases()
         {

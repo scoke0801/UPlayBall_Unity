@@ -28,19 +28,28 @@ namespace Baseball.Presentation.Owner
                 ? OwnerCollectionPresentationBuilder.FormatPitcherRole(card.PitcherRole.Value)
                 : OwnerCollectionPresentationBuilder.FormatPosition(card.Position, card.IsPositionEvidenceMissing);
             string hands = FormatHands(card.Throws, card.Bats);
-            Gradient(parent, "ProfileBand", new Color32(218, 215, 202, 255), paper, .012f, .395f, .277f, .985f);
-            Image portrait = Surface(parent, "ProfilePortrait", Color.white, .025f, .695f, .265f, .97f).GetComponent<Image>();
+            Gradient(parent, "ProfileBand", pitcher ? PitchSteel : new Color32(218, 215, 202, 255),
+                pitcher ? PitchNavy : paper, .012f, .395f, .277f, .985f);
+            Image portrait = Surface(parent, "ProfilePortrait", Color.white, .025f, pitcher ? .765f : .695f, .265f, .97f).GetComponent<Image>();
             portrait.sprite = PlayerPortraitSprites.GetAssigned(card.PlayerSeasonId)
                 ?? PlayerPortraitSprites.GetAssigned(card.CardId)
                 ?? PlayerPortraitSprites.GetForPlayer(card.PlayerPersonId, card.Position);
             portrait.preserveAspect = true;
             string enhancement = card.IsOwnedCard ? "\n강화 +" + card.EnhancementLevel : string.Empty;
-            Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + enhancement,
-                .025f, .42f, .265f, .68f, 14, Ink);
+            Text profile = Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + enhancement,
+                .025f, pitcher ? .615f : .42f, .265f, pitcher ? .765f : .68f, 14, pitcher ? PitchIvory : Ink);
+            if (pitcher) profile.fontStyle = FontStyle.Normal;
 
             BuildSeasonRecord(parent, card, paper, panel);
-            RectTransform role = Surface(parent, "RoleInformation", new Color(0.22f, .09f, .12f, .72f), .286f, .395f, .985f, .907f);
-            if (pitcher) BuildPitchRepertoire(role, card);
+            RectTransform role = pitcher
+                ? Gradient(parent, "RoleInformation", PitchSteel, PitchNavy, .286f, .395f, .985f, .907f)
+                : Surface(parent, "RoleInformation", new Color(0.22f, .09f, .12f, .72f), .286f, .395f, .985f, .907f);
+            if (pitcher)
+            {
+                BuildPitchRepertoire(role, card);
+                RectTransform velocitySlot = ContentRect(parent, "VelocitySlot", .025f, .425f, .265f, .60f);
+                BuildMaximumVelocityBadge(velocitySlot, card);
+            }
             else
             {
                 BuildDefenseDiagram(role, card.Position, card.IsPositionEvidenceMissing);
@@ -67,6 +76,27 @@ namespace Baseball.Presentation.Owner
             Surface(inset, "Divider", new Color32(194, 188, 180, 255), .03f, .63f, .97f, .65f);
             Label(inset, "Preference", label, .035f, .23f, .965f, .64f, 17, Color.white);
             Label(inset, "Order", order, .025f, .025f, .975f, .25f, 10, Gold);
+        }
+
+        private static void BuildMaximumVelocityBadge(RectTransform parent, OwnerCollectionCardSnapshot card)
+        {
+            // 경기 중 일시적인 구속 변동 대신 기존 구종별 안정 프로필의 최댓값을 표시한다.
+            double maximumVelocity = 0;
+            for (int index = 0; index < card.Pitches.Count; index++)
+            {
+                double velocity = card.Pitches[index].VelocityKph;
+                if (!double.IsNaN(velocity) && !double.IsInfinity(velocity) && velocity > maximumVelocity)
+                    maximumVelocity = velocity;
+            }
+            RectTransform badge = ContentRect(parent, "MaximumVelocityBadge",
+                .04f, .04f, .96f, .96f);
+            RectTransform inset = ContentRect(badge, "Inset", .025f, .025f, .975f, .975f);
+            Label(inset, "Heading", "최대구속", .025f, .70f, .975f, .98f, 11, PitchSilver);
+            Surface(inset, "Divider", PitchBrass, .18f, .67f, .82f, .68f);
+            Label(inset, "Velocity", maximumVelocity > 0
+                ? Mathf.RoundToInt((float)maximumVelocity).ToString() : "—",
+                .035f, .19f, .965f, .64f, 30, PitchIvory);
+            Label(inset, "Unit", "km/h", .025f, .025f, .975f, .21f, 10, PitchSilver).fontStyle = FontStyle.Normal;
         }
 
         private static void BuildPublicLineupNotice(RectTransform parent, Color paper, Color panel)
@@ -142,10 +172,12 @@ namespace Baseball.Presentation.Owner
                 }
             }
             BuildPlacedSkillBlocks(grid, card.SkillBlockPlacements, definition.Width, definition.Height);
-            Label(section, "State",
-                $"장착 {card.PlacedSkillBlockCount}개\n미장착 인벤토리 {card.AvailableSkillBlockCount}개\n\n보유 선수 > 카드훈련에서 배치 변경",
-                .39f, .12f, .98f, .93f,
-                12, new Color(.72f, .75f, .78f));
+            Label(section, "State", card.PlacedSkillBlockCount == 0 ? "장착한 블록이 없습니다" : "스킬 블록 장착 중",
+                .36f, .60f, .96f, .78f, 13, Gold);
+            Label(section, "Inventory", $"장착 {card.PlacedSkillBlockCount}개  ·  보관 {card.AvailableSkillBlockCount}개",
+                .36f, .40f, .96f, .56f, 11, PitchSilver).fontStyle = FontStyle.Normal;
+            Label(section, "Hint", "보유 선수 › 카드훈련에서 배치",
+                .36f, .16f, .96f, .32f, 10, PitchSilver).fontStyle = FontStyle.Normal;
         }
 
         private static void BuildPlacedSkillBlocks(
@@ -158,8 +190,7 @@ namespace Baseball.Presentation.Owner
             {
                 OwnerSkillBlockPlacementSnapshot placement = placements[index];
                 BoardCell[] shapeCells = placement.CreateShapeCells();
-                Sprite sprite = TetrominoSpriteResolver.Resolve(shapeCells);
-                if (sprite == null) continue;
+                if (shapeCells.Length == 0) continue;
 
                 GetBlockBounds(shapeCells, placement.RotationQuarterTurns, out int rotatedWidth, out int rotatedHeight);
                 GetBlockBounds(shapeCells, 0, out int baseWidth, out int baseHeight);
@@ -173,13 +204,25 @@ namespace Baseball.Presentation.Owner
                     new Vector2(centerX + halfSize.x, centerY + halfSize.y),
                     new Vector2(2f, 2f),
                     new Vector2(-2f, -2f));
-                Image image = rect.gameObject.AddComponent<Image>();
-                image.sprite = sprite;
-                // 공용 아틀라스는 무채색이므로 정의의 등급 색상을 별도로 입힌다.
-                image.color = SkillBlockVisual.GetRarityColor(placement.Rarity);
-                image.preserveAspect = false;
-                image.raycastTarget = false;
                 rect.localEulerAngles = new Vector3(0f, 0f, placement.RotationQuarterTurns * 90f);
+                int minimumX = int.MaxValue, minimumY = int.MaxValue;
+                foreach (BoardCell cell in shapeCells)
+                {
+                    minimumX = Mathf.Min(minimumX, cell.X);
+                    minimumY = Mathf.Min(minimumY, cell.Y);
+                }
+                for (int cellIndex = 0; cellIndex < shapeCells.Length; cellIndex++)
+                {
+                    BoardCell cell = shapeCells[cellIndex];
+                    float x0 = (cell.X - minimumX) / (float)baseWidth;
+                    float y1 = 1f - (cell.Y - minimumY) / (float)baseHeight;
+                    RectTransform tile = OwnerRuntimeUiFactory.CreateRect("SkillTile_" + cellIndex, rect);
+                    OwnerRuntimeUiFactory.SetAnchors(tile, new Vector2(x0, y1 - 1f / baseHeight),
+                        new Vector2(x0 + 1f / baseWidth, y1), Vector2.one, -Vector2.one);
+                    // 배치 모양만 회전하고 문양과 광원은 두 화면에서 항상 정방향을 유지한다.
+                    tile.localEulerAngles = new Vector3(0, 0, -placement.RotationQuarterTurns * 90f);
+                    SkillBlockVisual.ApplyTile(tile.gameObject.AddComponent<RawImage>(), placement.Rarity);
+                }
             }
         }
 
@@ -214,37 +257,75 @@ namespace Baseball.Presentation.Owner
             height = maximumY - minimumY + 1;
         }
 
+        private static readonly Color PitchNavy = new Color32(19, 26, 37, 255);
+        private static readonly Color PitchSteel = new Color32(52, 63, 76, 255);
+        private static readonly Color PitchSilver = new Color32(169, 180, 193, 255);
+        private static readonly Color PitchIvory = new Color32(245, 238, 215, 255);
+        private static readonly Color PitchBrass = new Color32(179, 150, 94, 255);
+
         private static void BuildPitchRepertoire(RectTransform parent, OwnerCollectionCardSnapshot card)
         {
-            Label(parent, "Heading", "보유 구종", 0, .88f, 1, 1, 14, Gold);
+            Label(parent, "Heading", "보유 구종", .08f, .90f, .92f, .98f, 15, PitchIvory);
+            Surface(parent, "HeadingRule", PitchBrass, .40f, .88f, .60f, .885f);
             int count = card.Pitches.Count;
             if (count == 0)
             {
-                Label(parent, "PitchUnavailable", "구종 정보 없음", .05f, .1f, .95f, .8f, 13, Gold);
+                Label(parent, "PitchUnavailable", "구종 정보 없음", .04f, .1f, .96f, .8f, 13, Gold);
                 return;
             }
 
-            float rowHeight = Mathf.Min(.17f, .76f / count);
-            float top = .47f + count * rowHeight * .5f;
+            RectTransform diagram = ContentRect(parent, "PitchCompass", .06f, .14f, .94f, .84f);
+            var compass = diagram.gameObject.AddComponent<UICardPitchCompass>();
+            int directions = 0;
+            for (int i = 0; i < count; i++)
+                directions |= 1 << GetPitchDirectionIndex(card.Pitches[i].PitchType, card.Throws);
+            compass.SetDirections(directions);
+            Image ball = Surface(parent, "CompassBall", Color.white, .453f, .455f, .547f, .525f).GetComponent<Image>();
+            ball.sprite = Resources.Load<Sprite>("UI/MiniGame/img_baseball_ball");
+            ball.preserveAspect = true;
+
+            // 명판은 중앙의 공과 방향 도식을 둘러싸며, 적은 구종도 같은 간격으로 중앙에 모은다.
+            int rows = (count + 1) / 2;
+            float rowHeight = Mathf.Min(.25f, .72f / rows);
+            float top = .49f + (rows - 1) * rowHeight * .5f + .065f;
             for (int index = 0; index < count; index++)
             {
-                float y1 = top - index * rowHeight;
-                float y0 = y1 - rowHeight + .014f;
-                RectTransform cell = Gradient(parent, "PitchSlot" + index,
-                    new Color32(45, 43, 46, 255), new Color32(22, 22, 25, 255), .075f, y0, .925f, y1);
+                float y1 = top - (index / 2) * rowHeight;
+                float y0 = y1 - .13f;
+                float x0 = index % 2 == 0 ? .025f : .58f;
+                RectTransform cell = ContentRect(parent, "PitchSlot" + index, x0, y0, x0 + .395f, y1);
                 OwnerPitchCardSnapshot pitch = card.Pitches[index];
-                Surface(cell, "TopRule", new Color32(140, 127, 111, 255), 0, .985f, 1, 1);
-                Surface(cell, "DirectionPanel", new Color32(57, 51, 51, 255), .012f, .07f, .19f, .92f);
-                Label(cell, "Direction", GetPitchDirection(pitch.PitchType, card.Throws), .012f, .07f, .19f, .92f,
-                    31, new Color32(220, 205, 183, 255));
-                Label(cell, "PitchName", pitch.DisplayName, .235f, .42f, .76f, .88f, 15, Color.white).alignment = TextAnchor.MiddleLeft;
-                Color gradeColor = pitch.Grade.StartsWith("S", System.StringComparison.Ordinal)
-                    ? new Color32(241, 161, 179, 255) : new Color32(229, 205, 147, 255);
-                Surface(cell, "GradeDivider", new Color32(99, 86, 76, 255), .79f, .20f, .793f, .80f);
-                Label(cell, "Grade", pitch.Grade, .81f, .10f, .98f, .90f, 29, gradeColor);
+                Gradient(cell, "MetalPlate", PitchIvory, PitchSilver, 0, .36f, 1, 1);
+                Surface(cell, "TopRule", Color.white, .015f, .98f, .985f, 1);
+                Gradient(cell, "VelocityPlate", PitchSteel, PitchNavy, 0, 0, 1, .36f);
+                Label(cell, "PitchName", pitch.DisplayName, .035f, .41f, .76f, .94f, 12, Ink).fontStyle = FontStyle.Normal;
+                Label(cell, "Direction", GetPitchDirection(pitch.PitchType, card.Throws), .03f, .015f, .20f, .35f,
+                    14, PitchBrass);
+                RectTransform medallion = ContentRect(cell, "GradeBadge", .77f, .41f, .98f, .95f);
+                medallion.gameObject.AddComponent<UICardPitchGradeBadge>().SetGrade(pitch.Grade);
+                Text grade = Label(cell, "Grade", pitch.Grade, .77f, .41f, .98f, .95f,
+                    pitch.Grade.Length > 1 ? 10 : 12, Color.white);
+                Shadow gradeShadow = grade.gameObject.AddComponent<Shadow>();
+                gradeShadow.effectColor = new Color(0, 0, 0, .75f);
+                gradeShadow.effectDistance = new Vector2(.6f, -.6f);
                 Label(cell, "Velocity", Mathf.RoundToInt((float)pitch.VelocityKph) + " km/h",
-                    .235f, .10f, .76f, .43f, 12, Gold).alignment = TextAnchor.MiddleLeft;
+                    .22f, .015f, .75f, .35f, 10, PitchSilver).fontStyle = FontStyle.Normal;
             }
+            Label(parent, "DirectionLegend", "변화 방향 · 투수 시점", .04f, .025f, .96f, .09f, 10, PitchSilver)
+                .fontStyle = FontStyle.Normal;
+        }
+
+        private static int GetPitchDirectionIndex(PitchType pitch, Handedness? throws)
+        {
+            return GetPitchDirection(pitch, throws) switch
+            {
+                "↑" => 2,
+                "←" => 4,
+                "→" => 0,
+                "↙" => 5,
+                "↘" => 7,
+                _ => 6
+            };
         }
 
         private static string GetPitchDirection(PitchType pitch, Handedness? throws)

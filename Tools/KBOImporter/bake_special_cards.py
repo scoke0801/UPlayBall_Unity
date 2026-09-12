@@ -85,13 +85,19 @@ def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'R
             else:
                 emit(row, 'Ex', 0)
 
-    for row in evaluation.get('careerHigh', []) if 'CareerHigh' in editions else []:
+    # 부분 Bake에서도 같은 선수의 다른 연도·계보 레전드가 다시 생기지 않도록
+    # 커리어하이 발급 자격은 요청한 Edition 범위와 무관하게 검증한다.
+    career_high_persons = set()
+    for row in evaluation.get('careerHigh', []):
         if row.get('status') != 'Eligible':
             continue
         candidates = row.get('qualifiedNormalCardIds', [])
         years = row.get('qualifiedYears', [])
         if row['cost'] not in (9, 10) or len(set(years)) < 8 or len(set(candidates)) < 8:
             errors.append('CareerHighGate:' + row['playerSeasonId'])
+            continue
+        career_high_persons.add(row['playerPersonId'])
+        if 'CareerHigh' not in editions:
             continue
         card_id = emit(row, 'CareerHigh', policy['careerHighAllBonus'])
         recipes.append(dict(targetCardId=card_id, materialGroups=[
@@ -106,8 +112,12 @@ def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'R
     if 'Legend' in editions and not enabled_legends:
         errors.append('MissingLegendCuration')
     seen = set()
+    excluded_legends = []
     for entry in enabled_legends:
         key = (entry['playerPersonId'], entry['lineage'])
+        if entry['playerPersonId'] in career_high_persons:
+            excluded_legends.append(dict(playerPersonId=key[0], lineage=key[1], reason='CareerHighEligible'))
+            continue
         row = shortlist.get(key)
         if entry.get('basePlayerSeasonId'):
             row = next((candidate for candidate in evaluation.get('seasons', [])
@@ -136,7 +146,9 @@ def build_catalog(evaluation, policy, editions=('Ex', 'CareerHigh', 'Legend', 'R
     if len({card['cardId'] for card in cards}) != len(cards):
         raise BakeValidationError(['DuplicateCardId'])
     result = dict(schemaVersion=1, policyVersion=policy['version'], inputHash=evaluation.get('inputHash'),
+                  issuanceRuleVersion=2,
                   editionScope=sorted(editions),
+                  excludedLegends=sorted(excluded_legends, key=lambda row: (row['playerPersonId'], row['lineage'])),
                   cancelledEx=cancelled_ex,
                   cards=cards, recipes=recipes,
                   policyHash=hashlib.sha256(json.dumps(policy, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
@@ -210,6 +222,8 @@ def validate_canonical(content, evaluation, root=ROOT):
     # 실제 구단 이름을 담는 평가용 계보 키도 Runtime에서는 불투명한 안정 ID로 치환한다.
     opaque = {lineage: 'LINEAGE_' + hashlib.sha256(lineage.encode()).hexdigest()[:20]
               for lineage in set(lineages.values())}
+    for excluded in content.get('excludedLegends', []):
+        excluded['lineage'] = opaque[excluded['lineage']]
     id_map = {}
     for card in content['cards']:
         old_id = card['cardId']

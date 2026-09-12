@@ -616,7 +616,8 @@ namespace Baseball.Simulation.Historical
                 throw new ArgumentNullException(nameof(ownedCard));
             int baseRating = season.CreateBaseAttributes().Get(program.Ability);
             int ceiling = season.CreateTrainingCeiling().Get(program.Ability);
-            int current = baseRating + ownedCard.Training.GetBonus(program.Ability);
+            int current = baseRating + ownedCard.Training.GetBonus(program.Ability)
+                + ownedCard.Training.Ledger.Get(OwnerGrowthSource.Mentoring, program.Ability);
             int effectiveDpCost = Math.Max(1,
                 (int)Math.Ceiling(program.DpCostPerPoint / staffEfficiency.EfficiencyMultiplier));
             int gained = Math.Min(program.MaximumPointsPerSession,
