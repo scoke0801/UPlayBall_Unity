@@ -8,8 +8,18 @@ namespace Baseball.Presentation.Career
         private const string ResourcePath = "NewGame/CareerCreationPresentationData";
 
         [SerializeField] private Sprite _titleImage;
+        [SerializeField] private Sprite _titleLogo;
+        [SerializeField] private Vector2 _titleLogoSize = new Vector2(440f, 294f);
+        [SerializeField] private Vector2 _titleLogoInset = new Vector2(48f, 0f);
+        [SerializeField] private string _gameTitle = "백년구단";
+        [SerializeField] private string _gameTitleCaption = "야구 매니저";
 
         public Sprite TitleImage => _titleImage;
+        public Sprite TitleLogo => _titleLogo;
+        public Vector2 TitleLogoSize => _titleLogoSize;
+        public Vector2 TitleLogoInset => _titleLogoInset;
+        public string GameTitle => _gameTitle;
+        public string GameTitleCaption => _gameTitleCaption;
 
         public static CareerCreationPresentationData Load()
         {

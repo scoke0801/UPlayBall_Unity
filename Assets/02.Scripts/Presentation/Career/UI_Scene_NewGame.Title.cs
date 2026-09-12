@@ -157,6 +157,9 @@ namespace Baseball.Presentation.Career
             }
         }
 
+        /// <summary>타이틀의 선수 모드 진입 버튼 활성 여부. 선수 모드를 임시로 막아둔 상태이며, 다시 열 때 true로 되돌린다.</summary>
+        private const bool IsPlayerCareerEntryEnabled = false;
+
         private void RenderTitle()
         {
             Sprite titleSprite = _presentationData != null ? _presentationData.TitleImage : null;
@@ -170,6 +173,7 @@ namespace Baseball.Presentation.Career
 
             CreateImage("TitleShade", _content, new Color(0.005f, 0.012f, 0.025f, 0.52f),
                 new Vector2(1920f, 1080f), Vector2.zero);
+            RenderTitleBrand();
             RectTransform right = CreateImage(
                 "ModePanel", _content, CareerUiTheme.PanelDark,
                 new Vector2(720f, 1080f), new Vector2(600f, 0f));
@@ -189,8 +193,11 @@ namespace Baseball.Presentation.Career
                 "한 명의 선수를 만들고 경기·성장·계약을 통해\n여러 시즌의 커리어를 이어갑니다.",
                 17, FontStyle.Normal, TextAnchor.MiddleLeft,
                 new Vector2(420f, 72f), new Vector2(55f, 0f), SecondaryTextColor);
-            CreateText("Action", playerCareer.transform, "새 선수 만들기  →", 16, FontStyle.Bold,
-                TextAnchor.MiddleRight, new Vector2(420f, 32f), new Vector2(55f, -73f), AccentColor);
+            CreateText("Action", playerCareer.transform,
+                IsPlayerCareerEntryEnabled ? "새 선수 만들기  →" : "준비 중 — 잠시 이용할 수 없습니다",
+                16, FontStyle.Bold, TextAnchor.MiddleRight, new Vector2(420f, 32f), new Vector2(55f, -73f),
+                IsPlayerCareerEntryEnabled ? AccentColor : SecondaryTextColor);
+            playerCareer.interactable = IsPlayerCareerEntryEnabled;
             playerCareer.onClick.AddListener(() =>
             {
                 ResetLocalDraft();
@@ -320,6 +327,50 @@ namespace Baseball.Presentation.Career
                 RenderTitleNotice();
             else if (_showQuitConfirmation)
                 RenderQuitConfirmation();
+        }
+
+        private void RenderTitleBrand()
+        {
+            if (_presentationData != null && _presentationData.TitleLogo != null)
+            {
+                RectTransform logo = CreateImage(
+                    "TitleBrand", _content, Color.white, _presentationData.TitleLogoSize, Vector2.zero);
+                logo.anchorMin = logo.anchorMax = new Vector2(0f, 1f);
+                logo.pivot = new Vector2(0f, 1f);
+                Vector2 inset = _presentationData.TitleLogoInset;
+                logo.anchoredPosition = new Vector2(inset.x, -inset.y);
+                Image logoImage = logo.GetComponent<Image>();
+                logoImage.sprite = _presentationData.TitleLogo;
+                logoImage.preserveAspect = true;
+                logoImage.raycastTarget = false;
+                var visual = logo.GetComponent<CareerUiVisualElement>()
+                    ?? logo.gameObject.AddComponent<CareerUiVisualElement>();
+                visual.Initialize(CareerUiVisualRole.DataImage);
+                return;
+            }
+
+            string gameTitle = _presentationData != null
+                ? _presentationData.GameTitle
+                : string.Empty;
+            if (string.IsNullOrWhiteSpace(gameTitle))
+                return;
+
+            RectTransform brand = CreateRect(
+                "TitleBrand", _content, new Vector2(980f, 190f), new Vector2(-420f, 330f));
+            Text title = CreateText(
+                "GameTitle", brand, gameTitle, 82, FontStyle.BoldAndItalic,
+                TextAnchor.MiddleLeft, new Vector2(900f, 112f), new Vector2(0f, 28f), Color.white);
+            var outline = title.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.005f, 0.012f, 0.025f, 0.92f);
+            outline.effectDistance = new Vector2(3f, -3f);
+
+            string caption = _presentationData.GameTitleCaption;
+            if (string.IsNullOrWhiteSpace(caption))
+                return;
+
+            CreateText(
+                "GameTitleCaption", brand, caption, 18, FontStyle.Bold,
+                TextAnchor.MiddleLeft, new Vector2(900f, 38f), new Vector2(5f, -54f), AccentColor);
         }
 
         private void RenderTitleNotice()

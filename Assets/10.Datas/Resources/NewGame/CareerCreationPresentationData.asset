@@ -13,3 +13,8 @@ MonoBehaviour:
   m_Name: CareerCreationPresentationData
   m_EditorClassIdentifier: Baseball.Presentation::Baseball.Presentation.Career.CareerCreationPresentationData
   _titleImage: {fileID: 21300000, guid: 9dc8a7342fa74ed59d35f6e6bfc7a9cc, type: 3}
+  _titleLogo: {fileID: 21300000, guid: c9ca2a47cb774d049ac29d52ab4af902, type: 3}
+  _titleLogoSize: {x: 440, y: 294}
+  _titleLogoInset: {x: 48, y: 0}
+  _gameTitle: 백년구단
+  _gameTitleCaption: 야구 매니저

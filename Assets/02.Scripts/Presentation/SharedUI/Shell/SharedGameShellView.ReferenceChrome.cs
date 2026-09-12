@@ -35,6 +35,13 @@ namespace Baseball.Presentation.SharedUI
             logo.fontSize = isOwner ? 20 : 25;
             logo.color = isOwner ? DarkText : TextPrimary;
             ConfigureHeaderTextRows(logo, _modeNameText, isOwner, -20f);
+            if (brand.Find("GameLogo") != null)
+            {
+                // 낮은 헤더에서는 로고와 모드명을 좌우로 나눠 로고의 세로 공간을 확보한다.
+                SetAnchors(_modeNameText.rectTransform, new Vector2(.60f, 0f), Vector2.one,
+                    Vector2.zero, Vector2.zero);
+                _modeNameText.alignment = TextAnchor.MiddleLeft;
+            }
             _modeNameText.color = isOwner ? CareerUiTheme.ReferenceAccent : AccentLight;
             SetAnchors((RectTransform)_globalTopBar.Find("TeamStatus"), new Vector2(isOwner ? .14f : 0f, 0f),
                 new Vector2(isOwner ? .40f : 0f, 1f),

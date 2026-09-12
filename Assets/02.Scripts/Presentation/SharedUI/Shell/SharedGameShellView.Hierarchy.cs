@@ -1,4 +1,5 @@
 using Baseball.Presentation.UI;
+using Baseball.Presentation.Career;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -84,13 +85,28 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(brand, new Vector2(0f, 0f), new Vector2(0f, 1f),
                 new Vector2(20f, 0f), new Vector2(250f, 0f));
             Text logo = CreateText(
-                "GameName", brand, "UPlayBall", 25, FontStyle.Bold,
+                "GameName", brand, "백년구단", 25, FontStyle.Bold,
                 TextAnchor.MiddleLeft, TextPrimary);
             SetAnchors(logo.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, -20f));
             _modeNameText = CreateText(
                 "ModeName", brand, string.Empty, 12, FontStyle.Bold,
                 TextAnchor.LowerLeft, AccentLight);
             SetAnchors(_modeNameText.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0f, 6f));
+
+            CareerCreationPresentationData branding = CareerCreationPresentationData.Load();
+            if (branding != null && branding.TitleLogo != null)
+            {
+                RectTransform logoRect = CreateRect("GameLogo", brand);
+                SetAnchors(logoRect, Vector2.zero, new Vector2(.58f, 1f),
+                    Vector2.zero, Vector2.zero);
+                Image brandImage = logoRect.gameObject.AddComponent<Image>();
+                brandImage.sprite = branding.TitleLogo;
+                brandImage.preserveAspect = true;
+                brandImage.raycastTarget = false;
+                logoRect.gameObject.AddComponent<CareerUiVisualElement>()
+                    .Initialize(CareerUiVisualRole.DataImage);
+                logo.gameObject.SetActive(false);
+            }
 
             CreateVerticalDivider("BrandDivider", _globalTopBar, 260f);
 

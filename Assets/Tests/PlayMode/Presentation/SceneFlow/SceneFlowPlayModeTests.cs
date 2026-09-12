@@ -47,6 +47,18 @@ namespace Baseball.Tests.PlayMode.Presentation.SceneFlow
                 newGameScreen.GetComponentsInChildren<Text>(true).Any(text => text.text == "커리어를 선택하세요"),
                 Is.True,
                 "Management 진입 직후에는 타이틀 화면이 보여야 한다.");
+            CareerCreationPresentationData titleData = CareerCreationPresentationData.Load();
+            Assert.That(titleData, Is.Not.Null);
+            Transform titleContent = newGameScreen.transform.Find("Content");
+            Assert.That(titleContent, Is.Not.Null);
+            Assert.That(
+                titleContent.Find("TitleBackground").GetComponent<Image>().sprite,
+                Is.EqualTo(titleData.TitleImage),
+                "타이틀 배경은 PresentationData의 이미지와 연결되어야 한다.");
+            Assert.That(
+                titleContent.Find("TitleBrand/GameTitle").GetComponent<Text>().text,
+                Is.EqualTo(titleData.GameTitle),
+                "타이틀 이미지 위 게임명은 PresentationData의 텍스트와 연결되어야 한다.");
 
             NewGameManager newGameManager = NewGameManager.Instance;
             newGameManager.StartPlayerCareerCreation();
