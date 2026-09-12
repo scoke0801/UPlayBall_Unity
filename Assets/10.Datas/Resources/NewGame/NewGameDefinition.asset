@@ -1156,7 +1156,7 @@ MonoBehaviour:
   _restingConditionRecovery: 1
   _minimumCondition: 55
   _maximumManagerEvaluationChange: 3
-  _conditionDecisionWeight: 0.3
+  _conditionDecisionWeight: 0.45
   _managerEvaluationDecisionWeight: 0.1
   _productiveBattingHits: 2
   _excellentBattingHits: 3

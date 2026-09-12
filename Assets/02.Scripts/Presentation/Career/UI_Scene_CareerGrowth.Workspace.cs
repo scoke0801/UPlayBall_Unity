@@ -180,7 +180,7 @@ namespace Baseball.Presentation.Career
             {
                 PlayerAbility ability = abilities[index];
                 int baseValue = growth.BaseAbilities[(int)ability];
-                int value = Math.Min(100, baseValue + draftBonuses[(int)ability]);
+                int value = Math.Min(AbilityRatings.Maximum, baseValue + draftBonuses[(int)ability]);
                 float y = 135f - index * 45f;
                 CreateText(
                     "AbilityLabel_" + ability,

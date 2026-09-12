@@ -41,7 +41,7 @@
     "aiWastePitchDistance":  1.14,
     "aiInsideWasteProbability":  0.4,
     "aiLocationErrorScale":  0.82,
-    "aiTimingErrorMilliseconds":  55,
+    "aiTimingErrorMilliseconds":  61,
     "contactQualityBase":  18.0,
     "launchAngleBaseDegrees":  10,
     "launchAngleLocationScale":  145,

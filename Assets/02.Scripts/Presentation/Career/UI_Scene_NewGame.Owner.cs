@@ -116,7 +116,6 @@ namespace Baseball.Presentation.Career
                 string displayName = flow.Identities.GetPresentationTeamSeasonName(
                     team.TeamSeasonKey,
                     team.FranchiseId);
-                displayName = OwnerClubDisplayNameFormatter.Format(displayName, team.OriginYear);
                 Button button = CreateOwnerTeamCard(
                     panel,
                     team.TeamSeasonKey,

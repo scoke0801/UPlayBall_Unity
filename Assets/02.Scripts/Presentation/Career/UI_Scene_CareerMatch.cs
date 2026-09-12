@@ -2008,7 +2008,7 @@ namespace Baseball.Presentation.Career
             Color color,
             bool stretch = false)
         {
-            var gameObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+            var gameObject = new GameObject(name, typeof(RectTransform), typeof(Baseball.Presentation.UI.UIProjectText));
             gameObject.transform.SetParent(parent, false);
             RectTransform rect = gameObject.GetComponent<RectTransform>();
             if (stretch)

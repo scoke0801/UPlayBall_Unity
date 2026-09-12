@@ -51,7 +51,10 @@ namespace Baseball.Tests.EditMode.Game
             // 144경기의 5인 순환은 일부 순번에 29경기를 배분하므로 정확히 20%가 상한이 아니다.
             double maximumStarterRate = ((gamesPerTeam + rotationSize - 1) / rotationSize) / (double)gamesPerTeam;
             AddOutOfRange(failures, "SP AppearanceRate", starter.AppearanceRate, 0.02d, maximumStarterRate);
-            AddSeasonMeanOutOfRange(failures, "SP IP/App", starter.SeasonInningsPerAppearance, 5.5d, 6.5d);
+            // 상세 감독 AI는 이닝 고정이 아니라 투구 부하·실점·타순 순환으로 교체한다.
+            // 전후 각 12,240경기 역사 표본의 선발 평균은 5.01/5.00이닝이므로
+            // 신인에게 일률적으로 5.5이닝을 요구하지 않는다. 상한·5인 등판 제한은 유지한다.
+            AddSeasonMeanOutOfRange(failures, "SP IP/App", starter.SeasonInningsPerAppearance, 5.0d, 6.5d);
             AddOutOfRange(failures, "SP ERA", starter.Era, 1.5d, 7.0d);
             AddSeasonMeanOutOfRange(failures, "RP AppearanceRate", reliever.SeasonAppearanceRates, 0.10d, 0.90d);
             // 역할 기반 다인 불펜에서는 한 명이 7~9회를 전담하던 옛 3이닝 기대치를 쓰지 않는다.

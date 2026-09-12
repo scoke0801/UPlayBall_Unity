@@ -182,7 +182,7 @@ namespace Baseball.Presentation.Career
             string name, Transform parent, string value, int size, FontStyle style,
             TextAnchor alignment, Vector2 dimensions, Vector2 position, Color color)
         {
-            var gameObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+            var gameObject = new GameObject(name, typeof(RectTransform), typeof(Baseball.Presentation.UI.UIProjectText));
             RectTransform rect = gameObject.GetComponent<RectTransform>();
             rect.SetParent(parent, false);
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);

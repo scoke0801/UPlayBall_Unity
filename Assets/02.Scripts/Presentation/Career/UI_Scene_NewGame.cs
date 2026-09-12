@@ -658,7 +658,7 @@ namespace Baseball.Presentation.Career
             Vector2 size, Vector2 position, Color color)
         {
             RectTransform rect = CreateRect(name, parent, size, position);
-            Text text = rect.gameObject.AddComponent<Text>();
+            Text text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = GetRuntimeFont();
             text.text = value;
             text.fontSize = fontSize;

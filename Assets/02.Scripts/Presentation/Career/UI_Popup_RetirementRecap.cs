@@ -493,7 +493,7 @@ namespace Baseball.Presentation.Career
             VerticalWrapMode verticalOverflow = VerticalWrapMode.Truncate)
         {
             RectTransform rect = CreateRect(name, parent, size, position);
-            Text text = rect.gameObject.AddComponent<Text>();
+            Text text = rect.gameObject.AddComponent<Baseball.Presentation.UI.UIProjectText>();
             text.font = Baseball.Presentation.UI.UIProjectFonts.Default;
             text.text = value;
             text.fontSize = fontSize;

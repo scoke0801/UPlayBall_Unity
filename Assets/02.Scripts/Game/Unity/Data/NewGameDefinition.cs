@@ -402,7 +402,7 @@ namespace Baseball.Game.Data
         [SerializeField, Min(0)] private int _restingConditionRecovery = 1;
         [SerializeField, Range(0, 100)] private int _minimumCondition = 55;
         [SerializeField, Min(1)] private int _maximumManagerEvaluationChange = 3;
-        [SerializeField, Min(0f)] private double _conditionDecisionWeight = 0.30d;
+        [SerializeField, Min(0f)] private double _conditionDecisionWeight = 0.45d;
         [SerializeField, Min(0f)] private double _managerEvaluationDecisionWeight = 0.10d;
         [SerializeField, Min(1)] private int _productiveBattingHits = 2;
         [SerializeField, Min(1)] private int _excellentBattingHits = 3;
@@ -621,7 +621,7 @@ namespace Baseball.Game.Data
                 common.TeamGeneration,
                 common.PlayerEvaluation,
                 common.CareerSeason,
-                common.Growth,
+                OwnerSkillContent.Compose(common.Growth, OwnerDevelopmentConfig.Load().skillSetBonus),
                 common.ManagerRoleEvaluation,
                 common.ContractMarket,
                 common.RosterTurnover,
@@ -644,7 +644,7 @@ namespace Baseball.Game.Data
                 common.PitchArsenal,
                 common.MatchRatingCurve,
                 leaguePromotion: ownerExpansion.LeaguePromotion,
-                ownerCardGrowth: common.OwnerCardGrowth,
+                ownerCardGrowth: OwnerDevelopmentConfig.Load().ApplyStudyTiers(common.OwnerCardGrowth),
                 teamColor: common.TeamColor,
                 ownerPlayerMarket: common.OwnerPlayerMarket,
                 aggregateMatch: ownerExpansion.AggregateMatch,

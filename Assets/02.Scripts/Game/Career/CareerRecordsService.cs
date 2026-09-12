@@ -642,7 +642,8 @@ namespace Baseball.Game.Career
             return _playerNameResolver?.Invoke(playerId) ?? fallbackName;
         }
 
-        private static CareerRecordMetric[] GetColumns(
+        /// <summary>선수·구단주 기록표가 공유하는 기본·상세 지표 순서를 반환한다.</summary>
+        public static CareerRecordMetric[] GetColumns(
             CareerRecordCategory category,
             CareerRecordViewMode viewMode)
         {
@@ -688,7 +689,6 @@ namespace Baseball.Game.Career
                     CareerRecordMetric.Saves,
                     CareerRecordMetric.Holds,
                     CareerRecordMetric.BlownSaves,
-                    CareerRecordMetric.OutsRecorded,
                     CareerRecordMetric.HitsAllowed,
                     CareerRecordMetric.RunsAllowed,
                     CareerRecordMetric.EarnedRuns,

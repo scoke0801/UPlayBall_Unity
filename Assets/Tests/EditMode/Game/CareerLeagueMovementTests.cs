@@ -179,7 +179,14 @@ namespace Baseball.Tests.EditMode.Game
             flow.SelectOffer(flow.State.SetupResult.Offers[initialOfferIndex].Team.TeamId);
             flow.SignSelectedOffer();
             flow.StartRookieSeason();
-            if (!strongPlayer)
+            // 계약 이동을 검증하는 강자 표본은 상위 리그 전력을 명시한다.
+            // 신인 배분만 둔 경계 선수의 우연한 성적에 승격 오퍼 존재를 의존하지 않는다.
+            if (strongPlayer)
+            {
+                for (int index = (int)PlayerAbility.Contact; index <= (int)PlayerAbility.BatterMental; index++)
+                    flow.Career.MyPlayer.GrowthState.ApplyBaseAbilityChange((PlayerAbility)index, 15);
+            }
+            else
             {
                 for (int index = (int)PlayerAbility.Contact;
                     index <= (int)PlayerAbility.BatterMental;
