@@ -11,6 +11,7 @@ namespace Baseball.Presentation.Encyclopedia
     {
         private void BuildFilters()
         {
+            ReleaseSearchInput();
             OwnerRuntimeUiFactory.ClearChildren(_filterRoot);
             RectTransform first = Row(_filterRoot, "PrimaryFilters", 0, 32);
             Image surface = OwnerRuntimeUiFactory.CreateImage("NameSearch", first, CareerUiTheme.ReferencePanel);
@@ -24,6 +25,7 @@ namespace Baseball.Presentation.Encyclopedia
             OwnerRuntimeUiFactory.Stretch(placeholder.rectTransform, new Vector2(8, 2), new Vector2(-8, -2));
             _search.textComponent = value; _search.placeholder = placeholder; _search.targetGraphic = surface;
             _search.SetTextWithoutNotify(_filter.Search);
+            _lastImeComposition = string.Empty;
             _search.onValueChanged.AddListener(text => { _filter.Search = text; Refresh(); });
             StringFilter(first, "Franchise", "전체 구단", entry => entry.FranchiseId, entry => entry.FranchiseDisplayName,
                 _filter.FranchiseId, valueId => _filter.FranchiseId = valueId);

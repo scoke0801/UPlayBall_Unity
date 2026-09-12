@@ -4,6 +4,7 @@ using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Baseball.Presentation.Encyclopedia
@@ -25,6 +26,7 @@ namespace Baseball.Presentation.Encyclopedia
         private InputField _search;
         private bool _wishlistOnly;
         private bool _advanced;
+        private string _lastImeComposition = string.Empty;
         private int _tab, _detailTab, _firstIndex = -1, _columns = 1;
         private Vector2 _viewportSize;
         private EncyclopediaScreenEntry _selected;
@@ -67,6 +69,7 @@ namespace Baseball.Presentation.Encyclopedia
         /// <summary>셸의 전환 시 별도 호스트에 배치된 모든 루트를 함께 숨긴다.</summary>
         public void SetVisible(bool visible)
         {
+            if (!visible) ReleaseSearchInput();
             _workspace.gameObject.SetActive(visible);
             _inspector.gameObject.SetActive(visible);
             _actions.gameObject.SetActive(visible);
@@ -223,10 +226,36 @@ namespace Baseball.Presentation.Encyclopedia
 
         private void LateUpdate()
         {
+            SynchronizeSearchImeLabel();
             if (_snapshot == null || !_workspace.gameObject.activeInHierarchy || _tab == 2) return;
             if (_viewport.rect.size == _viewportSize) return;
             UpdateGridSize();
             RenderCards(true);
+        }
+
+        /// <summary>IME 조합 종료가 별도 키 이벤트를 만들지 않아도 검색창의 임시 조합 표시를 제거한다.</summary>
+        private void SynchronizeSearchImeLabel()
+        {
+            if (_search == null || !_search.isFocused) return;
+            BaseInputModule inputModule = EventSystem.current?.currentInputModule;
+            string composition = inputModule != null
+                ? inputModule.input.compositionString ?? string.Empty
+                : Input.compositionString ?? string.Empty;
+            if (string.Equals(_lastImeComposition, composition, StringComparison.Ordinal)) return;
+            _lastImeComposition = composition;
+            _search.ForceLabelUpdate();
+        }
+
+        /// <summary>화면 숨김이나 필터 재구성 전에 IME 입력과 EventSystem 선택을 정상 종료한다.</summary>
+        private void ReleaseSearchInput()
+        {
+            if (_search == null) return;
+            EventSystem eventSystem = EventSystem.current;
+            bool isSelected = eventSystem != null && eventSystem.currentSelectedGameObject == _search.gameObject;
+            if (_search.isFocused) _search.DeactivateInputField();
+            if (isSelected) eventSystem.SetSelectedGameObject(null);
+            _lastImeComposition = string.Empty;
+            _search.ForceLabelUpdate();
         }
 
         private void UpdateGridSize()

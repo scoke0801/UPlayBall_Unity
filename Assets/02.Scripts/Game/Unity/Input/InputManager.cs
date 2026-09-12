@@ -28,6 +28,9 @@ namespace Baseball.Game.Input
         public InputContext CurrentContext { get; private set; } = InputContext.Management;
         public InputDeviceKind LastInputDevice { get; private set; } = InputDeviceKind.KeyboardMouse;
 
+        /// <summary>텍스트 입력창에 포커스가 있으면 글자 키와 겹치는 단축키(탭 전환·경기 재생)를 무시한다.</summary>
+        public bool IsTextInputFocused { get; private set; }
+
         public event Action CancelPerformed;
         public event Action SubmitPerformed;
         public event Action PreviousTabPerformed;
@@ -62,6 +65,12 @@ namespace Baseball.Game.Input
 
             _baseContext = context;
             ApplyCurrentContext();
+        }
+
+        /// <summary>표현 레이어가 uGUI 입력창 포커스 변화를 알린다.</summary>
+        public void SetTextInputFocused(bool isFocused)
+        {
+            IsTextInputFocused = isFocused;
         }
 
         internal void ReleaseContext(int leaseId)
@@ -112,6 +121,7 @@ namespace Baseball.Game.Input
             _runtimeInputAsset = null;
             _baseContext = InputContext.Management;
             CurrentContext = InputContext.Management;
+            IsTextInputFocused = false;
         }
 
         private void SubscribeActions()
@@ -208,30 +218,35 @@ namespace Baseball.Game.Input
         private void HandlePreviousTab(InputAction.CallbackContext context)
         {
             UpdateInputDevice(context.control?.device);
+            if (IsTextInputFocused) return;
             PreviousTabPerformed?.Invoke();
         }
 
         private void HandleNextTab(InputAction.CallbackContext context)
         {
             UpdateInputDevice(context.control?.device);
+            if (IsTextInputFocused) return;
             NextTabPerformed?.Invoke();
         }
 
         private void HandleToggleMatchPlayback(InputAction.CallbackContext context)
         {
             UpdateInputDevice(context.control?.device);
+            if (IsTextInputFocused) return;
             ToggleMatchPlaybackPerformed?.Invoke();
         }
 
         private void HandleIncreaseMatchSpeed(InputAction.CallbackContext context)
         {
             UpdateInputDevice(context.control?.device);
+            if (IsTextInputFocused) return;
             IncreaseMatchSpeedPerformed?.Invoke();
         }
 
         private void HandleDecreaseMatchSpeed(InputAction.CallbackContext context)
         {
             UpdateInputDevice(context.control?.device);
+            if (IsTextInputFocused) return;
             DecreaseMatchSpeedPerformed?.Invoke();
         }
 

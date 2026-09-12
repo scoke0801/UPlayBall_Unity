@@ -259,6 +259,8 @@ namespace Baseball.Presentation.UI
             InputSystemUIInputModule inputModule = _eventSystem.GetComponent<InputSystemUIInputModule>();
             if (inputModule == null)
                 inputModule = _eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            if (_eventSystem.GetComponent<UITextInputImeGate>() == null)
+                _eventSystem.gameObject.AddComponent<UITextInputImeGate>();
 
             ConfigureInputModule(inputModule);
         }

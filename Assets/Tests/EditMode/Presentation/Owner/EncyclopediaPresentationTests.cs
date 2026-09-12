@@ -5,6 +5,7 @@ using Baseball.Presentation.Encyclopedia;
 using Baseball.Presentation.SharedUI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Baseball.Tests.EditMode.Presentation.Owner
@@ -153,6 +154,42 @@ namespace Baseball.Tests.EditMode.Presentation.Owner
                 Assert.That(FindButton(shell.ContextActionBarHost, "FindScout").gameObject.activeSelf, Is.False);
                 Assert.That(FindButton(shell.MainWorkspaceHost, "ViewTab2").gameObject.activeSelf, Is.False);
             });
+        }
+
+        [Test]
+        public void View_화면을숨기면검색창선택을해제해Ime입력이잔류하지않는다()
+        {
+            EventSystem eventSystem = EventSystem.current;
+            GameObject ownedEventSystemObject = null;
+            if (eventSystem == null)
+            {
+                ownedEventSystemObject = new GameObject("EncyclopediaEventSystem", typeof(EventSystem));
+                eventSystem = ownedEventSystemObject.GetComponent<EventSystem>();
+            }
+            try
+            {
+                WithView(false, (view, shell) =>
+                {
+                    view.Bind(new EncyclopediaScreenSnapshot
+                    {
+                        Cards = new[] { Entry("card", 2012) },
+                        Seasons = new[] { Entry("card", 2012) }
+                    });
+                    InputField search = shell.MainWorkspaceHost.GetComponentInChildren<InputField>(true);
+                    eventSystem.SetSelectedGameObject(search.gameObject);
+
+                    view.SetVisible(false);
+
+                    Assert.That(eventSystem.currentSelectedGameObject, Is.Null);
+                    Assert.That(search.textComponent.text, Is.EqualTo(search.text));
+                });
+            }
+            finally
+            {
+                eventSystem.SetSelectedGameObject(null);
+                if (ownedEventSystemObject != null)
+                    UnityEngine.Object.DestroyImmediate(ownedEventSystemObject);
+            }
         }
 
         private static EncyclopediaScreenEntry Entry(string cardId, int year) => new EncyclopediaScreenEntry
