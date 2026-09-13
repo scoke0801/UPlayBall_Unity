@@ -37,7 +37,7 @@ namespace Baseball.Presentation.Owner
         private Button _previousPage, _nextPage, _batters, _pitcherButton;
         private int _positionFilter, _registrationFilter, _sort;
         private string _query = "";
-        private readonly string[] _tabs = { "능력치 교정", "훈련 파트너", "스킬 연구·합성", "슬로건", "유학 관리" };
+        private readonly string[] _tabs = { "능력치 교정", "훈련 파트너", "스킬 연구·제작", "슬로건", "유학 관리" };
 
         public static UI_Popup_OwnerDevelopment Show(Transform parent, OwnerModeManager manager)
         {
@@ -82,7 +82,9 @@ namespace Baseball.Presentation.Owner
             bool needsPlayer = _tab == 0 || _tab == 1 || _tab == 4;
             _players.gameObject.SetActive(needsPlayer);
             Place(_body, needsPlayer ? .36f : .025f, .17f, .975f, .785f);
-            _status.text = "성장 관리 · 남은 일정 " + _manager.Runtime.PlayerGrowth.Offseason.RemainingWeeks + "주 · " + OwnerMoneyFormatter.Format(_manager.Runtime.Economy.Money);
+            _status.text = "성장 관리 · " + (_tab == 2 ? "시즌 중 이용 가능"
+                : "남은 일정 " + _manager.Runtime.PlayerGrowth.Offseason.RemainingWeeks + "주")
+                + " · " + OwnerMoneyFormatter.Format(_manager.Runtime.Economy.Money);
             _feedback.text = "변화와 비용을 확인한 뒤 확정하세요.";
             try
             {
@@ -94,7 +96,9 @@ namespace Baseball.Presentation.Owner
             }
             catch (InvalidOperationException e) { _feedback.text = e.Message; }
             catch (Exception) { _feedback.text = "성장 정보를 읽지 못했습니다. 창을 닫고 다시 열어 주세요."; }
-            bool allowed = OwnerScheduleGateService.GetPhase(_manager.Runtime) == OwnerSeasonPhase.Offseason;
+            bool allowed = _tab == 2
+                ? OwnerScheduleGateService.Evaluate(_manager.Runtime, OwnerGrowthAction.SkillBlock).IsAllowed
+                : OwnerScheduleGateService.GetPhase(_manager.Runtime) == OwnerSeasonPhase.Offseason;
             _confirm.interactable = allowed && _action != null && !_isSubmitting && _manager.Runtime.Economy.Money >= _cost;
             if (!allowed) _feedback.text = "모든 조의 포스트시즌이 끝나면 성장 관리를 실행할 수 있습니다.";
             else if (_action != null && _manager.Runtime.Economy.Money < _cost) _feedback.text = "자금이 부족합니다. 비용 " + OwnerMoneyFormatter.Format(_cost);
@@ -279,18 +283,23 @@ namespace Baseball.Presentation.Owner
             Text(_body, "Preview", selected.Reason + "\n\n" + Changes(selected.Values) + "\n\n두 선수 모두 이번 오프시즌 참여를 사용합니다.\n결과는 영구 성장으로 남습니다.", .52f, .07f, .96f, .80f, 18);
             Command("파트너 훈련", _manager.GetDevelopmentBalance().partnerCost, () => _manager.TrainWithPartner(_cardId, selected.PartnerCardId));
         }
+        /// <summary>랜덤 합성과 구분되는 누적 포인트 보상 제작을 연다.</summary>
+        public void ShowFusionCraft()
+        {
+            _tab = 2; _option = 1; _researchRarity = 3; _isConfirming = false; Refresh();
+        }
         private void BuildResearch()
         {
             var balance = _manager.GetDevelopmentBalance(); var inventory = _manager.Runtime.PlayerGrowth.Inventory;
             Text(_body, "Title", "스킬 연구소", .025f, .90f, .46f, .97f, 23);
             Text(_body, "Inventory", "누적 연구 " + inventory.ResearchCount + "회  ·  S 선택 상자 " + inventory.SelectionBoxes + "개",
                 .52f, .90f, .975f, .97f, 17).alignment = TextAnchor.MiddleRight;
-            string[] modes = { "블록 연구", "블록 합성", "S 상자 사용" };
+            string[] modes = { "블록 연구", "합성 포인트 제작", "S 상자 사용" };
             for (int i = 0; i < modes.Length; i++)
             {
                 int mode = i;
                 var button = Button(_body, "ResearchMode" + i, modes[i], .025f + i * .32f, .79f, .33f + i * .32f, .875f,
-                    () => { _option = mode; if (mode == 2) _researchRarity = 3; _isConfirming = false; Refresh(); });
+                    () => { _option = mode; if (mode != 0) _researchRarity = 3; _isConfirming = false; Refresh(); });
                 OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab); OwnerUiButtonSkin.SetSelected(button, i == _option);
             }
             if (_option == 0)
@@ -316,11 +325,11 @@ namespace Baseball.Presentation.Owner
                 value => { _researchAbility = value; _blockIndex = 0; _isConfirming = false; Refresh(); });
             var rarity = AddDropdown(_body, "BlockRarity", new List<string> { "B 등급", "A 등급", "S 등급" }, _researchRarity - 1, .415f, .56f, .57f, .64f,
                 value => { _researchRarity = value + 1; _blockIndex = 0; _isConfirming = false; Refresh(); });
-            rarity.interactable = _option != 2;
+            rarity.interactable = false;
             var filterAbility = (PlayerAbility)((_researchPitchers ? 6 : 0) + _researchAbility);
             var definitions = new List<SkillBlockDefinition>();
             foreach (var definition in _manager.Balance.Growth.SkillBlocks)
-                if ((int)definition.Rarity == _researchRarity)
+                if ((int)definition.Rarity == _researchRarity && (_option != 1 || !definition.IsUniqueReward))
                     foreach (var bonus in definition.AbilityBonuses)
                         if (bonus.Ability == filterAbility) { definitions.Add(definition); break; }
             if (definitions.Count == 0) throw new InvalidOperationException("조건에 맞는 블록이 없습니다. 능력치·등급을 변경하세요.");
@@ -340,10 +349,10 @@ namespace Baseball.Presentation.Owner
             Text(_body, "SetBonus", selected.AdjacencySetBonus > 0 ? "같은 계열 3블록 인접 배치 시\n세트 효과 +" + selected.AdjacencySetBonus : "획득 후 스킬 블록 배치에서 장착하세요.", .63f, .35f, .955f, .47f, 17);
             if (_option == 1)
             {
-                int count = OwnerSkillResearchService.GetFusionMaterials(_manager.Runtime, _manager.Balance.Growth.SkillBlocks, selected.Category, selected.Rarity - 1).Count;
-                Text(_body, "Materials", "합성 재료  " + count + " / 5개\n동일 계열 · 한 단계 낮은 등급\n미장착 블록을 보유 순서대로 5개 소모합니다.", .63f, .08f, .955f, .31f, 17);
-                if (count < 5) throw new InvalidOperationException("합성 재료가 " + (5 - count) + "개 부족합니다. 같은 계열 하위 등급의 미장착 블록이 필요합니다.");
-                Command("블록 5개 소모 · 합성", 0, () => _manager.FuseSkillBlocks(selected.BlockId));
+                int required = balance.fusion.pointsPerCraft;
+                Text(_body, "Materials", $"합성 포인트 {inventory.FusionPoints} / {required}\n랜덤 합성 1회마다 1포인트 적립\n포인트로 선택한 S 등급 블록을 제작합니다.", .63f, .08f, .955f, .31f, 17);
+                if (inventory.FusionPoints < required) throw new InvalidOperationException($"합성 포인트가 {required - inventory.FusionPoints} 더 필요합니다. 스킬 블록 합성 탭에서 랜덤 합성을 진행하세요.");
+                Command($"{required}포인트 · 지정 제작", 0, () => _manager.CraftSkillBlock(selected.BlockId));
             }
             else
             {
@@ -370,7 +379,8 @@ namespace Baseball.Presentation.Owner
                 float x = left + (cell.X - minX) * size, y = top - (cell.Y - minY) * size;
                 var rect = OwnerDugoutDetailUiFactory.CreateRect(square, "SkillTile" + cell.X + "_" + cell.Y, x, y - size, x + size, y);
                 SkillBlockVisual.ApplyDirectionalTile(rect.gameObject.AddComponent<RawImage>(), definition.Rarity,
-                    definition.ShapeCells, Array.IndexOf(definition.ShapeCells, cell));
+                    definition.ShapeCells, Array.IndexOf(definition.ShapeCells, cell),
+                    typeColor: SkillBlockVisual.GetCategoryColor(definition.Category));
             }
         }
         private void BuildSlogan()

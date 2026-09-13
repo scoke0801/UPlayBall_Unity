@@ -1155,7 +1155,7 @@ namespace Baseball.Game.Historical
         {
             string[] traitsBefore = GetActiveOwnerCardTraits(cardId);
             OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.SkillBlock).RequireAllowed();
-            CommitGrowthChange(candidate =>
+            CommitSkillChange(candidate =>
             {
                 _coordinator.PlaceOwnedCardSkillBlock(candidate, cardId, instanceId, originX, originY, rotationQuarterTurns);
                 return true;
@@ -1172,7 +1172,7 @@ namespace Baseball.Game.Historical
         {
             string[] traitsBefore = GetActiveOwnerCardTraits(cardId);
             OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.SkillBlock).RequireAllowed();
-            bool placed = CommitGrowthChange(candidate => _coordinator.AutoPlaceOwnedCardSkillBlock(candidate, cardId, instanceId));
+            bool placed = CommitSkillChange(candidate => _coordinator.AutoPlaceOwnedCardSkillBlock(candidate, cardId, instanceId));
             if (!placed) return false;
             PublishGrowthFact("SkillBlockPlaced", cardId,
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -1186,7 +1186,7 @@ namespace Baseball.Game.Historical
         public bool RemoveOwnedCardSkillBlock(string cardId, int instanceId)
         {
             OwnerScheduleGateService.Evaluate(RequireRuntime(), OwnerGrowthAction.SkillBlock).RequireAllowed();
-            bool removed = CommitGrowthChange(candidate => _coordinator.RemoveOwnedCardSkillBlock(candidate, cardId, instanceId));
+            bool removed = CommitSkillChange(candidate => _coordinator.RemoveOwnedCardSkillBlock(candidate, cardId, instanceId));
             if (!removed) return false;
             InvalidatePregame();
             NotifyRuntimeChanged();
@@ -1266,10 +1266,16 @@ namespace Baseball.Game.Historical
             if (guide == null || !guide.IsAvailable) return;
             payload ??= new Dictionary<string, string>(StringComparer.Ordinal);
             payload["cardId"] = cardId ?? string.Empty;
+            // 유학 시작 안내는 카드·시즌별로 중복을 억제하므로 표시 payload와 별도로 시즌을 전달한다.
+            var context = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["seasonId"] = Runtime.ManagerMode.LiveSeason.SeasonId
+            };
             guide.PublishOwnerFact(
                 factType,
                 $"owner-growth:{factType}:{Runtime.ManagerMode.LiveSeason.SeasonNumber}:{cardId}:{Runtime.ManagerMode.LiveSeason.CurrentWeekIndex}",
-                payload);
+                payload,
+                context);
         }
 
         private string[] GetActiveOwnerCardTraits(string cardId)
@@ -1696,6 +1702,10 @@ namespace Baseball.Game.Historical
         private void ConfigureTeamColors(HistoricalBakedContent content, string teamSeasonKey)
         {
             if (content == null) throw new ArgumentNullException(nameof(content));
+            var opponentAsset = Resources.Load<TextAsset>("NewGame/OwnerLeagueOpponents");
+            if (opponentAsset == null) throw new InvalidOperationException("리그 AI 전력 설정이 없습니다.");
+            Runtime.ConfigureOpponents(new OwnerLeagueOpponentService(content, Runtime.WorldCardCatalog, _balance,
+                JsonUtility.FromJson<OwnerLeagueOpponentBalance>(opponentAsset.text)));
             if (!content.TryGetTeamSeason(teamSeasonKey, out TeamSeasonDefinition team))
                 throw new InvalidOperationException("플레이어 구단의 TeamSeasonDefinition이 없습니다.");
 

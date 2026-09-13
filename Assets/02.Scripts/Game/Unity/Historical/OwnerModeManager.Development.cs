@@ -22,6 +22,11 @@ namespace Baseball.Game.Historical
             CommitGrowthChange(runtime => { action(runtime); return true; });
             InvalidatePregame(); NotifyRuntimeChanged();
         }
+        private void CommitSkillDevelopment(Action<ManagerHistoricalRuntimeState> action)
+        {
+            CommitSkillChange(runtime => { action(runtime); return true; });
+            InvalidatePregame(); NotifyRuntimeChanged();
+        }
         public void CancelStudy(string cardId) => CommitDevelopment(runtime => OwnerStudyCancellationService.Cancel(runtime, cardId));
         public void CorrectCard(string cardId, PlayerAbility decrease, PlayerAbility increase, int amount, int expectedLedgerCount) =>
             CommitDevelopment(runtime => OwnerPermanentGrowthService.Correct(runtime, cardId, decrease, increase, amount,
@@ -40,11 +45,21 @@ namespace Baseball.Game.Historical
         public SkillBlockDefinition FuseSkillBlocks(int firstId, int secondId, SkillFusionFocus focus)
         {
             SkillBlockDefinition result = null;
-            CommitDevelopment(runtime => result = OwnerSkillResearchService.Fuse(runtime, _balance.Growth.SkillBlocks,
+            CommitSkillDevelopment(runtime => result = OwnerSkillResearchService.Fuse(runtime, _balance.Growth.SkillBlocks,
                 firstId, secondId, GetDevelopmentBalance().fusion, focus,
                 new Pcg32Random(runtime.WorldHistory.WorldHistorySeed, (ulong)runtime.PlayerGrowth.Inventory.FusionCount + 2701UL)));
             return result;
         }
+        /// <summary>여러 합성을 하나의 후보 상태에 반영하고 저장 성공 후 전체 결과를 반환한다.</summary>
+        public SkillBlockDefinition[] FuseSkillBlocksBatch(int[] materialIds, SkillFusionFocus focus)
+        {
+            SkillBlockDefinition[] results = null;
+            CommitSkillDevelopment(runtime => results = OwnerSkillResearchService.FuseBatch(runtime,
+                _balance.Growth.SkillBlocks, materialIds, GetDevelopmentBalance().fusion, focus,
+                count => new Pcg32Random(runtime.WorldHistory.WorldHistorySeed, (ulong)count + 2701UL)));
+            return results;
+        }
+        /// <summary>누적 합성 포인트를 사용하는 지정 제작을 저장한다.</summary>
         public void CraftSkillBlock(string id) => CommitDevelopment(runtime =>
             OwnerSkillResearchService.Craft(runtime, GetDevelopmentBlock(id), GetDevelopmentBalance().fusion));
         public void SelectSlogan(string id)

@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed partial class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 36;
+        public const int CurrentSaveVersion = 39;
         private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
@@ -103,7 +103,8 @@ namespace Baseball.Game.Historical
                 {
                     clubName = state.OwnerProfile.ClubName,
                     nickname = state.OwnerProfile.Nickname,
-                    frontManagerId = state.OwnerProfile.FrontManagerId
+                    frontManagerId = state.OwnerProfile.FrontManagerId,
+                    motto = state.OwnerProfile.Motto
                 },
                 newGameReceipt = state.NewGameReceipt == null ? null : new OwnerNewGameReceiptSaveData
                 {
@@ -234,7 +235,8 @@ namespace Baseball.Game.Historical
                         saveData.ownerProfile.frontManagerId,
                         string.IsNullOrWhiteSpace(saveData.ownerProfile.clubName)
                             ? null
-                            : saveData.ownerProfile.clubName),
+                            : saveData.ownerProfile.clubName,
+                        saveData.ownerProfile.motto),
                 saveData.saveVersion < OwnerProfileSaveVersion || saveData.newGameReceipt == null
                     ? null
                     : new OwnerNewGameReceipt(
@@ -247,7 +249,7 @@ namespace Baseball.Game.Historical
                     : new OwnerOnboardingState(saveData.onboarding.currentStep, saveData.onboarding.isCompleted),
                 saveData.saveVersion < OwnerGrowthSaveVersion || saveData.playerGrowth == null
                     ? new OwnerPlayerGrowthState()
-                    : RestorePlayerGrowth(saveData.playerGrowth),
+                    : RestorePlayerGrowth(saveData.playerGrowth, saveData.saveVersion),
                 collectionHistory,
                 wishlist);
             runtime.RestoreGuideProgress(saveData.guideProgress);
@@ -1785,7 +1787,7 @@ namespace Baseball.Game.Historical
             };
         }
 
-        private static OwnerPlayerGrowthState RestorePlayerGrowth(OwnerPlayerGrowthSaveData source)
+        private static OwnerPlayerGrowthState RestorePlayerGrowth(OwnerPlayerGrowthSaveData source, int saveVersion)
         {
             OwnerSkillBlockInventorySaveData inventoryData = Require(source.inventory, nameof(source.inventory));
             var inventory = new OwnerSkillBlockInventoryState();
@@ -1799,7 +1801,8 @@ namespace Baseball.Game.Historical
                 inventoryData.pityEliteCount, inventoryData.pityUniqueCount,
                 inventoryData.pityLegendaryCount, inventoryData.totalPullCount);
             inventory.RestoreResearch(inventoryData.researchCount, inventoryData.selectionBoxes);
-            inventory.RestoreFusion(inventoryData.fusionCount, inventoryData.fusionPoints, inventoryData.fusionFailures ?? new int[4]);
+            inventory.RestoreFusion(inventoryData.fusionCount, inventoryData.fusionPoints,
+                RestoreFusionFailures(inventoryData, saveVersion));
             if (inventoryData.nextInstanceId > 0) inventory.RestoreNextInstanceId(inventoryData.nextInstanceId);
             var result = new OwnerPlayerGrowthState(inventory, new OwnerOffseasonState(source.offseasonCompletedWeeks));
             result.RestoreStudySequence(source.studySequence);
@@ -1820,6 +1823,22 @@ namespace Baseball.Game.Historical
                     project.durationWeeks, project.paidMoney, project.paidDevelopmentPoints, project.resultSeed, project.resultBonus));
             }
             return result;
+        }
+
+        private static int[] RestoreFusionFailures(OwnerSkillBlockInventorySaveData source, int saveVersion)
+        {
+            // v36의 네 등급 이력은 유지하고 v37에서 새로 열린 SS → SSS 천장만 0으로 시작한다.
+            // 현재 형식의 누락·길이 오류는 보정하지 않아 손상된 저장을 정상으로 오인하지 않는다.
+            if (saveVersion == 36 && source.fusionFailures?.Length == 4)
+            {
+                var failures = new int[SkillBlockGradeCatalog.Count - 1];
+                Array.Copy(source.fusionFailures, failures, source.fusionFailures.Length);
+                return failures;
+            }
+            if (saveVersion < 36 && source.fusionCount == 0 && source.fusionPoints == 0 &&
+                (source.fusionFailures == null || source.fusionFailures.Length == 0))
+                return new int[SkillBlockGradeCatalog.Count - 1];
+            return source.fusionFailures;
         }
 
         private static T Require<T>(T value, string parameterName) where T : class

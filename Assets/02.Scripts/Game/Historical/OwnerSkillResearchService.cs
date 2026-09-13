@@ -6,7 +6,50 @@ using Baseball.Simulation.Random;
 
 namespace Baseball.Game.Historical
 {
-    /// <summary>연구·선택 상자·동일 계열 합성을 오프시즌 공유 인벤토리에 반영한다.</summary>
+    /// <summary>스킬 배치·합성의 변경 범위만 보관하고 동기 저장 실패 시 원상 복구한다.</summary>
+    public static class OwnerSkillTransaction
+    {
+        /// <summary>인벤토리·성장판·합성 비용만 바꾸는 명령을 실행한다. 저장 중 외부에 상태를 알리지 않는다.</summary>
+        public static bool Execute(ManagerHistoricalRuntimeState runtime, Func<bool> change, Action save)
+        {
+            if (runtime == null || change == null || save == null) throw new ArgumentNullException();
+            var inventory = runtime.PlayerGrowth.Inventory.Copy();
+            long money = runtime.Economy.Money;
+            var boards = new PlacedSkillBlock[runtime.OwnedCards.Count][];
+            for (int i = 0; i < boards.Length; i++)
+            {
+                var placements = runtime.OwnedCards[i].SkillBoard.Placements;
+                boards[i] = new PlacedSkillBlock[placements.Count];
+                for (int j = 0; j < placements.Count; j++) boards[i][j] = placements[j];
+            }
+            bool committed = false;
+            try
+            {
+                if (!change()) return false;
+                save();
+                committed = true;
+                return true;
+            }
+            finally
+            {
+                if (!committed)
+                {
+                    runtime.PlayerGrowth.Inventory.RestoreFrom(inventory);
+                    // 대상 명령은 자금을 소모하기만 하므로 차액 환급으로 정확히 복원한다.
+                    runtime.Economy.AddMoney(money - runtime.Economy.Money);
+                    for (int i = 0; i < boards.Length; i++)
+                    {
+                        var board = runtime.OwnedCards[i].SkillBoard;
+                        while (board.Placements.Count > 0)
+                            board.Remove(board.Placements[board.Placements.Count - 1].Instance.InstanceId);
+                        foreach (var placement in boards[i]) board.Add(placement);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>연구·선택 상자·랜덤 합성·포인트 제작을 구단 공유 인벤토리에 반영한다.</summary>
     public static class OwnerSkillResearchService
     {
         public static void Research(ManagerHistoricalRuntimeState runtime, SkillBlockDefinition[] definitions,
@@ -38,24 +81,6 @@ namespace Baseball.Game.Historical
             runtime.PlayerGrowth.Inventory.ConsumeSelectionBox();
             runtime.PlayerGrowth.Inventory.Add(selected.BlockId);
         }
-        public static List<int> GetFusionMaterials(ManagerHistoricalRuntimeState runtime, SkillBlockDefinition[] definitions,
-            SkillBlockCategory category, SkillBlockRarity rarity)
-        {
-            var result = new List<int>();
-            foreach (var instance in runtime.PlayerGrowth.Inventory.Blocks)
-            {
-                bool equipped = false;
-                foreach (var owned in runtime.OwnedCards)
-                    foreach (var placement in owned.SkillBoard.Placements)
-                        if (placement.Instance.InstanceId == instance.InstanceId) equipped = true;
-                if (equipped) continue;
-                foreach (var definition in definitions)
-                    if (definition.BlockId == instance.DefinitionId && definition.Category == category && definition.Rarity == rarity)
-                        result.Add(instance.InstanceId);
-            }
-            result.Sort();
-            return result;
-        }
         /// <summary>장착·특별 보상 블록을 제외한 실제 보유 재료를 반환한다.</summary>
         public static List<int> GetAvailableMaterials(ManagerHistoricalRuntimeState runtime, SkillBlockDefinition[] definitions)
         {
@@ -81,24 +106,24 @@ namespace Baseball.Game.Historical
             balance.Validate();
             if (!Enum.IsDefined(typeof(SkillFusionFocus), focus)) throw new ArgumentOutOfRangeException(nameof(focus));
             int highest = Math.Max((int)first.Rarity, (int)second.Rarity);
-            bool pity = highest < 4 && failures >= balance.pityFailures;
-            var probabilities = new double[5];
+            bool pity = highest < SkillBlockGradeCatalog.Count - 1 && failures >= balance.pityFailures;
+            var probabilities = new double[SkillBlockGradeCatalog.Count];
             double sum = 0;
-            for (int grade = Math.Max(0, highest - 1); grade < 5; grade++)
+            for (int grade = Math.Max(0, highest - 1); grade < SkillBlockGradeCatalog.Count; grade++)
             {
                 if (pity && grade <= highest) continue;
-                probabilities[grade] = (balance.gradeWeights[(int)first.Rarity * 5 + grade] + balance.gradeWeights[(int)second.Rarity * 5 + grade]) / 2;
+                probabilities[grade] = (balance.gradeWeights[(int)first.Rarity * SkillBlockGradeCatalog.Count + grade] + balance.gradeWeights[(int)second.Rarity * SkillBlockGradeCatalog.Count + grade]) / 2;
                 sum += probabilities[grade];
             }
             if (sum <= 0) throw new InvalidOperationException("합성 결과 확률이 비어 있습니다.");
-            for (int grade = 0; grade < 5; grade++) probabilities[grade] /= sum;
-            if (focus != SkillFusionFocus.Grade || highest == 4 || pity) return probabilities;
+            for (int grade = 0; grade < SkillBlockGradeCatalog.Count; grade++) probabilities[grade] /= sum;
+            if (focus != SkillFusionFocus.Grade || highest == SkillBlockGradeCatalog.Count - 1 || pity) return probabilities;
             double upgrade = 0;
-            for (int grade = highest + 1; grade < 5; grade++) upgrade += probabilities[grade];
+            for (int grade = highest + 1; grade < SkillBlockGradeCatalog.Count; grade++) upgrade += probabilities[grade];
             if (upgrade <= 0 || upgrade >= 1) return probabilities;
             double bonus = Math.Min(balance.gradeBonus, 1 - upgrade);
             // 승급 결과끼리의 비율을 보존하며 동급·하위 확률에서 보정분을 이동한다.
-            for (int grade = 0; grade < 5; grade++)
+            for (int grade = 0; grade < SkillBlockGradeCatalog.Count; grade++)
                 probabilities[grade] *= grade > highest ? (upgrade + bonus) / upgrade : (1 - upgrade - bonus) / (1 - upgrade);
             return probabilities;
         }
@@ -110,8 +135,8 @@ namespace Baseball.Game.Historical
             if (random == null) throw new ArgumentNullException(nameof(random));
             double[] probabilities = GetGradeProbabilities(first, second, balance, focus, failures);
             double roll = random.NextDouble(), cumulative = 0;
-            int rarity = 4;
-            for (int i = 0; i < 5; i++) { cumulative += probabilities[i]; if (roll < cumulative) { rarity = i; break; } }
+            int rarity = SkillBlockGradeCatalog.Count - 1;
+            for (int i = 0; i < SkillBlockGradeCatalog.Count; i++) { cumulative += probabilities[i]; if (roll < cumulative) { rarity = i; break; } }
             var pool = new List<SkillBlockDefinition>();
             foreach (var definition in definitions)
                 if ((int)definition.Rarity == rarity && !definition.IsUniqueReward && IsSamePlayerType(first, definition)) pool.Add(definition);
@@ -167,7 +192,40 @@ namespace Baseball.Game.Historical
             return result;
         }
 
-        /// <summary>누적 포인트로 유니크 블록을 지정 제작한다. 랜덤 합성과 별도 보상이다.</summary>
+        /// <summary>재료 쌍을 사전 검증하고 순서대로 합성한다. 저장용 후보 상태에서 호출한다.</summary>
+        public static SkillBlockDefinition[] FuseBatch(ManagerHistoricalRuntimeState runtime,
+            SkillBlockDefinition[] definitions, int[] materialIds, OwnerSkillFusionBalance balance,
+            SkillFusionFocus focus, Func<int, IRandomSource> createRandom)
+        {
+            if (materialIds == null || materialIds.Length == 0 || materialIds.Length % 2 != 0)
+                throw new InvalidOperationException("각 합성 슬롯에 재료 2개를 선택하세요.");
+            if (createRandom == null) throw new ArgumentNullException(nameof(createRandom));
+            balance.Validate();
+            OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).RequireAllowed();
+            var available = GetAvailableMaterials(runtime, definitions);
+            var selected = new HashSet<int>();
+            foreach (int id in materialIds)
+                if (!selected.Add(id) || !available.Contains(id))
+                    throw new InvalidOperationException("사용할 수 없는 재료가 있습니다. 선택을 다시 확인하세요.");
+            int count = materialIds.Length / 2;
+            if (runtime.Economy.Money < checked(balance.cost * count))
+                throw new InvalidOperationException("전체 합성에 필요한 자금이 부족합니다.");
+            for (int i = 0; i < materialIds.Length; i += 2)
+            {
+                var first = runtime.PlayerGrowth.Inventory.GetRequired(materialIds[i]);
+                var second = runtime.PlayerGrowth.Inventory.GetRequired(materialIds[i + 1]);
+                if (!IsSamePlayerType(FindDefinition(definitions, first.DefinitionId), FindDefinition(definitions, second.DefinitionId)))
+                    throw new InvalidOperationException("야수 또는 투수 블록끼리 합성하세요.");
+            }
+            var results = new SkillBlockDefinition[count];
+            // 개별 실행과 같은 합성 횟수 기반 난수와 승급 보장 순서를 유지한다.
+            for (int i = 0; i < count; i++)
+                results[i] = Fuse(runtime, definitions, materialIds[i * 2], materialIds[i * 2 + 1],
+                    balance, focus, createRandom(runtime.PlayerGrowth.Inventory.FusionCount));
+            return results;
+        }
+
+        /// <summary>누적 포인트로 S 등급 블록을 지정 제작한다. 랜덤 합성과 별도 보상이다.</summary>
         public static void Craft(ManagerHistoricalRuntimeState runtime, SkillBlockDefinition selected, OwnerSkillFusionBalance balance)
         {
             OwnerScheduleGateService.Evaluate(runtime, OwnerGrowthAction.SkillBlock).RequireAllowed();
@@ -179,6 +237,7 @@ namespace Baseball.Game.Historical
             runtime.PlayerGrowth.Inventory.Add(selected.BlockId);
         }
 
+        /// <summary>셀 배열의 순서와 무관하게 저작된 모양이 같은지 판단한다.</summary>
         public static bool HaveSameShape(SkillBlockDefinition first, SkillBlockDefinition second)
         {
             foreach (var cell in first.ShapeCells)

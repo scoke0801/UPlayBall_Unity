@@ -1,10 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Baseball.Core.Growth;
 using Baseball.Core.Players;
 
 namespace Baseball.Core.Historical
 {
+    /// <summary>유학 과정의 보상 등급이며 해금 조건 종류와 독립적이다.</summary>
+    public enum CardStudyRank { None, C, B, A, S, SS, SSS }
+
     /// <summary>유학지 해금에 사용하는 구단 성취 종류다.</summary>
     public enum CardStudyUnlockKind
     {
@@ -75,7 +78,7 @@ namespace Baseball.Core.Historical
             int mapXPermille = 500,
             int mapYPermille = 500,
             CardStudyUnlockRequirement unlockRequirement = default, long moneyCost = 0,
-            double greatSuccessProbability = 0, int greatSuccessBonus = 0)
+            double greatSuccessProbability = 0, int greatSuccessBonus = 0, CardStudyRank rank = CardStudyRank.None)
         {
             if (string.IsNullOrWhiteSpace(programId)) throw new ArgumentException("ProgramId가 필요합니다.", nameof(programId));
             if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("표시 이름이 필요합니다.", nameof(displayName));
@@ -86,6 +89,8 @@ namespace Baseball.Core.Historical
             if (string.IsNullOrWhiteSpace(destinationName)) throw new ArgumentException("유학지 이름이 필요합니다.", nameof(destinationName));
             if (mapXPermille < 0 || mapXPermille > 1000 || mapYPermille < 0 || mapYPermille > 1000)
                 throw new ArgumentOutOfRangeException(nameof(mapXPermille));
+            if (!Enum.IsDefined(typeof(CardStudyRank), rank)) throw new ArgumentOutOfRangeException(nameof(rank));
+            Rank = rank == CardStudyRank.None ? (CardStudyRank)((int)unlockRequirement.Kind + 1) : rank;
             ProgramId = programId.Trim();
             DisplayName = displayName.Trim();
             DestinationName = destinationName.Trim();
@@ -105,6 +110,7 @@ namespace Baseball.Core.Historical
         }
 
         public string ProgramId { get; }
+        public CardStudyRank Rank { get; }
         public string DisplayName { get; }
         public string DestinationName { get; }
         public PlayerType PlayerType { get; }
@@ -301,6 +307,33 @@ namespace Baseball.Core.Historical
         private readonly List<SkillBlockInstance> _blocks = new List<SkillBlockInstance>();
         private int _nextInstanceId = 1;
         public int NextInstanceId => _nextInstanceId;
+        /// <summary>스킬 명령의 저장 실패 복구에 사용할 독립 인벤토리를 만든다.</summary>
+        public OwnerSkillBlockInventoryState Copy()
+        {
+            var copy = new OwnerSkillBlockInventoryState();
+            copy.RestoreFrom(this);
+            return copy;
+        }
+
+        /// <summary>블록 순서·다음 ID·추첨 및 합성 이력을 함께 복원한다.</summary>
+        public void RestoreFrom(OwnerSkillBlockInventoryState source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (ReferenceEquals(this, source)) return;
+            _blocks.Clear();
+            _blocks.AddRange(source._blocks);
+            _nextInstanceId = source._nextInstanceId;
+            PityEliteCount = source.PityEliteCount;
+            PityUniqueCount = source.PityUniqueCount;
+            PityLegendaryCount = source.PityLegendaryCount;
+            TotalPullCount = source.TotalPullCount;
+            ResearchCount = source.ResearchCount;
+            SelectionBoxes = source.SelectionBoxes;
+            FusionCount = source.FusionCount;
+            FusionPoints = source.FusionPoints;
+            _fusionFailures = source.CopyFusionFailures();
+        }
+
         public void RestoreNextInstanceId(int value)
         {
             if (value < _nextInstanceId) throw new ArgumentOutOfRangeException(nameof(value));
@@ -315,25 +348,29 @@ namespace Baseball.Core.Historical
         public int ResearchCount { get; private set; }
         public int FusionCount { get; private set; }
         public int FusionPoints { get; private set; }
-        private int[] _fusionFailures = new int[4];
+        private int[] _fusionFailures = new int[SkillBlockGradeCatalog.Count - 1];
         /// <summary>저등급 재료로 고등급 천장을 채우지 못하도록 최고 재료 등급별로 분리한다.</summary>
-        public int GetFusionFailures(SkillBlockRarity rarity) => rarity == SkillBlockRarity.Legendary ? 0 : _fusionFailures[(int)rarity];
+        public int GetFusionFailures(SkillBlockRarity rarity) => rarity == SkillBlockGradeCatalog.Highest ? 0 : _fusionFailures[(int)rarity];
+        /// <summary>저장용 실패 횟수를 독립 배열로 복사한다.</summary>
         public int[] CopyFusionFailures() => (int[])_fusionFailures.Clone();
+        /// <summary>합성 누적 횟수와 보상·천장 상태를 검증해 복원한다.</summary>
         public void RestoreFusion(int count, int points, int[] failures)
         {
-            if (count < 0 || points < 0 || points > count || failures == null || failures.Length != 4)
+            if (count < 0 || points < 0 || points > count || failures == null || failures.Length != SkillBlockGradeCatalog.Count - 1)
                 throw new ArgumentException("합성 이력이 올바르지 않습니다.");
             long total = 0;
             foreach (int value in failures) { if (value < 0) throw new ArgumentException("합성 실패 횟수가 잘못되었습니다."); total += value; }
             if (total > count) throw new ArgumentException("실패 횟수가 누적 합성을 초과합니다.");
             FusionCount = count; FusionPoints = points; _fusionFailures = (int[])failures.Clone();
         }
+        /// <summary>지급한 결과에 맞춰 누적 보상과 해당 등급 천장을 갱신한다.</summary>
         public void RecordFusion(SkillBlockRarity highest, SkillBlockRarity result)
         {
             FusionCount = checked(FusionCount + 1); FusionPoints = checked(FusionPoints + 1);
-            if (highest != SkillBlockRarity.Legendary)
+            if (highest != SkillBlockGradeCatalog.Highest)
                 _fusionFailures[(int)highest] = result > highest ? 0 : checked(_fusionFailures[(int)highest] + 1);
         }
+        /// <summary>지정 제작에 필요한 포인트를 차감한다.</summary>
         public void ExchangeFusionPoints(int cost)
         {
             if (cost <= 0 || FusionPoints < cost) throw new InvalidOperationException("합성 포인트가 부족합니다.");
@@ -395,7 +432,7 @@ namespace Baseball.Core.Historical
             TotalPullCount++;
             PityEliteCount = rarity >= SkillBlockRarity.Elite ? 0 : PityEliteCount + 1;
             PityUniqueCount = rarity >= SkillBlockRarity.Unique ? 0 : PityUniqueCount + 1;
-            PityLegendaryCount = rarity == SkillBlockRarity.Legendary ? 0 : PityLegendaryCount + 1;
+            PityLegendaryCount = rarity >= SkillBlockRarity.Legendary ? 0 : PityLegendaryCount + 1;
         }
 
         public void RestorePity(int elite, int unique, int legendary, int total)

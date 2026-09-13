@@ -4,6 +4,14 @@ namespace Baseball.Game.Historical
 {
     public sealed partial class OwnerModeManager
     {
+        private bool CommitSkillChange(Func<ManagerHistoricalRuntimeState, bool> change)
+        {
+            EnsureRegularSeasonSimulationIsNotRunning();
+            var runtime = RequireRuntime();
+            return OwnerSkillTransaction.Execute(runtime, () => change(runtime),
+                () => _saveStore.Save(_saveAdapter.CreateSaveData(runtime)));
+        }
+
         private bool CommitGrowthChange(Func<ManagerHistoricalRuntimeState, bool> change)
         {
             EnsureRegularSeasonSimulationIsNotRunning();
