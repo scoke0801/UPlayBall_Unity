@@ -16,6 +16,75 @@ namespace Baseball.Tests.EditMode.Game.Historical
     /// <summary>구단주 모드 SP 경기 보상과 정밀 Scout 보장 영입 트랜잭션을 검증한다.</summary>
     public sealed class OwnerScoutEconomyTests
     {
+        [TestCase(true)]
+        [TestCase(false)]
+        public void 페넌트상여는_플레이어1위에만_지급하고_재진입과저장복원으로_중복되지않는다(bool playerWins)
+        {
+            CreateRuntime(out var runtime, out _, out var adapter);
+            var season = runtime.ManagerMode.LiveSeason;
+            foreach (var game in season.Schedule.Games)
+            {
+                if (game.IsCompleted) continue;
+                bool homeWins = game.HomeTeamId == season.PlayerTeamId ? playerWins :
+                    game.AwayTeamId == season.PlayerTeamId ? !playerWins : true;
+                game.Complete(homeWins ? 0 : 1, homeWins ? 1 : 0);
+            }
+            SetSingleGroupWorld(runtime);
+            var balance = BalanceTable.CreateDefault();
+            var service = new OwnerPostseasonService(balance);
+            int before = runtime.Economy.ScoutingPoints;
+            service.EnsureInitialized(runtime);
+            int expected = before + (playerWins ? balance.ScoutEconomy.PennantChampionshipScoutingPoints : 0);
+            Assert.That(runtime.Economy.ScoutingPoints, Is.EqualTo(expected));
+            service.EnsureInitialized(runtime);
+            Assert.That(runtime.Economy.ScoutingPoints, Is.EqualTo(expected));
+            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            service.EnsureInitialized(restored);
+            Assert.That(restored.Economy.ScoutingPoints, Is.EqualTo(expected));
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void 포스트상여는_우승확정경기에서만_지급한다(bool playerChampion)
+        {
+            CreateRuntime(out var runtime, out var provider, out var adapter);
+            var season = runtime.ManagerMode.LiveSeason;
+            foreach (var game in season.Schedule.Games)
+                if (!game.IsCompleted) game.Complete(game.AwayTeamId == season.PlayerTeamId ? 10 : 0,
+                    game.HomeTeamId == season.PlayerTeamId ? 10 : 1);
+            SetSingleGroupWorld(runtime);
+            var balance = BalanceTable.CreateDefault();
+            var service = new OwnerPostseasonService(balance);
+            var matches = new ManagerModeMatchService(provider, balance);
+            service.EnsureInitialized(runtime);
+            int gameIndex = 0;
+            while (!runtime.LeagueWorld.IsPostseasonCompleted)
+            {
+                int before = runtime.Economy.ScoutingPoints;
+                var group = runtime.LeagueWorld.Groups[0];
+                var post = group.Postseason;
+                var series = post.EnsureCurrentSeries();
+                var game = series.AppendNextGame(2_000_000 + ++gameIndex, (ulong)gameIndex);
+                int winner = playerChampion || !series.IncludesTeam(season.PlayerTeamId)
+                    ? series.HigherSeedTeamId : series.LowerSeedTeamId;
+                game.Complete(game.AwayTeamId == winner ? 1 : 0, game.HomeTeamId == winner ? 1 : 0);
+                var record = typeof(OwnerPostseasonService).GetMethod("RecordCompletedGame", BindingFlags.NonPublic | BindingFlags.Instance);
+                record.Invoke(service, new object[] { runtime, group, series, game });
+                int expected = post.IsCompleted && post.ChampionTeamId == season.PlayerTeamId
+                        ? balance.ScoutEconomy.PostseasonChampionshipScoutingPoints : 0;
+                Assert.That(runtime.Economy.ScoutingPoints - before, Is.EqualTo(expected));
+                Assert.Throws<TargetInvocationException>(() => record.Invoke(service, new object[] { runtime, group, series, game }));
+                Assert.That(runtime.Economy.ScoutingPoints - before, Is.EqualTo(expected));
+            }
+            int final = runtime.Economy.ScoutingPoints;
+            Assert.That(runtime.LeagueWorld.Groups[0].Postseason.ChampionTeamId == season.PlayerTeamId,
+                Is.EqualTo(playerChampion));
+            Assert.That(service.Complete(runtime, matches), Is.EqualTo(0));
+            var restored = adapter.Restore(adapter.CreateSaveData(runtime));
+            Assert.That(service.Complete(restored, matches), Is.EqualTo(0));
+            Assert.That(restored.Economy.ScoutingPoints, Is.EqualTo(final));
+        }
+
         [Test]
         public void 플레이어경기를_마치면_승패에_맞는_SP를_한번만_받는다()
         {
@@ -117,9 +186,22 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 : ScoutFeaturePolicy.Phase4NormalOnly;
         }
 
+        private static void SetSingleGroupWorld(ManagerHistoricalRuntimeState runtime)
+        {
+            typeof(ManagerHistoricalRuntimeState).GetMethod("SetLeagueWorld", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(runtime, new object[] { new OwnerLeagueWorldState(
+                    new[] { new OwnerLeagueGroupState(runtime.League, runtime.ManagerMode.LiveSeason) }, runtime.Rosters) });
+        }
+
         private static void CreateRuntime(
             out ManagerHistoricalRuntimeState runtime,
             out IHistoricalContentProvider provider)
+            => CreateRuntime(out runtime, out provider, out _);
+
+        private static void CreateRuntime(
+            out ManagerHistoricalRuntimeState runtime,
+            out IHistoricalContentProvider provider,
+            out ManagerHistoricalSaveAdapter adapter)
         {
             Type fixtureType = typeof(ManagerHistoricalSaveTests).GetNestedType("Fixture", BindingFlags.NonPublic);
             MethodInfo create = fixtureType.GetMethod("Create", BindingFlags.Static | BindingFlags.Public);
@@ -128,7 +210,7 @@ namespace Baseball.Tests.EditMode.Game.Historical
             var state = (ManagerHistoricalRuntimeState)fixtureDataType
                 .GetProperty("State", BindingFlags.Instance | BindingFlags.Public)
                 .GetValue(fixture);
-            var adapter = (ManagerHistoricalSaveAdapter)fixtureDataType
+            adapter = (ManagerHistoricalSaveAdapter)fixtureDataType
                 .GetMethod("CreateAdapter", BindingFlags.Instance | BindingFlags.Public)
                 .Invoke(fixture, null);
             provider = (IHistoricalContentProvider)fixtureDataType

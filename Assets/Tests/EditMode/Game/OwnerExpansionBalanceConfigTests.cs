@@ -12,6 +12,16 @@ namespace Baseball.Tests.EditMode.Game
     public sealed class OwnerExpansionBalanceConfigTests
     {
         [Test]
+        public void ScoutEconomy_경기보상과두우승상여를실제JSON에서읽는다()
+        {
+            var economy = NewGameDefinition.LoadOwnerModeBalanceTable().ScoutEconomy;
+            Assert.That(economy.ScoutingPointsPerCompletedGame, Is.EqualTo(35));
+            Assert.That(economy.ScoutingPointsPerWin, Is.EqualTo(10));
+            Assert.That(economy.PennantChampionshipScoutingPoints, Is.EqualTo(600));
+            Assert.That(economy.PostseasonChampionshipScoutingPoints, Is.EqualTo(1200));
+        }
+
+        [Test]
         public void CommonMatch_공통경기JSON을구단주설정과캐시해시에반영한다()
         {
             var authored = MiniGameBalanceConfig.Load(out string hash, out var tactical);

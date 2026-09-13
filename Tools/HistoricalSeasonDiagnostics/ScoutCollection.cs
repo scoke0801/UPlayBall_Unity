@@ -30,19 +30,35 @@ internal static class ScoutCollection
     {
         if (args.Length < 3)
             throw new ArgumentException(
-                "--scout-collection <Runtime 경로> <출력 JSON> [시행 수=30] [승률=0.5] [--legacy] [--facility]");
+                "--scout-collection <Runtime 경로> <출력 JSON> [시행 수=30] [승률=0.5] [--legacy] [--facility] [--game-sp N] [--title-sp N] [--special-materials]");
         int trials = args.Length > 3 && !args[3].StartsWith("--", StringComparison.Ordinal) ? int.Parse(args[3]) : 30;
+        if (trials < 1) throw new ArgumentOutOfRangeException(nameof(trials));
         double winRate = args.Length > 4 && !args[4].StartsWith("--", StringComparison.Ordinal)
             ? double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture)
             : 0.5d;
+        if (!double.IsFinite(winRate) || winRate < 0 || winRate > 1) throw new ArgumentOutOfRangeException(nameof(winRate));
         EconomyRule rule = args.Contains("--legacy") ? EconomyRule.Legacy : EconomyRule.Current;
         bool hasFacility = args.Contains("--facility") || rule == EconomyRule.Legacy;
 
         HistoricalBakedContent content = LoadContent(Path.GetFullPath(args[1]));
         WorldCardCatalog catalog = WorldCardCatalogBuilder.Build(content.PlayerSeasons, null,
             CardEditionBalanceTable.CreateInitial(), content.PlayerPersons, content.TeamSeasons, content.SpecialCards);
+        if (args.Contains("--special-materials"))
+            return SpecialRecruitEconomy.Run(content, catalog, args[2], trials);
         ScoutFeaturePolicy policy = ScoutFeaturePolicy.FullWorldAwards;
-        ScoutEconomyBalance economy = ScoutEconomyBalance.CreateDefault();
+        int ReadOption(string name, int fallback)
+        {
+            int index = Array.IndexOf(args, name);
+            return index < 0 ? fallback : int.Parse(args[index + 1]);
+        }
+        using var balanceJson = JsonDocument.Parse(File.ReadAllText("Assets/10.Datas/Resources/NewGame/OwnerExpansionBalance.json"));
+        var scout = balanceJson.RootElement.GetProperty("scoutEconomy");
+        ScoutEconomyBalance economy = new(new ScoutPityBalanceTable(
+            scout.GetProperty("pityThresholdScoutingPoints").GetInt32(), scout.GetProperty("pityGuaranteedMinimumCost").GetInt32()),
+            ReadOption("--game-sp", scout.GetProperty("scoutingPointsPerCompletedGame").GetInt32()),
+            scout.GetProperty("scoutingPointsPerWin").GetInt32());
+        int titleReward = ReadOption("--title-sp", 0);
+        if (titleReward < 0) throw new ArgumentOutOfRangeException(nameof(titleReward));
         var targets = new List<ScoutMarketTarget>();
         foreach (TeamSeasonDefinition team in content.TeamSeasons)
             targets.Add(new ScoutMarketTarget(team.FranchiseId, team.OriginYear));
@@ -63,7 +79,7 @@ internal static class ScoutCollection
             {
                 ulong seed = DeterministicSeed.Derive(StableHash(team.TeamSeasonKey), (ulong)trial);
                 (double seasonCount, int drawCount) = SimulateCollection(
-                    roller, pool, teamCatalog, policy, economy, core, rule, hasFacility, winRate, new Pcg32Random(seed));
+                    roller, pool, teamCatalog, policy, economy, core, rule, hasFacility, winRate, new Pcg32Random(seed), titleReward);
                 seasons.Add(seasonCount);
                 draws.Add(drawCount);
             }
@@ -89,6 +105,10 @@ internal static class ScoutCollection
             rule = rule.ToString(),
             hasFacility,
             winRate,
+            gameReward = economy.ScoutingPointsPerCompletedGame,
+            titleReward,
+            completedByThree = allSeasons.Count(value => value <= 3) / (double)allSeasons.Count,
+            completedByFive = allSeasons.Count(value => value <= 5) / (double)allSeasons.Count,
             trials,
             teamCount = content.TeamSeasons.Count,
             seasons = new
@@ -130,7 +150,7 @@ internal static class ScoutCollection
         EconomyRule rule,
         bool hasFacility,
         double winRate,
-        IRandomSource random)
+        IRandomSource random, int titleReward)
     {
         var owned = new HashSet<string>(StringComparer.Ordinal);
         int missing = core.Count;
@@ -140,6 +160,8 @@ internal static class ScoutCollection
         ScoutPityBalanceTable pity = economy.Pity;
         for (int game = 0; game <= MaximumSeasons * RegularSeasonGames; game++)
         {
+            // 우승 상여는 시즌 마지막 경기 이후에만 들어온다. 모든 시즌 우승 시나리오는 상한 비교다.
+            if (game > 0 && game % RegularSeasonGames == 0) scoutingPoints += titleReward;
             while (missing > 0 && scoutingPoints >= pool.PriceSp)
             {
                 scoutingPoints -= pool.PriceSp;
@@ -212,7 +234,7 @@ internal static class ScoutCollection
     /// 정밀 Scout 후보는 원 구단·연도가 같은 카드뿐이므로, 그 카드만 담은 카탈로그로 추첨해도 버킷과 결과가 같다.
     /// 전체 카탈로그를 뽑기마다 순회하는 비용만 줄인다. 특수 영입 와일드카드는 Scout 대상이 아니라서 뺀다.
     /// </summary>
-    private static WorldCardCatalog CreateTeamCatalog(WorldCardCatalog catalog, TeamSeasonDefinition team)
+    internal static WorldCardCatalog CreateTeamCatalog(WorldCardCatalog catalog, TeamSeasonDefinition team)
     {
         var seasons = new Dictionary<string, PlayerSeasonDefinition>(StringComparer.Ordinal);
         var cards = new List<PlayerCardDefinition>();

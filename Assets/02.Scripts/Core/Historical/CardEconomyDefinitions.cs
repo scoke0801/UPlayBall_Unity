@@ -388,15 +388,23 @@ namespace Baseball.Core.Historical
         public ScoutEconomyBalance(
             ScoutPityBalanceTable pity,
             int scoutingPointsPerCompletedGame,
-            int scoutingPointsPerWin)
+            int scoutingPointsPerWin,
+            int pennantChampionshipScoutingPoints = 600,
+            int postseasonChampionshipScoutingPoints = 1200)
         {
             if (scoutingPointsPerCompletedGame < 0)
                 throw new ArgumentOutOfRangeException(nameof(scoutingPointsPerCompletedGame));
             if (scoutingPointsPerWin < 0)
                 throw new ArgumentOutOfRangeException(nameof(scoutingPointsPerWin));
+            if (pennantChampionshipScoutingPoints < 0)
+                throw new ArgumentOutOfRangeException(nameof(pennantChampionshipScoutingPoints));
+            if (postseasonChampionshipScoutingPoints < 0)
+                throw new ArgumentOutOfRangeException(nameof(postseasonChampionshipScoutingPoints));
             Pity = pity ?? throw new ArgumentNullException(nameof(pity));
             ScoutingPointsPerCompletedGame = scoutingPointsPerCompletedGame;
             ScoutingPointsPerWin = scoutingPointsPerWin;
+            PennantChampionshipScoutingPoints = pennantChampionshipScoutingPoints;
+            PostseasonChampionshipScoutingPoints = postseasonChampionshipScoutingPoints;
         }
 
         public ScoutPityBalanceTable Pity { get; }
@@ -407,6 +415,12 @@ namespace Baseball.Core.Historical
         /// <summary>승리한 경기에 추가로 받는 SP다. 무승부와 패배에는 주지 않는다.</summary>
         public int ScoutingPointsPerWin { get; }
 
+        /// <summary>플레이어 조 정규시즌 1위 확정 시 한 번 지급하는 SP다.</summary>
+        public int PennantChampionshipScoutingPoints { get; }
+
+        /// <summary>플레이어 조 포스트시즌 우승 확정 시 한 번 지급하는 SP다.</summary>
+        public int PostseasonChampionshipScoutingPoints { get; }
+
         public int GetMatchReward(bool isPlayerWin)
         {
             return isPlayerWin
@@ -415,12 +429,12 @@ namespace Baseball.Core.Historical
         }
 
         /// <summary>
-        /// 144경기·승률 5할이면 시즌당 약 2,900 SP다. 시작 SP 3,000과 합쳐 정밀 Scout에 모두 쓰면
-        /// 한 연도 구단의 1군 25인이 중앙값 3~4시즌에 모이도록 1982~2025 전 구단으로 맞춘 값이다.
+        /// 시설·연습·우승 보상 없이 144경기·5할에 5,760 SP를 지급한다.
+        /// 363구단×100회 수집에서 중앙 2.00·p90 2.81시즌을 확인한 값이다.
         /// </summary>
         public static ScoutEconomyBalance CreateDefault()
         {
-            return new ScoutEconomyBalance(ScoutPityBalanceTable.CreateInitial(), 15, 10);
+            return new ScoutEconomyBalance(ScoutPityBalanceTable.CreateInitial(), 35, 10);
         }
     }
 

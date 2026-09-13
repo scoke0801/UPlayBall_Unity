@@ -37,6 +37,9 @@ namespace Baseball.Game.Historical
                 group.SetPostseason(new OwnerPostseasonState(group.Season.SeasonId,
                     OwnerPostseasonBracket.SelectSeeds(ranking, teamIds)));
                 group.Postseason.EnsureCurrentSeries();
+                // 저장되는 포스트시즌 생성 경계에서만 지급하므로 재진입·복원 시 위의 continue가 중복 지급을 막는다.
+                if (string.Equals(ranking[0].TeamKey, runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
+                    runtime.Economy.AddScoutingPoints(_balance.ScoutEconomy.PennantChampionshipScoutingPoints);
             }
         }
 
@@ -66,12 +69,23 @@ namespace Baseball.Game.Historical
                 var game = pendingGame ?? series.AppendNextGame(gameId, seed);
                 MatchResult match = matchService.PlayPostseasonGame(runtime, group, series, game,
                     playerEventSink, playerExecutionProfile, out ManagerModeMatchResult playerResult);
-                series.RecordCompletedGame(game);
-                group.Postseason.EnsureCurrentSeries();
+                RecordCompletedGame(runtime, group, series, game);
                 return new OwnerPostseasonAdvanceResult(group.League.LeagueInstanceId, groupIndex,
                     series, game, match, playerResult, world.IsPostseasonCompleted);
             }
             throw new InvalidOperationException("진행할 포스트시즌 경기가 없습니다.");
+        }
+
+        private void RecordCompletedGame(ManagerHistoricalRuntimeState runtime, OwnerLeagueGroupState group,
+            OwnerPostseasonSeriesState series, Baseball.Game.Career.ScheduledGameState game)
+        {
+            series.RecordCompletedGame(game);
+            group.Postseason.EnsureCurrentSeries();
+            // 시리즈 원장이 같은 경기의 재반영을 거부하므로 우승 상여도 한 번만 지급된다.
+            if (group.Postseason.IsCompleted && string.Equals(
+                group.Season.GetTeamSeasonKey(group.Postseason.ChampionTeamId),
+                runtime.PlayerTeamSeasonKey, StringComparison.Ordinal))
+                runtime.Economy.AddScoutingPoints(_balance.ScoutEconomy.PostseasonChampionshipScoutingPoints);
         }
 
         public int Complete(ManagerHistoricalRuntimeState runtime, ManagerModeMatchService matchService,

@@ -128,13 +128,15 @@ namespace Baseball.Game.Data
     {
         public int pityThresholdScoutingPoints = 2400;
         public int pityGuaranteedMinimumCost = 7;
-        public int scoutingPointsPerCompletedGame = 15;
+        public int scoutingPointsPerCompletedGame = 35;
         public int scoutingPointsPerWin = 10;
+        public int pennantChampionshipScoutingPoints = 600;
+        public int postseasonChampionshipScoutingPoints = 1200;
 
         public ScoutEconomyBalance Build() => new ScoutEconomyBalance(
             new ScoutPityBalanceTable(pityThresholdScoutingPoints, pityGuaranteedMinimumCost),
             scoutingPointsPerCompletedGame,
-            scoutingPointsPerWin);
+            scoutingPointsPerWin, pennantChampionshipScoutingPoints, postseasonChampionshipScoutingPoints);
     }
 
     [Serializable]

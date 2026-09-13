@@ -19,8 +19,10 @@
   "scoutEconomy": {
     "pityThresholdScoutingPoints": 2400,
     "pityGuaranteedMinimumCost": 7,
-    "scoutingPointsPerCompletedGame": 15,
-    "scoutingPointsPerWin": 10
+    "scoutingPointsPerCompletedGame": 35,
+    "scoutingPointsPerWin": 10,
+    "pennantChampionshipScoutingPoints": 600,
+    "postseasonChampionshipScoutingPoints": 1200
   },
   "schemaVersion": 2,
   "contentId": "owner-expansion-09-12-v2",
