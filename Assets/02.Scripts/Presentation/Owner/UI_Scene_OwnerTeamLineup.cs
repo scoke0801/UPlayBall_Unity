@@ -147,7 +147,7 @@ namespace Baseball.Presentation.Owner
                 available.Add(detail);
             }
             if (selectedIndex >= 0)
-                UI_Popup_OwnerPlayerCard.Show(transform, available, selectedIndex);
+                UI_Popup_OwnerPlayerCard.ShowLineup(transform, available, selectedIndex);
         }
 
         private void RenderTeamColors(RectTransform board)

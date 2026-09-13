@@ -83,7 +83,7 @@ namespace Baseball.Presentation.SharedUI
         /// <summary>원화의 명찰 안쪽에서 문장과 테두리를 피하는 이름 영역을 반환한다.</summary>
         public static Rect GetNameRect(PlayerCardEdition edition, bool isMini)
         {
-            // 원화마다 리본 높이가 다르므로 프레임 전체 기준의 정규 좌표를 사용한다.
+            // 상세 원화의 리본은 등급별 좌표를 사용하고 미니 원화는 공통 명찰에 맞춘다.
             if (!isMini)
             {
                 // 문장이 명찰 안으로 들어오는 레전드는 문장 아래의 빈 영역을 기준으로 한다.
@@ -100,14 +100,7 @@ namespace Baseball.Presentation.SharedUI
                 }
                 return new Rect(.23f, center - .0225f, .54f, .045f);
             }
-            switch (edition)
-            {
-                case PlayerCardEdition.Ex:
-                case PlayerCardEdition.Legend:
-                case PlayerCardEdition.Rare:
-                case PlayerCardEdition.CareerHigh: return new Rect(.23f, .24f, .54f, .065f);
-                default: return new Rect(.23f, .19f, .54f, .075f);
-            }
+            return new Rect(.23f, .19f, .54f, .075f);
         }
 
         /// <summary>이름과 연도가 어두운 명찰에서도 읽히도록 원화에 맞는 대비를 사용한다.</summary>
@@ -208,7 +201,8 @@ namespace Baseball.Presentation.SharedUI
         public static Sprite Get(string variant, bool isMini)
         {
             string path = "UI/PlayerCards/PlayerCard_" + (isMini ? "Mini_" : "Full_") + variant;
-            return Resources.Load<Sprite>(path + "_v7")
+            return Resources.Load<Sprite>(path + "_v8")
+                ?? Resources.Load<Sprite>(path + "_v7")
                 ?? Resources.Load<Sprite>(path + "_v6")
                 ?? Resources.Load<Sprite>(path + "_v5")
                 ?? Resources.Load<Sprite>(path + "_v4")
@@ -263,7 +257,7 @@ namespace Baseball.Presentation.SharedUI
                     break;
                 case PlayerCardEdition.Ex:
                     _islandMode = 1;
-                    AddRect(mesh, .345f, _isMini ? .315f : .485f, .655f, _isMini ? .37f : .55f);
+                    AddRect(mesh, .345f, _isMini ? .27f : .485f, .655f, _isMini ? .335f : .55f);
                     break;
                 case PlayerCardEdition.Mvp:
                     _islandMode = 1;
@@ -272,12 +266,12 @@ namespace Baseball.Presentation.SharedUI
                     break;
                 case PlayerCardEdition.Legend:
                     _islandMode = 1;
-                    AddRect(mesh, .22f, _isMini ? .31f : .455f, .78f, _isMini ? .37f : .535f);
+                    AddRect(mesh, .22f, _isMini ? .265f : .455f, .78f, _isMini ? .34f : .535f);
                     break;
                 case PlayerCardEdition.Rare:
                     // 원화에서 상단 마크를 제거했으므로 이름표 위의 유일한 마크만 덧그린다.
                     _islandMode = 3;
-                    AddRect(mesh, .385f, _isMini ? .325f : .495f, .615f, _isMini ? .395f : .555f);
+                    AddRect(mesh, .385f, _isMini ? .26f : .495f, .615f, _isMini ? .335f : .555f);
                     break;
             }
         }

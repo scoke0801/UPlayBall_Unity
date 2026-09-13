@@ -453,7 +453,7 @@ namespace Baseball.Presentation.SharedUI
             }
             if (_usesRosterPresentation)
             {
-                // 장식이 침범하지 않는 등급별 GetNameRect를 유지하며 별도 명찰을 덧씌우지 않는다.
+                // 모든 등급의 공통 명찰 중심을 유지하며 별도 명찰을 덧씌우지 않는다.
                 SetBestFitRange(_nameText, 6, 16);
                 SetBestFitRange(_yearText, 5, 9);
                 SetBestFitRange(_nameBandPositionText, 5, 9);

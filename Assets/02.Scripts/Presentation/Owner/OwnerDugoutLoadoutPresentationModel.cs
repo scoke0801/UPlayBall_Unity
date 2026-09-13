@@ -369,17 +369,13 @@ namespace Baseball.Presentation.Owner
                     OwnerTeamColorDisplayFormatter.FormatWorldName(
                         definition,
                         definition.DisplayName,
-                        franchiseId => OwnerClubDisplayNameFormatter.Format(
-                            runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId),
-                            definition.OriginYear),
-                        manager.GetClubDisplayName),
+                        runtime.IdentityRegistry.GetPresentationFranchiseName,
+                        manager.GetTeamIdentityName),
                     OwnerTeamColorDisplayFormatter.FormatWorldDescription(
                         definition,
                         definition.Description,
-                        franchiseId => OwnerClubDisplayNameFormatter.Format(
-                            runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId),
-                            definition.OriginYear),
-                        manager.GetClubDisplayName));
+                        runtime.IdentityRegistry.GetPresentationFranchiseName,
+                        manager.GetTeamIdentityName));
             }
             Array.Sort(candidates, CompareTeamColors);
             LineupPresetState preset = runtime.ManagerMode.GetSelectedLineupPreset();

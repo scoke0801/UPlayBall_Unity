@@ -46,18 +46,38 @@ namespace Baseball.Presentation.Owner
             Show(source, new[] { card }, 0);
         }
 
-        /// <summary>주어진 타순 또는 투수 역할 순서를 유지하며 좌우로 비교 가능한 상세 팝업을 연다.</summary>
+        /// <summary>목록에서 선택한 카드의 상세 팝업을 전환 버튼 없이 연다.</summary>
         public static void Show(
             Transform source,
             IReadOnlyList<OwnerCollectionCardSnapshot> cards,
             int selectedIndex,
             Func<OwnerCollectionCardSnapshot, OwnerCollectionCardSnapshot> detailResolver = null)
         {
+            ShowCards(source, cards, selectedIndex, detailResolver, canNavigate: false);
+        }
+
+        /// <summary>라인업의 타순·투수 역할 순서로 좌우 비교 가능한 상세 팝업을 연다.</summary>
+        public static void ShowLineup(
+            Transform source,
+            IReadOnlyList<OwnerCollectionCardSnapshot> cards,
+            int selectedIndex)
+        {
+            ShowCards(source, cards, selectedIndex, null, canNavigate: true);
+        }
+
+        private static void ShowCards(
+            Transform source,
+            IReadOnlyList<OwnerCollectionCardSnapshot> cards,
+            int selectedIndex,
+            Func<OwnerCollectionCardSnapshot, OwnerCollectionCardSnapshot> detailResolver,
+            bool canNavigate)
+        {
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (cards == null || cards.Count == 0) throw new ArgumentException("표시할 선수 카드가 필요합니다.", nameof(cards));
             if (selectedIndex < 0 || selectedIndex >= cards.Count) throw new ArgumentOutOfRangeException(nameof(selectedIndex));
             if (_current != null) _current.Close();
             Canvas canvas = source.GetComponentInParent<Canvas>().rootCanvas;
+            PlayerCardGrowthBadgesView.DismissTooltips(canvas.transform);
             RectTransform root = OwnerRuntimeUiFactory.CreateRect(nameof(UI_Popup_OwnerPlayerCard), canvas.transform);
             OwnerRuntimeUiFactory.Stretch(root);
             var view = root.gameObject.AddComponent<UI_Popup_OwnerPlayerCard>();
@@ -83,11 +103,13 @@ namespace Baseball.Presentation.Owner
             view._closeButton.GetComponent<Image>().raycastTarget = true;
             view._closeButton.gameObject.AddComponent<Button>().onClick.AddListener(view.Close);
             Label(view._closeButton, "Label", "닫기 ×", 0, 0, 1, 1, 14, Color.white);
-            UIOwnerFrontOfficeSkin.ApplyButton(view._closeButton.GetComponent<Button>(), OwnerButtonRole.Secondary);
+            UIOwnerFrontOfficeSkin.ApplyButton(view._closeButton.GetComponent<Button>(), OwnerButtonRole.Utility);
             view._front = Surface(panel, "Front", Ink, 0, 0, 1, 1);
             view._back = Surface(panel, "Back", Ink, 0, 0, 1, 1);
             view._previousButton = CreateNavigationButton(root, "PreviousCard", "<", .5f, 0, .5f, 0, view.ShowPrevious);
             view._nextButton = CreateNavigationButton(root, "NextCard", ">", .5f, 0, .5f, 0, view.ShowNext);
+            view._previousButton.gameObject.SetActive(canNavigate && cards.Count > 1);
+            view._nextButton.gameObject.SetActive(canNavigate && cards.Count > 1);
             view.BuildGrowthHistory(root);
             view.ResizeCard();
             view.RenderCard();
@@ -368,7 +390,8 @@ namespace Baseball.Presentation.Owner
             button.targetGraphic = image;
             button.onClick.AddListener(action);
             Label(rect, "Label", label, 0, 0, 1, 1, 34, Color.white);
-            UIOwnerFrontOfficeSkin.ApplyButton(button, OwnerButtonRole.Utility);
+            // 공용 팝업 Skin 재적용에서도 전용 프레임과 입력 상태를 보존한다.
+            OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Utility);
             return button;
         }
 
@@ -448,11 +471,18 @@ namespace Baseball.Presentation.Owner
                 new Vector2(cardX - width * .5f - navigationOffset, 0), new Vector2(navigationWidth, 48));
             PositionCardControl(_nextButton.GetComponent<RectTransform>(),
                 new Vector2(cardX + width * .5f + navigationOffset, 0), new Vector2(navigationWidth, 48));
+            const float historyButtonWidth = 192f;
+            const float closeButtonWidth = 96f;
+            const float actionGap = 12f;
+            float actionY = -height * .5f - 28;
+            // 두 행동을 카드 아래에 함께 두어 기록 패널을 펼쳐도 닫기까지의 이동 거리를 유지한다.
             PositionCardControl(_closeButton,
-                new Vector2(bounds.width * .5f - 64, bounds.height * .5f - 36), new Vector2(96, 44));
+                new Vector2(cardX + (historyButtonWidth + actionGap) * .5f, actionY),
+                new Vector2(closeButtonWidth, 44));
             if (_growthHistoryButton != null)
                 PositionCardControl(_growthHistoryButton.GetComponent<RectTransform>(),
-                    new Vector2(cardX, -height * .5f - 28), new Vector2(192, 44));
+                    new Vector2(cardX - (closeButtonWidth + actionGap) * .5f, actionY),
+                    new Vector2(historyButtonWidth, 44));
         }
 
         private static void PositionCardControl(RectTransform rect, Vector2 anchoredPosition, Vector2 size)

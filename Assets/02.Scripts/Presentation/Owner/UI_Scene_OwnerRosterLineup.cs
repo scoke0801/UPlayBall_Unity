@@ -931,6 +931,7 @@ namespace Baseball.Presentation.Owner
                 cost: player?.Cost, conditionLevel: player?.ConditionLevel,
                 growthBadges: FindOwnedCard(player?.CardId)?.GrowthBadges,
                 nameBandPositionLabel: player == null ? string.Empty :
+                    slot.Group == OwnerLineupSwapGroup.ReliefPitching ? status :
                     OwnerCollectionPresentationBuilder.FormatPosition(player.NaturalPosition),
                 enhancementLevel: FindOwnedCard(player?.CardId)?.EnhancementLevel ?? 0);
             card.Bind(model, player == null ? null : PlayerPortraitSprites.GetDefault(player.NaturalPosition));
@@ -1041,7 +1042,7 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < details.Count; index++)
                 if (details[index].CardId == selected.PlayerId)
                 {
-                    UI_Popup_OwnerPlayerCard.Show(_workspaceRoot, details, index);
+                    UI_Popup_OwnerPlayerCard.ShowLineup(_workspaceRoot, details, index);
                     return;
                 }
         }
