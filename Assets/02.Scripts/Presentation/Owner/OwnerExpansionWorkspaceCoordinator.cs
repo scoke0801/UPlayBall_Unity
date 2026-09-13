@@ -556,7 +556,7 @@ namespace Baseball.Presentation.Owner
                 _shell.SetInspectorVisible(false);
                 _shell.SetActionBarVisible(false);
                 _shell.BindContext(new SharedUI.ShellContextModel(navigationRouteId,
-                    workspaceRouteId == OwnerNavigationRoutes.PowerUpStudy ? "유학" : "스킬 블록 배치",
+                    workspaceRouteId == OwnerNavigationRoutes.PowerUpStudy ? "선수 성장" : "스킬 블록 배치",
                     "선수별 성장 효과와 적용 조건을 확인합니다.", "전력보강"));
                 ActiveRouteId = navigationRouteId;
                 return true;

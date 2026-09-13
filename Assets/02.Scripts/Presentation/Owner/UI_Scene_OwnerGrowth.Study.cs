@@ -243,7 +243,7 @@ namespace Baseball.Presentation.Owner
             if (!string.IsNullOrEmpty(text))
             {
                 outline.enabled = false;
-                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Tab);
+                OwnerUiButtonSkin.Apply(button, name == "TraitTraining" || name == "DevelopmentOffice" || name == "OffseasonCalendar" ? OwnerButtonRole.Secondary : OwnerButtonRole.Tab);
             }
             OwnerUiButtonSkin.SetSelected(button, selected);
             return button;

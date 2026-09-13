@@ -205,7 +205,7 @@ namespace Baseball.Presentation.Owner
             _content = OwnerRuntimeUiFactory.CreateRect("GrowthContent", _sheet);
             OwnerRuntimeUiFactory.Stretch(_content);
             if (_snapshot == null) return;
-            Label(_content, "Heading", _isStudy ? "유학  /  선수 성장" : "스킬 블록 배치", 19, 20, 8, 350, 30);
+            Label(_content, "Heading", _isStudy ? "선수 성장  /  유학" : "스킬 블록 배치", 19, 20, 8, 350, 30);
             Label(_content, "Wallet", $"육성 포인트  {_snapshot.DevelopmentPoints:N0}    |    유학  {_snapshot.StudyCount}/{_snapshot.StudyCapacity}",
                 13, 690, 8, 385, 30).alignment = TextAnchor.MiddleRight;
             Tab(_content, "BatterTab", "야  수", () => SelectType(false), !_isPitcher, 20, 42, 100, 28);

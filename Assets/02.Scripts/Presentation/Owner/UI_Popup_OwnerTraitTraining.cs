@@ -18,7 +18,8 @@ namespace Baseball.Presentation.Owner
         private OwnerModeManager _manager;
         private OwnerCollectionSnapshot _collection;
         private RectTransform _frame, _main, _candidates, _help;
-        private Text _wallet, _current, _progress, _preview, _cost, _feedback, _slots, _guide;
+        private Text _wallet, _current, _progress, _preview, _cost, _feedback, _slots, _guide, _helpRewards;
+        private Button _animationPreference, _confirmationPreference, _helpBegin;
         private Image _progressFill;
         private Button _train, _change, _reroll, _decide, _close, _chooseTarget, _cancelConfirm;
         private PlayerMiniCardView _targetCard;
@@ -50,7 +51,7 @@ namespace Baseball.Presentation.Owner
             try { manager.PrepareTraitTraining(); }
             catch (Exception) { view._feedback.text = "오프시즌 보상을 저장하지 못했습니다. 다시 열어 주세요."; }
             view.Reload(); view.Refresh(); view._chooseTarget.Select();
-            if (view.CanTrainNow && !manager.Runtime.PlayerGrowth.Traits.hasSeenGuide) view.ShowHelp();
+            // 진입 즉시 실제 선수와 파트너를 비교하며 안내는 도움말에서 연다.
             return view;
         }
 
@@ -66,6 +67,8 @@ namespace Baseball.Presentation.Owner
             _main = Rect(_frame, "Training", .025f, .18f, .975f, .895f);
             var left = Surface(_main, "TargetSurface", 0, 0, .365f, 1);
             var right = Surface(_main, "PartnerSurface", .385f, 0, 1, 1);
+            OwnerDashboardStyle.ApplyInset(left.GetComponent<Image>());
+            OwnerDashboardStyle.ApplyInset(right.GetComponent<Image>());
             Label(left, "Step", "01  훈련 대상", .05f, .9f, .68f, .98f, 19, true);
             _chooseTarget = Button(left, "ChooseTarget", "선수 변경", .68f, .91f, .95f, .98f, OpenPicker);
             _targetCard = PlayerMiniCardView.CreateRuntime(left, "TargetCard");
@@ -85,6 +88,8 @@ namespace Baseball.Presentation.Owner
             BuildPartnerList(right);
             _slots = Label(right, "SelectedPartners", "", .035f, .23f, .96f, .34f, 17, true);
             _preview = Label(right, "Preview", "훈련 파트너를 선택하세요.", .035f, .04f, .96f, .21f, 20, true);
+            var actionBar = Rect(_frame, "TrainingActionBar", .025f, .025f, .975f, .165f);
+            OwnerDashboardStyle.ApplyActionBar(actionBar);
             _cost = Label(_frame, "Cost", "", .025f, .105f, .68f, .165f, 18, true);
             _cost.alignment = TextAnchor.MiddleRight;
             _feedback = Label(_frame, "Feedback", "", .025f, .025f, .68f, .10f, 16);
@@ -232,34 +237,63 @@ namespace Baseball.Presentation.Owner
         private void BuildHelp()
         {
             _help = Surface(_frame, "HelpSurface", .025f, .025f, .975f, .895f);
-            _help.GetComponent<Image>().raycastTarget = true;
-            Label(_help, "Heading", "오프시즌, 선수를 한 단계 더", .05f, .82f, .95f, .95f, 27, true);
-            _guide = Label(_help, "Guide", "", .05f, .31f, .95f, .79f, 20);
-            Button(_help, "AnimationPreference", "결과 연출 켜기 / 끄기", .05f, .19f, .46f, .29f,
+            OwnerDashboardStyle.ApplyInset(_help.GetComponent<Image>(), true);
+            Label(_help, "Heading", "선수의 강점을 완성하는 특성훈련", .035f, .88f, .965f, .97f, 25, true);
+            Label(_help, "Subtitle", "오프시즌에 동료와 훈련하고, 경기에서 발휘할 특성을 직접 선택하세요.",
+                .035f, .80f, .965f, .88f, 17);
+            BuildHelpStep("Target", "01", "훈련할 선수", "성장시킬 선수와 현재 특성을 확인합니다.", .035f, .335f);
+            BuildHelpStep("Partner", "02", "함께할 파트너", "예상 경험치와 비용을 비교합니다. 파트너 카드는 소모되지 않습니다.", .35f, .65f);
+            BuildHelpStep("Trait", "03", "새로운 특성", "최초 획득 시 세 후보 중 하나를 선택합니다. 결과는 카드 배지에 남습니다.", .665f, .965f);
+            var ranks = Surface(_help, "RankProgression", .035f, .35f, .61f, .57f);
+            OwnerDashboardStyle.ApplyInset(ranks.GetComponent<Image>());
+            Label(ranks, "Title", "누적 경험치로 성장하는 특성", .035f, .69f, .965f, .95f, 18, true);
+            for (int i = 0; i < 4; i++)
+            {
+                float left = .035f + i * .24f;
+                Label(ranks, "Rank" + i, ((CardTraitRank)(i + 1)).ToString(), left, .34f, left + .21f, .67f, 24, true).color = OwnerDashboardStyle.Gold;
+                Label(ranks, "Experience" + i, $"{_manager.TraitBalance.experience[i]:N0} 경험치", left, .06f, left + .21f, .34f, 16);
+            }
+            var rewards = Surface(_help, "Rewards", .63f, .35f, .965f, .57f);
+            OwnerDashboardStyle.ApplyInset(rewards.GetComponent<Image>());
+            Label(rewards, "Title", "훈련 포인트 획득", .05f, .69f, .95f, .95f, 18, true);
+            _helpRewards = Label(rewards, "Details", "", .05f, .06f, .95f, .68f, 16);
+            _guide = Label(_help, "Guide", "", .035f, .235f, .965f, .33f, 16);
+            _animationPreference = Button(_help, "AnimationPreference", "결과 연출", .035f, .145f, .32f, .22f,
                 () => SetPreferences(!_manager.Runtime.PlayerGrowth.Traits.skipAnimation, _manager.Runtime.PlayerGrowth.Traits.skipConfirmation));
-            Button(_help, "ConfirmationPreference", "훈련 확인 켜기 / 끄기", .51f, .19f, .95f, .29f,
+            _confirmationPreference = Button(_help, "ConfirmationPreference", "훈련 전 확인", .335f, .145f, .62f, .22f,
                 () => SetPreferences(_manager.Runtime.PlayerGrowth.Traits.skipAnimation, !_manager.Runtime.PlayerGrowth.Traits.skipConfirmation));
-            Button(_help, "Schedule", "일정 보기", .05f, .045f, .36f, .15f, () => { Close(); _schedule?.Invoke(); });
-            var start = Button(_help, "Begin", "확인하고 시작", .62f, .045f, .95f, .15f, () => {
-                Execute(() => _manager.SetTraitPreferences(true, _manager.Runtime.PlayerGrowth.Traits.skipAnimation,
-                    _manager.Runtime.PlayerGrowth.Traits.skipConfirmation), "대상 선택 → 파트너 선택 → 특성 결정 → 카드 배지 확인");
+            Button(_help, "Schedule", "훈련 일정 보기", .035f, .035f, .26f, .115f, () => { Close(); _schedule?.Invoke(); });
+            _helpBegin = Button(_help, "Begin", "선수 훈련으로 돌아가기", .665f, .035f, .965f, .115f, () => {
                 _help.gameObject.SetActive(false); RefreshNavigation(); _chooseTarget.Select(); });
-            OwnerUiButtonSkin.Apply(start, OwnerButtonRole.Primary); _help.gameObject.SetActive(false);
+            OwnerUiButtonSkin.Apply(_helpBegin, OwnerButtonRole.Primary);
+            _help.gameObject.SetActive(false);
+        }
+
+        private void BuildHelpStep(string name, string number, string title, string description, float left, float right)
+        {
+            var step = Surface(_help, name, left, .60f, right, .78f);
+            OwnerDashboardStyle.ApplyInset(step.GetComponent<Image>());
+            Label(step, "Number", number, .05f, .57f, .20f, .92f, 24, true).color = OwnerDashboardStyle.Gold;
+            Label(step, "Title", title, .23f, .57f, .95f, .92f, 20, true);
+            Label(step, "Description", description, .05f, .07f, .95f, .55f, 16);
         }
 
         private void SetPreferences(bool skipAnimation, bool skipConfirmation)
         {
-            Execute(() => _manager.SetTraitPreferences(true, skipAnimation, skipConfirmation), "훈련 표시 설정을 저장했습니다."); ShowHelp();
+            var focus = EventSystem.current?.currentSelectedGameObject;
+            Execute(() => _manager.SetTraitPreferences(true, skipAnimation, skipConfirmation), "훈련 표시 설정을 저장했습니다.");
+            ShowHelp();
+            if (focus != null && focus.activeInHierarchy) EventSystem.current?.SetSelectedGameObject(focus);
         }
         private void ShowHelp()
         {
             var state = _manager.Runtime.PlayerGrowth.Traits;
-            _guide.text = "① 대상 선택   ② 파트너 선택   ③ 특성 결정   ④ 카드 배지 확인\n\n"
-                + $"C {_manager.TraitBalance.experience[0]} → B {_manager.TraitBalance.experience[1]} → A {_manager.TraitBalance.experience[2]} → S {_manager.TraitBalance.experience[3]} 누적 경험치\n파트너는 사라지지 않으며, 오프시즌마다 {_manager.TraitBalance.partnerUses}회 참여합니다.\n"
-                + "최초 획득은 세 후보 중 선택 · 시즌당 재추첨 1회 무료\n특성을 바꿔도 등급과 경험치는 유지됩니다.\n"
-                + "결과 연출: " + (state.skipAnimation ? "생략" : "사용") + "   ·   훈련 전 확인: " + (state.skipConfirmation ? "생략" : "사용");
-            _guide.text += $"\n경기당 {_manager.TraitBalance.gameReward} TP · 오프시즌 {_manager.TraitBalance.offseasonReward} TP\n시즌 승률 {_manager.TraitBalance.seasonGoalWinPercent}% 목표 달성: {_manager.TraitBalance.seasonGoalReward} TP 추가";
-            _help.gameObject.SetActive(true); _help.SetAsLastSibling(); _help.GetComponentInChildren<Button>().Select();
+            var balance = _manager.TraitBalance;
+            _guide.text = $"파트너는 오프시즌마다 {balance.partnerUses}회 참여 · 시즌당 재추첨 1회 무료\n특성을 변경해도 등급과 누적 경험치는 유지됩니다.";
+            _helpRewards.text = $"경기당 {balance.gameReward} TP · 오프시즌 {balance.offseasonReward} TP\n시즌 승률 {balance.seasonGoalWinPercent}% 달성 시 {balance.seasonGoalReward} TP 추가";
+            SetButtonText(_animationPreference, "결과 연출  ·  " + (state.skipAnimation ? "꺼짐" : "켜짐"));
+            SetButtonText(_confirmationPreference, "훈련 전 확인  ·  " + (state.skipConfirmation ? "꺼짐" : "켜짐"));
+            _help.gameObject.SetActive(true); _help.SetAsLastSibling(); _helpBegin.Select();
             RefreshNavigation();
         }
         public bool TryHandleCancel()
