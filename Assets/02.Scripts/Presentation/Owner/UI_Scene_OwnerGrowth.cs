@@ -29,6 +29,11 @@ namespace Baseball.Presentation.Owner
         private string _cardId = string.Empty;
         private string _programId = string.Empty;
         private bool _isStudy;
+        private bool _isFusion;
+        private bool _isConfirmingFusion;
+        private string _fusionId = string.Empty;
+        private int _fusionPage;
+        private int _fusionRarity = 1;
         private bool _isPitcher;
         private int _instanceId;
         private int _rotation;
@@ -77,6 +82,7 @@ namespace Baseball.Presentation.Owner
         public void Bind(OwnerGrowthSnapshot snapshot, string routeId = null)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+            _isConfirmingFusion = false;
             if (routeId != null) _isStudy = routeId == OwnerNavigationRoutes.PowerUpStudy;
             _pendingStudy = string.Empty;
             EnsureSelection();
@@ -105,6 +111,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>성장 업무 영역의 표시 여부를 변경한다.</summary>
         public void SetVisible(bool visible)
         {
+            if (!visible) _isConfirmingFusion = false;
             if (!visible && _offseasonPopup != null) _offseasonPopup.Hide();
             if (!visible && _developmentPopup != null) _developmentPopup.Close();
             if (!visible && _traitPopup != null) _traitPopup.Close();
@@ -117,6 +124,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>선수 선택, 유학 확인, 스킬 블록 선택 중 가장 안쪽 작업만 취소한다.</summary>
         public bool TryHandleCancel()
         {
+            if (_isConfirmingFusion) { _isConfirmingFusion = false; Render(); return true; }
             if (_traitPopup != null && _traitPopup.IsVisible) return _traitPopup.TryHandleCancel();
             if (_developmentPopup != null) return _developmentPopup.TryHandleCancel();
             if (_offseasonPopup != null && _offseasonPopup.TryHandleCancel()) return true;
@@ -205,28 +213,36 @@ namespace Baseball.Presentation.Owner
             _content = OwnerRuntimeUiFactory.CreateRect("GrowthContent", _sheet);
             OwnerRuntimeUiFactory.Stretch(_content);
             if (_snapshot == null) return;
-            Label(_content, "Heading", _isStudy ? "선수 성장  /  유학" : "스킬 블록 배치", 19, 20, 8, 350, 30);
-            Label(_content, "Wallet", $"육성 포인트  {_snapshot.DevelopmentPoints:N0}    |    유학  {_snapshot.StudyCount}/{_snapshot.StudyCapacity}",
-                13, 690, 8, 385, 30).alignment = TextAnchor.MiddleRight;
+            if (_isStudy) Label(_content, "Heading", "선수 성장  /  유학", 19, 20, 8, 350, 30);
+            else
+            {
+                Tab(_content, "PlacementTab", "스킬 블록 배치", () => SelectSkillWorkspace(false), !_isFusion, 20, 8, 170, 30);
+                Tab(_content, "FusionTab", "스킬 블록 합성", () => SelectSkillWorkspace(true), _isFusion, 200, 8, 170, 30);
+            }
             Tab(_content, "BatterTab", "야  수", () => SelectType(false), !_isPitcher, 20, 42, 100, 28);
             Tab(_content, "PitcherTab", "투  수", () => SelectType(true), _isPitcher, 122, 42, 100, 28);
-            Tab(_content, "OffseasonCalendar", "훈련 일정", ShowOffseason, false, 924, 42, 152, 28);
-            Tab(_content, "DevelopmentOffice", "성장 관리", () =>
+            if (_isStudy)
             {
-                if (_developmentPopup != null) return;
-                _developmentPopup = UI_Popup_OwnerDevelopment.Show(_popupHost != null ? _popupHost : _root, _developmentManager);
-            }, false, 756, 42, 152, 28);
-            Label(_content, "SchedulePermission", _snapshot.SeasonPhase == Baseball.Game.Historical.OwnerSeasonPhase.Offseason
-                ? _snapshot.OffseasonCompletedWeeks == Baseball.Core.Historical.OwnerOffseasonState.DurationWeeks
-                    ? "오프시즌 · 훈련 종료 · 스킬 편성 가능"
-                    : $"오프시즌 · {Baseball.Core.Historical.OwnerOffseasonState.DurationWeeks - _snapshot.OffseasonCompletedWeeks}주 남음"
-                : "시즌 중 · 특성훈련 잠금", 13, 246, 42, 315, 28);
-            Tab(_content, "TraitTraining", "특성훈련", () => {
-                if (_traitPopup != null && _traitPopup.IsVisible) return;
-                OpenTraitTraining(_cardId);
-            }, false, 588, 42, 152, 28);
+                Label(_content, "Wallet", $"육성 포인트  {_snapshot.DevelopmentPoints:N0}    |    유학  {_snapshot.StudyCount}/{_snapshot.StudyCapacity}",
+                    13, 690, 8, 385, 30).alignment = TextAnchor.MiddleRight;
+                Tab(_content, "OffseasonCalendar", "훈련 일정", ShowOffseason, false, 924, 42, 152, 28);
+                Tab(_content, "DevelopmentOffice", "성장 관리", () =>
+                {
+                    if (_developmentPopup != null) return;
+                    _developmentPopup = UI_Popup_OwnerDevelopment.Show(_popupHost != null ? _popupHost : _root, _developmentManager);
+                }, false, 756, 42, 152, 28);
+                Label(_content, "SchedulePermission", _snapshot.SeasonPhase == Baseball.Game.Historical.OwnerSeasonPhase.Offseason
+                    ? _snapshot.OffseasonCompletedWeeks == Baseball.Core.Historical.OwnerOffseasonState.DurationWeeks
+                        ? "오프시즌 · 훈련 종료 · 스킬 편성 가능"
+                        : $"오프시즌 · {Baseball.Core.Historical.OwnerOffseasonState.DurationWeeks - _snapshot.OffseasonCompletedWeeks}주 남음"
+                    : "시즌 중 · 특성훈련 잠금", 13, 246, 42, 315, 28);
+                Tab(_content, "TraitTraining", "특성훈련", () => {
+                    if (_traitPopup != null && _traitPopup.IsVisible) return;
+                    OpenTraitTraining(_cardId);
+                }, false, 588, 42, 152, 28);
+            }
             OwnerDashboardStyle.SetDataSurface(Surface(_content, "BlueRule", 20, 72, 1060, 1, OwnerDashboardStyle.Line), OwnerDashboardStyle.Line);
-            if (_isStudy) RenderStudy(); else RenderSkills();
+            if (_isStudy) RenderStudy(); else if (_isFusion) RenderFusion(); else RenderSkills();
             _feedback.transform.SetAsLastSibling();
             if (!_isStudy && previousFocus != null) FocusRosterControl(previousFocus);
             Resize();
@@ -245,6 +261,9 @@ namespace Baseball.Presentation.Owner
 
         private void SelectType(bool pitcher)
         {
+            _fusionPage = 0;
+            _fusionId = string.Empty;
+            _isConfirmingFusion = false;
             _isPitcher = pitcher;
             _studyPosition = 0;
             _rosterPage = 0;
@@ -322,6 +341,113 @@ namespace Baseball.Presentation.Owner
             if (!button.interactable)
                 button = _content.Find(delta > 0 ? "PreviousRosterPage" : "NextRosterPage").GetComponent<Button>();
             if (button.interactable) button.Select();
+        }
+
+        private void SelectSkillWorkspace(bool fusion)
+        {
+            _isFusion = fusion;
+            _isConfirmingFusion = false;
+            Render();
+            if (!fusion) SetFeedback("블록 선택 → 회전 → 초록색 성장판 칸을 눌러 바로 배치", false);
+            FocusRosterControl(fusion ? "FusionTab" : "PlacementTab");
+        }
+
+        private void RenderFusion()
+        {
+            Frame(_content, "FusionCatalogue", 20, 86, 480, 416);
+            Label(_content, "FusionCatalogueTitle", "획득할 블록 선택", 17, 34, 94, 440, 28);
+            for (int i = 1; i <= 3; i++)
+            {
+                int rarity = i;
+                Tab(_content, "FusionRarity" + i, RarityLabel((SkillBlockRarity)i), () =>
+                {
+                    _fusionRarity = rarity; _fusionPage = 0; _fusionId = string.Empty;
+                    _isConfirmingFusion = false; Render();
+                }, _fusionRarity == i, 34 + (i - 1) * 150, 128, 145, 28);
+            }
+            var candidates = new List<SkillBlockDefinition>();
+            foreach (var definition in _snapshot.Definitions)
+                if ((int)definition.Rarity == _fusionRarity && SkillBlockCategoryCatalog.IsAvailableTo(
+                    definition.Category, _isPitcher ? PlayerType.Pitcher : PlayerType.Batter)) candidates.Add(definition);
+            candidates.Sort((a, b) => string.CompareOrdinal(a.BlockId, b.BlockId));
+            int pages = Math.Max(1, (candidates.Count + 8) / 9);
+            _fusionPage = Math.Max(0, Math.Min(_fusionPage, pages - 1));
+            SkillBlockDefinition selected = candidates.Find(item => item.BlockId == _fusionId);
+            for (int i = _fusionPage * 9; i < Math.Min(candidates.Count, (_fusionPage + 1) * 9); i++)
+            {
+                var definition = candidates[i];
+                int slot = i % 9;
+                string controlName = "FusionChoice" + i;
+                var button = Tab(_content, controlName, " ", () =>
+                {
+                    _fusionId = definition.BlockId; _isConfirmingFusion = false; Render();
+                    FocusRosterControl(controlName);
+                }, definition == selected, 34 + slot % 3 * 150, 168 + slot / 3 * 96, 141, 90);
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Secondary);
+                OwnerUiButtonSkin.SetSelected(button, definition == selected);
+                RenderSkillIcon(button.transform, definition);
+                Label(button.transform, "Effect", DescribeBlock(definition), 12, 4, 66, 133, 22).alignment = TextAnchor.MiddleCenter;
+            }
+            if (candidates.Count == 0) Label(_content, "FusionEmpty", "이 등급의 합성 블록이 없습니다.", 14, 34, 200, 440, 60);
+            Tab(_content, "FusionPrevious", "이전", () => { _fusionPage--; Render(); }, false, 34, 464, 80, 26).interactable = _fusionPage > 0;
+            Label(_content, "FusionPage", $"{_fusionPage + 1} / {pages}  ·  {candidates.Count}종", 12, 124, 464, 256, 26).alignment = TextAnchor.MiddleCenter;
+            Tab(_content, "FusionNext", "다음", () => { _fusionPage++; Render(); }, false, 396, 464, 80, 26).interactable = _fusionPage + 1 < pages;
+            Frame(_content, "FusionWorkbench", 512, 86, 568, 416);
+            Label(_content, "FusionWorkbenchTitle", "합성 작업대", 17, 530, 94, 520, 28);
+            if (selected == null || _developmentManager == null)
+            {
+                Label(_content, "FusionStart", "원하는 능력치와 모양을 선택하세요.\n\n같은 계열의 하위 등급 블록 5개로\n선택한 블록 1개를 확정 획득합니다.", 17, 550, 180, 490, 170);
+                SetFeedback("장착 중인 블록은 합성 재료에서 제외됩니다.", false);
+                return;
+            }
+            var materials = Baseball.Game.Historical.OwnerSkillResearchService.GetFusionMaterials(
+                _developmentManager.Runtime, _snapshot.Definitions, selected.Category, selected.Rarity - 1);
+            Label(_content, "FusionMaterials", $"소모할 블록  ·  {Math.Min(5, materials.Count)} / 5개 준비", 15, 532, 134, 520, 26);
+            for (int i = 0; i < 5; i++)
+            {
+                var tile = OwnerRuntimeUiFactory.CreateRect("FusionMaterial" + i, _content);
+                Place(tile, 534 + i * 106, 172, 100, 80);
+                if (i < materials.Count)
+                {
+                    var material = FindDefinition(FindInventoryBlock(materials[i]).DefinitionId);
+                    if (material == null) continue;
+                    var icon = OwnerRuntimeUiFactory.CreateRect("Icon", tile);
+                    Place(icon, 0, 0, 141, 90); icon.localScale = Vector3.one * .7f;
+                    RenderSkillIcon(icon, material);
+                    Label(tile, "Name", DescribeBlock(material), 12, 0, 58, 100, 22).alignment = TextAnchor.MiddleCenter;
+                }
+                else Label(tile, "Missing", "재료 부족", 12, 0, 22, 100, 32).alignment = TextAnchor.MiddleCenter;
+            }
+            Label(_content, "FusionArrow", "↓   확정 획득", 14, 534, 260, 160, 28);
+            var result = OwnerRuntimeUiFactory.CreateRect("FusionResult", _content);
+            Place(result, 536, 294, 141, 90);
+            RenderSkillIcon(result, selected);
+            Label(_content, "FusionResultTitle", RarityLabel(selected.Rarity) + "  ·  " + DescribeBlock(selected), 18, 700, 294, 350, 30);
+            Label(_content, "FusionResultEffect", DescribeBonuses(selected), 15, 700, 328, 350, 50);
+            string reason = !_snapshot.SkillPermission.IsAllowed ? _snapshot.SkillPermission.Reason
+                : materials.Count < 5 ? $"{RarityLabel(selected.Rarity - 1)} · 같은 계열의 미장착 블록 {5 - materials.Count}개가 더 필요합니다."
+                : _isConfirmingFusion ? "위 재료 5개가 소모됩니다. 합성을 확정할까요?" : "추가 비용 없음 · 실패 없이 선택한 모양 획득";
+            Label(_content, "FusionStatus", reason, 14, 534, 391, 520, 46);
+            Tab(_content, "FusionClear", _isConfirmingFusion ? "취소" : "선택 해제", () =>
+            {
+                if (_isConfirmingFusion) _isConfirmingFusion = false; else _fusionId = string.Empty;
+                Render();
+            }, false, 534, 449, 145, 36);
+            var execute = Tab(_content, "FusionExecute", _isConfirmingFusion ? "5개 소모 · 합성 확정" : "합성하기", () =>
+            {
+                if (!_isConfirmingFusion) { _isConfirmingFusion = true; Render(); FocusRosterControl("FusionExecute"); return; }
+                _isConfirmingFusion = false;
+                try
+                {
+                    _developmentManager.FuseSkillBlocks(selected.BlockId);
+                    Render();
+                    SetFeedback(RarityLabel(selected.Rarity) + " · " + DescribeBlock(selected) + " 블록을 획득했습니다. 배치 탭에서 장착하세요.", false);
+                }
+                catch (Exception exception) { Render(); SetFeedback(exception.Message, true); }
+            }, false, 696, 449, 360, 36);
+            OwnerUiButtonSkin.Apply(execute, OwnerButtonRole.Primary);
+            execute.interactable = _snapshot.SkillPermission.IsAllowed && materials.Count >= 5;
+            SetFeedback("재료는 보유 순서대로 자동 선택됩니다. 장착 중인 블록은 보호됩니다.", false);
         }
 
         private void RenderSkills()
@@ -402,14 +528,21 @@ namespace Baseball.Presentation.Owner
 
         private void RenderRosterSearch()
         {
-            Image surface = Surface(_content, "RosterSearch", 28, 118, 176, 24, OwnerDashboardStyle.TableSurface);
+            const float rowTop = 118f;
+            const float rowHeight = 24f;
+            Image surface = Surface(_content, "RosterSearch", 28, rowTop, 176, rowHeight, OwnerDashboardStyle.TableSurface);
             surface.raycastTarget = true;
             var outline = surface.gameObject.AddComponent<Outline>();
             outline.effectColor = Border;
             outline.effectDistance = new Vector2(1f, -1f);
             var input = surface.gameObject.AddComponent<InputField>();
-            Text value = Label(surface.transform, "Text", string.Empty, 11, 7, 0, 162, 24);
-            Text placeholder = Label(surface.transform, "Placeholder", "이름·포지션·연도", 11, 7, 0, 162, 24);
+            Text value = Label(surface.transform, "Text", string.Empty, 13, 8, 0, 160, rowHeight);
+            Text placeholder = Label(surface.transform, "Placeholder", "이름·포지션·연도", 13, 8, 0, 160, rowHeight);
+            // InputField는 기본 pixelsPerUnit으로 캐럿을 계산하므로 입력 글자도 같은 밀도를 사용한다.
+            ((UIProjectText)value).UsePanelRasterDensity = false;
+            ((UIProjectText)placeholder).UsePanelRasterDensity = false;
+            value.horizontalOverflow = HorizontalWrapMode.Overflow;
+            placeholder.horizontalOverflow = HorizontalWrapMode.Overflow;
             placeholder.color = new Color32(122, 132, 145, 255);
             input.textComponent = value;
             input.placeholder = placeholder;
@@ -425,9 +558,9 @@ namespace Baseball.Presentation.Owner
             _rosterSearchInput = input;
 
             Tab(_content, "ApplyRosterSearch", "찾기", () => ApplyRosterSearch(_rosterSearchInput.text),
-                false, 209, 118, 58, 24);
+                false, 209, rowTop, 58, rowHeight);
             Button reset = Tab(_content, "ResetRosterSearch", "초기화", ResetRosterSearch,
-                false, 272, 118, 70, 24);
+                false, 272, rowTop, 70, rowHeight);
             reset.interactable = _rosterQuery.Length > 0 || _rosterFilter != OwnerGrowthRosterFilter.All;
         }
 
@@ -549,7 +682,8 @@ namespace Baseball.Presentation.Owner
                             if (occupied.X == x && occupied.Y == y)
                             {
                                 equippedInstance = placement.Instance.InstanceId;
-                                color = BlockColor(FindDefinition(placement.Instance.DefinitionId));
+                                // 둥근 타일의 투명 모서리 뒤로 등급색 사각 배경이 비치지 않게 한다.
+                                color = Color.clear;
                             }
                 int resolvedX = column;
                 int resolvedY = row;
@@ -630,6 +764,25 @@ namespace Baseball.Presentation.Owner
                 if (!reuseCells && equippedInstance > 0)
                     CreateSkillTile(button.transform,
                         FindDefinition(FindInventoryBlock(equippedInstance).DefinitionId).Rarity, 0, 0, cellSize - 2);
+                // 장착 칸의 호버·눌림은 실제 타일에 적용하고 투명 배경은 클릭 영역만 유지한다.
+                button.targetGraphic = occupiedId > 0
+                    ? button.GetComponentInChildren<RawImage>()
+                    : cellImage;
+            }
+            if (!reuseCells && card != null)
+            {
+                foreach (PlacedSkillBlock placement in card.Placements)
+                {
+                    BoardCell[] cells = service.GetOccupiedCells(placement);
+                    for (int index = 0; index < cells.Length; index++)
+                    {
+                        RawImage tile = _boardButtons[cells[index].Y * _snapshot.Board.Width + cells[index].X]
+                            .GetComponentInChildren<RawImage>();
+                        Place(tile.rectTransform, 0, 0, cellSize, cellSize);
+                        SkillBlockVisual.ApplyDirectionalTile(tile, FindDefinition(placement.Instance.DefinitionId).Rarity,
+                            cells, index);
+                    }
+                }
             }
             if (!reuseCells) Label(_content, "BoardHint", selectedLocalCells == null
                 ? "블록을 고르면 배치 가능한 칸이 표시됩니다."
@@ -704,6 +857,9 @@ namespace Baseball.Presentation.Owner
                 Place(_rotationTiles[index], 619 + (100 - width * size) * .5f + cells[index].X * size,
                     399 + (54 - height * size) * .5f + cells[index].Y * size, size, size);
             SkillBlockDefinition definition = FindDefinition(instance.DefinitionId);
+            for (int index = 0; index < cells.Length; index++)
+                SkillBlockVisual.ApplyDirectionalTile(_rotationTiles[index].GetComponent<RawImage>(),
+                    definition.Rarity, cells, index);
             _rotationLabel.text = !string.IsNullOrEmpty(_snapshot.GetEquippedCardId(_instanceId))
                 ? $"장착 방향 {rotation * 90}°" : definition.CanRotate ? $"현재 방향 {rotation * 90}°" : "회전 불가";
         }
@@ -757,18 +913,23 @@ namespace Baseball.Presentation.Owner
                 height = Math.Max(height, cell.Y + 1);
             }
             float size = Mathf.Min(20, 48f / height);
-            foreach (BoardCell cell in definition.ShapeCells)
-                CreateSkillTile(parent, definition.Rarity,
+            for (int index = 0; index < definition.ShapeCells.Length; index++)
+            {
+                BoardCell cell = definition.ShapeCells[index];
+                RawImage tile = CreateSkillTile(parent, definition.Rarity,
                     (141 - width * size) * .5f + cell.X * size,
                     19 + (48 - height * size) * .5f + cell.Y * size, size);
+                SkillBlockVisual.ApplyDirectionalTile(tile, definition.Rarity, definition.ShapeCells, index);
+            }
         }
 
-        private void CreateSkillTile(Transform parent, SkillBlockRarity rarity, float x, float y, float size)
+        private RawImage CreateSkillTile(Transform parent, SkillBlockRarity rarity, float x, float y, float size)
         {
             var tile = new GameObject("SkillTile", typeof(RectTransform), typeof(RawImage)).GetComponent<RawImage>();
             tile.transform.SetParent(parent, false);
             Place(tile.rectTransform, x, y, size, size);
             SkillBlockVisual.ApplyTile(tile, rarity);
+            return tile;
         }
 
         private static string DescribeBlock(SkillBlockDefinition definition) =>

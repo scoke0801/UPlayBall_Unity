@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 모드 Runtime 상태와 버전이 명시된 저장 DTO를 손실 없이 변환한다.</summary>
     public sealed partial class ManagerHistoricalSaveAdapter
     {
-        public const int CurrentSaveVersion = 35;
+        public const int CurrentSaveVersion = 36;
         private const int OwnerPostseasonSaveVersion = 18;
         private const int ManagerModeSaveVersion = 4;
         // v5까지는 전술 수집·상점 이력이 없었고, v6부터 현재 시즌 개인 기록이 추가됐다.
@@ -1771,6 +1771,9 @@ namespace Baseball.Game.Historical
                 {
                     blocks = blocks,
                     researchCount = source.Inventory.ResearchCount,
+                    fusionCount = source.Inventory.FusionCount,
+                    fusionPoints = source.Inventory.FusionPoints,
+                    fusionFailures = source.Inventory.CopyFusionFailures(),
                     nextInstanceId = source.Inventory.NextInstanceId,
                     selectionBoxes = source.Inventory.SelectionBoxes,
                     pityEliteCount = source.Inventory.PityEliteCount,
@@ -1796,6 +1799,7 @@ namespace Baseball.Game.Historical
                 inventoryData.pityEliteCount, inventoryData.pityUniqueCount,
                 inventoryData.pityLegendaryCount, inventoryData.totalPullCount);
             inventory.RestoreResearch(inventoryData.researchCount, inventoryData.selectionBoxes);
+            inventory.RestoreFusion(inventoryData.fusionCount, inventoryData.fusionPoints, inventoryData.fusionFailures ?? new int[4]);
             if (inventoryData.nextInstanceId > 0) inventory.RestoreNextInstanceId(inventoryData.nextInstanceId);
             var result = new OwnerPlayerGrowthState(inventory, new OwnerOffseasonState(source.offseasonCompletedWeeks));
             result.RestoreStudySequence(source.studySequence);

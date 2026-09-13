@@ -11,6 +11,7 @@ namespace Baseball.Core.Historical
         public long researchCost;
         public int[] researchWeights;
         public int skillSetBonus = 1;
+        public OwnerSkillFusionBalance fusion = new OwnerSkillFusionBalance();
         public OwnerPartnerBalance partner = new OwnerPartnerBalance();
         public OwnerSloganDefinition[] slogans;
         public OwnerStudyTierDefinition[] studyTiers;
@@ -18,6 +19,8 @@ namespace Baseball.Core.Historical
         {
             if (partner == null) throw new ArgumentException("파트너 성장 계수가 없습니다.");
             partner.Validate();
+            if (fusion == null) throw new ArgumentException("합성 밸런스가 없습니다.");
+            fusion.Validate();
             if (correctionCost <= 0 || partnerCost <= 0 || researchCost <= 0)
                 throw new ArgumentException("성장 관리 밸런스가 올바르지 않습니다.");
             if (researchWeights == null || researchWeights.Length != 3 || researchWeights[0] < 0 || researchWeights[1] < 0
@@ -55,6 +58,39 @@ namespace Baseball.Core.Historical
             return new OwnerCardGrowthBalanceTable(source.TrainingPrograms, programs);
         }
     }
+    [Serializable]
+    public sealed class OwnerSkillFusionBalance
+    {
+        public long cost = 2000;
+        public int pityFailures = 10, pointsPerCraft = 20;
+        public double sameCategoryChance = .70, sameShapeChance = .50;
+        public double gradeBonus = .10, categoryBonus = .20, shapeBonus = .25;
+        // 원작 확률이 아닌 싱글 플레이용 저작 값. 혼합 재료는 두 행을 평균한다.
+        public double[] gradeWeights = { 55,35,8,1.9,.1, 20,50,25,4.5,.5, 0,20,55,23,2, 0,0,20,75,5, 0,0,0,20,80 };
+        public void Validate()
+        {
+            if (cost <= 0 || pityFailures < 1 || pointsPerCraft < 1 || gradeWeights == null || gradeWeights.Length != 25)
+                throw new ArgumentException("합성 비용·천장·확률표가 올바르지 않습니다.");
+            foreach (double value in new[] { sameCategoryChance, sameShapeChance, gradeBonus, categoryBonus, shapeBonus })
+                if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > 1)
+                    throw new ArgumentException("합성 보정은 0~1 범위여야 합니다.");
+            for (int row = 0; row < 5; row++)
+            {
+                double total = 0, upgrades = 0;
+                for (int column = 0; column < 5; column++)
+                {
+                    double value = gradeWeights[row * 5 + column];
+                    if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || (column < row - 1 && value != 0))
+                        throw new ArgumentException("합성 등급 확률이 올바르지 않습니다.");
+                    total += value;
+                    if (column > row) upgrades += value;
+                }
+                if (Math.Abs(total - 100) > .000001 || (row < 4 && upgrades <= 0))
+                    throw new ArgumentException("합성 확률 합계는 100이며 승급 가능성이 있어야 합니다.");
+            }
+        }
+    }
+    public enum SkillFusionFocus { Grade, Ability, Shape }
     [Serializable]
     public sealed class OwnerPartnerBalance
     {

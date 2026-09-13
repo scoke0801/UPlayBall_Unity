@@ -69,7 +69,7 @@ namespace Baseball.Presentation.Owner
             EnhancementText(content, "FusionTitle", "선수 카드 합성", 22, 0, 0, 300, 32);
             EnhancementText(content, "FusionHint", "같은 카드 한 장으로, 한 단계 더 강하게", 13, 0, 36, 452, 24).color = CareerUiTheme.RosterTextSecondary;
             EnhancementText(content, "TargetLabel", "강화할 선수", 14, 32, 72, 156, 24);
-            EnhancementText(content, "MaterialLabel", "소모할 중복 카드 · 1장", 14, 264, 72, 164, 24);
+            EnhancementText(content, "MaterialLabel", "소모할 중복 카드", 14, 264, 72, 164, 24);
             SetTrainingSurface(EnhancementSurface(content, "TargetWell", 28, 100, 164, 208), CareerUiTheme.RosterBoard);
             SetTrainingSurface(EnhancementSurface(content, "MaterialWell", 260, 100, 164, 208), CareerUiTheme.RosterBoard);
             _enhancementTargetEmpty = EnhancementText(content, "TargetEmpty", "선수 선택\n\n왼쪽에서 카드를 선택하세요", 14, 32, 108, 156, 180);
@@ -247,7 +247,7 @@ namespace Baseball.Presentation.Owner
         private PlayerMiniCardView CreateEnhancementPreview(Transform parent, string name, float x)
         {
             PlayerMiniCardView card = PlayerMiniCardView.CreateRuntime(parent, name);
-            card.UseLineupSlotLayout();
+            // 합성에는 편성용 포지션 제목이 필요 없으므로 기본 카드가 미리보기 높이 전체를 사용한다.
             PlaceReference(card.GetComponent<RectTransform>(), x, 100, 148, 208);
             card.DetailRequested += _ => ShowEnhancementCardDetail(_selectedEnhancementCardId);
             return card;

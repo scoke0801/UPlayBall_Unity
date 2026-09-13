@@ -313,6 +313,32 @@ namespace Baseball.Core.Historical
         public int PityLegendaryCount { get; private set; }
         public int TotalPullCount { get; private set; }
         public int ResearchCount { get; private set; }
+        public int FusionCount { get; private set; }
+        public int FusionPoints { get; private set; }
+        private int[] _fusionFailures = new int[4];
+        /// <summary>저등급 재료로 고등급 천장을 채우지 못하도록 최고 재료 등급별로 분리한다.</summary>
+        public int GetFusionFailures(SkillBlockRarity rarity) => rarity == SkillBlockRarity.Legendary ? 0 : _fusionFailures[(int)rarity];
+        public int[] CopyFusionFailures() => (int[])_fusionFailures.Clone();
+        public void RestoreFusion(int count, int points, int[] failures)
+        {
+            if (count < 0 || points < 0 || points > count || failures == null || failures.Length != 4)
+                throw new ArgumentException("합성 이력이 올바르지 않습니다.");
+            long total = 0;
+            foreach (int value in failures) { if (value < 0) throw new ArgumentException("합성 실패 횟수가 잘못되었습니다."); total += value; }
+            if (total > count) throw new ArgumentException("실패 횟수가 누적 합성을 초과합니다.");
+            FusionCount = count; FusionPoints = points; _fusionFailures = (int[])failures.Clone();
+        }
+        public void RecordFusion(SkillBlockRarity highest, SkillBlockRarity result)
+        {
+            FusionCount = checked(FusionCount + 1); FusionPoints = checked(FusionPoints + 1);
+            if (highest != SkillBlockRarity.Legendary)
+                _fusionFailures[(int)highest] = result > highest ? 0 : checked(_fusionFailures[(int)highest] + 1);
+        }
+        public void ExchangeFusionPoints(int cost)
+        {
+            if (cost <= 0 || FusionPoints < cost) throw new InvalidOperationException("합성 포인트가 부족합니다.");
+            FusionPoints -= cost;
+        }
         public int SelectionBoxes { get; private set; }
         public void RestoreResearch(int researchCount, int selectionBoxes)
         {

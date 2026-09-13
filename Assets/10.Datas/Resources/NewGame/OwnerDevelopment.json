@@ -6,6 +6,12 @@
   "researchCost": 60000,
   "researchWeights": [50,35,15],
   "skillSetBonus": 1,
+  "fusion": {
+    "cost": 2000, "pityFailures": 10, "pointsPerCraft": 20,
+    "sameCategoryChance": 0.70, "sameShapeChance": 0.50,
+    "gradeBonus": 0.10, "categoryBonus": 0.20, "shapeBonus": 0.25,
+    "gradeWeights": [55,35,8,1.9,0.1, 20,50,25,4.5,0.5, 0,20,55,23,2, 0,0,20,75,5, 0,0,0,20,80]
+  },
   "studyTiers": [
     { "weeks":1, "cost":120000, "growth":3, "greatProbability":0.20, "greatBonus":1 },
     { "weeks":2, "cost":350000, "growth":7, "greatProbability":0.15, "greatBonus":2 },
