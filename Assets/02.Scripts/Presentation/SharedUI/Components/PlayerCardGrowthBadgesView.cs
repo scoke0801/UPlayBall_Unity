@@ -95,6 +95,11 @@ namespace Baseball.Presentation.SharedUI
                     Baseball.Presentation.Owner.OwnerDashboardStyle.Ivory);
                 Baseball.Presentation.Owner.OwnerWorkspaceUiFactory.Stretch(_boardRank.rectTransform);
                 Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataText(_boardRank, true);
+                // 미니 카드의 배지는 16보다 작아질 수 있어 고정 글꼴이면 한 줄 전체가 잘린다.
+                // 공용 데이터 서체 적용 후 자동 맞춤을 켜야 상세·미니 카드 모두 같은 등급이 보인다.
+                _boardRank.resizeTextForBestFit = true;
+                _boardRank.resizeTextMinSize = 1;
+                _boardRank.resizeTextMaxSize = 16;
                 var shadow = _boardRank.gameObject.AddComponent<Shadow>();
                 shadow.effectColor = Baseball.Presentation.Owner.OwnerDashboardStyle.Ink;
                 shadow.effectDistance = new Vector2(1, -1);
@@ -143,7 +148,7 @@ namespace Baseball.Presentation.SharedUI
             var card = (RectTransform)transform;
             if (card.rect.width <= 0 || card.rect.height <= 0) return;
             Canvas canvas = GetComponentInParent<Canvas>();
-            // CanvasScaler와 상위 카드 확대를 포함한 실제 화면 크기로 최소 24px을 확보한다.
+            // CanvasScaler와 상위 카드 확대를 반영하되 작은 카드에서는 안전 영역을 우선한다.
             Camera camera = canvas == null || canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             float screenScale = canvas == null ? 1f : Mathf.Max(.001f, Vector2.Distance(
                 RectTransformUtility.WorldToScreenPoint(camera, transform.TransformPoint(Vector3.zero)),
@@ -152,12 +157,30 @@ namespace Baseball.Presentation.SharedUI
                 24f / screenScale, (_isDetail ? 48f : 32f) / screenScale);
             float gap = 2f / screenScale;
             float inset = 4f / screenScale;
-            // 상단 카드 종류와 잠금·배치 라벨을 피해 초상 오른쪽 어깨 영역에 쌓는다.
-            float top = card.rect.height * _cardTop * (_isDetail ? .84f : .95f);
-            Place(_trait, size, inset, top);
-            Place(_study, size, inset, top - (_model.HasTrait ? size + gap : 0));
-            Place(_support, size, inset, top - ((_model.HasTrait ? 1 : 0) + (_model.HasStudy ? 1 : 0)) * (size + gap));
-            Place(_board, size, inset, size + inset);
+            // 확대 카드에서도 배지가 프레임에 붙지 않도록 카드 폭에 비례한 안전 여백을 둔다.
+            float rightInset = Mathf.Max(inset, card.rect.width * (_isDetail ? .10f : .05f));
+            // 명찰 위에서 위쪽으로 공간을 확보해 타순 헤더와 COST를 모두 피한다.
+            // 성장판도 같은 열에 넣어 별도 하단 배지가 비용 숫자를 덮지 않게 한다.
+            int count = (_model.HasTrait ? 1 : 0) + (_model.HasStudy ? 1 : 0) +
+                (_model.HasSupport ? 1 : 0) + (_model.HasBoard ? 1 : 0);
+            if (count == 0) return;
+            float height = card.rect.height * _cardTop;
+            float bottom = height * (_isDetail ? .52f : .40f);
+            float ceiling = height * (_isDetail ? .80f : .82f);
+            size = Mathf.Min(size, card.rect.width * .18f,
+                (ceiling - bottom - gap * (count - 1)) / count);
+            float top = bottom + count * size + (count - 1) * gap;
+            PlaceNext(_trait, size, rightInset, gap, ref top);
+            PlaceNext(_study, size, rightInset, gap, ref top);
+            PlaceNext(_support, size, rightInset, gap, ref top);
+            PlaceNext(_board, size, rightInset, gap, ref top);
+        }
+
+        private static void PlaceNext(Image icon, float size, float inset, float gap, ref float top)
+        {
+            if (icon == null || !icon.gameObject.activeSelf) return;
+            Place(icon, size, inset, top);
+            top -= size + gap;
         }
 
         private static void Place(Image icon, float size, float inset, float top)

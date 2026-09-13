@@ -183,7 +183,7 @@ namespace Baseball.Presentation.Owner
             IsActiveRoster = isActiveRoster;
             StudyStatus = studyStatus ?? string.Empty;
             GrowthHistory = growthHistory ?? string.Empty;
-            GrowthBadges = isOwnedCard ? growthBadges ?? PlayerCardGrowthBadgeModel.Empty : PlayerCardGrowthBadgeModel.Empty;
+            GrowthBadges = growthBadges ?? PlayerCardGrowthBadgeModel.Empty;
             TeamDisplayName = teamDisplayName ?? string.Empty;
             OriginFranchiseId = originFranchiseId?.Trim() ?? string.Empty;
             FranchiseHistoryDisplayName = string.IsNullOrWhiteSpace(franchiseHistoryDisplayName)

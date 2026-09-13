@@ -24,7 +24,7 @@ namespace Baseball.Game.Historical
 
         public PlayerCardDefinition[] GetPracticeCards(string teamId)
         {
-            _practiceRosterBuilder ??= new LegendaryPracticeRosterBuilder(_contentProvider.Load(), _balance);
+            EnsurePracticeRosterBuilder();
             return _practiceRosterBuilder.SelectCards(GetPracticeTeam(teamId));
         }
 
@@ -74,11 +74,24 @@ namespace Baseball.Game.Historical
             var content = _contentProvider.Load();
             if (!content.TryGetTeamSeason(team.teamSeasonKey, out var definition))
                 throw new InvalidOperationException("역사 팀의 선수 정보를 찾을 수 없습니다.");
-            var builder = _practiceRosterBuilder ??= new LegendaryPracticeRosterBuilder(content, _balance);
+            var builder = EnsurePracticeRosterBuilder();
             if (builder.GetRosterHash(definition) != team.rosterHash)
                 throw new InvalidOperationException("역사 팀 편성이 변경되어 경기할 수 없습니다.");
-            return builder.Build(definition, RequireRuntime().IdentityRegistry, 2000000, PracticePlayerIdBase, out colors);
+            return builder.Build(definition, RequireRuntime().IdentityRegistry, 2000000, PracticePlayerIdBase, out colors, team.rank);
         }
+
+        private LegendaryPracticeRosterBuilder EnsurePracticeRosterBuilder()
+        {
+            if (_practiceRosterBuilder != null) return _practiceRosterBuilder;
+            var asset = Resources.Load<TextAsset>("NewGame/LegendaryPracticeDevelopment");
+            if (asset == null) throw new InvalidOperationException("연습경기 성장 정보를 불러올 수 없습니다.");
+            var development = JsonUtility.FromJson<LegendaryPracticeDevelopmentBalance>(asset.text);
+            return _practiceRosterBuilder = new LegendaryPracticeRosterBuilder(_contentProvider.Load(), _balance, development);
+        }
+
+        /// <summary>상대 선수 카드의 표시에도 실제 경기와 같은 순위별 성장 상태를 제공한다.</summary>
+        public OwnedPlayerCardState GetPracticeCardDevelopment(string teamId, PlayerCardDefinition card) =>
+            EnsurePracticeRosterBuilder().CreateDevelopment(card, GetPracticeCatalog().Find(teamId).rank);
 
         /// <summary>결과와 시도 번호를 한 번 저장한 뒤 관전에 전달한다. 실패하면 기존 진행으로 복구한다.</summary>
         public ManagerModeMatchResult PlayPractice(string teamId, IMatchEventSink events)

@@ -72,7 +72,10 @@ namespace Baseball.Presentation.Owner
                 var cards = new PlayerMiniCardModel[Math.Min(3, source.Count)];
                 for (int i = 0; i < cards.Length; i++)
                 {
-                    var card = source[i]; var season = _manager.GetPracticePlayerSeason(card); var ratings = season.CreateBaseAttributes();
+                    var card = source[i]; var season = _manager.GetPracticePlayerSeason(card);
+                    var development = _manager.GetPracticeCardDevelopment(id, card);
+                    var ratings = new Baseball.Simulation.Historical.OwnerCardAbilityResolver(_manager.Balance.Growth)
+                        .ResolvePermanent(season, card, development);
                     bool pitcher = season.PlayerType == PlayerType.Pitcher;
                     string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화", "제구", "정신" }
                         : new[] { "교타", "장타", "주력", "번트", "수비", "정신" };
@@ -80,12 +83,13 @@ namespace Baseball.Presentation.Owner
                     for (int a = 0; a < 6; a++)
                     {
                         var ability = (PlayerAbility)(a + (pitcher ? (int)PlayerAbility.Stamina : 0));
-                        stats[a] = new PlayerMiniCardStatModel(labels[a], ratings.Get(ability) + card.GetModifier(ability), AttributeRating.Maximum);
+                        stats[a] = new PlayerMiniCardStatModel(labels[a], ratings.Get(ability), AttributeRating.Maximum);
                     }
                     cards[i] = new PlayerMiniCardModel(card.CardId, _manager.Runtime.IdentityRegistry.GetPresentationPlayerName(season.PlayerPersonId),
                         OwnerCollectionPresentationBuilder.FormatPlayerRole(season.Position, pitcher ? season.PitcherRole : null, false),
-                        season.OriginYear.ToString(), "", PlayerCardEditionText.Get(card.Edition),
-                        portraitAssetKey: season.PlayerSeasonId, stats: stats, frameEdition: card.Edition, cost: season.Cost);
+                        season.OriginYear.ToString(), "", PlayerCardEditionText.Get(card.Edition) + " +" + development.EnhancementLevel,
+                        portraitAssetKey: season.PlayerSeasonId, stats: stats, frameEdition: card.Edition, cost: season.Cost,
+                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, _manager.Balance.Growth, _manager.TraitBalance));
                 }
                 _practiceView.BindFeaturedCards(cards);
                 try { _practiceView.BindPlayerRoster(_manager.GetPracticePlayerRoster()); }

@@ -347,9 +347,10 @@ namespace Baseball.Presentation.Owner
                 teamDisplayName: manager.GetTeamIdentityName(season.OriginTeamSeasonKey),
                 conditionLabel: "비공개",
                 placedSkillBlockCount: development?.SkillBoard.Placements.Count ?? 0,
-                skillBlockPlacements: development == null ? null : CreateSkillBlockPlacements(manager, development),
+                skillBlockPlacements: development == null ? null : CreateSkillBlockPlacements(manager.Balance.Growth.SkillBlocks, development.SkillBoard.Placements),
                 studyStatus: development == null ? "" : "유학 완료",
                 growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance),
+                growthHistory: development == null ? "" : OwnerGrowthHistoryFormatter.Format(development, manager.Balance.Growth),
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,
                 isOwnedCard: false, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing);

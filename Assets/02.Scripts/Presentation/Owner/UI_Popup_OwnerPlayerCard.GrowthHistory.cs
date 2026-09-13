@@ -55,7 +55,7 @@ namespace Baseball.Presentation.Owner
                 Array.Copy(_growthHistoryEntries,0,entries,1,_growthHistoryEntries.Length); _growthHistoryEntries = entries;
             }
             _traitTrainingButton.interactable = card.IsOwnedCard && TraitTrainingRequested != null;
-            _growthHistoryButton.interactable = card.IsOwnedCard;
+            _growthHistoryButton.interactable = card.IsOwnedCard || !string.IsNullOrEmpty(card.GrowthHistory) || card.GrowthBadges.HasTrait;
             RefreshGrowthHistory();
         }
 
