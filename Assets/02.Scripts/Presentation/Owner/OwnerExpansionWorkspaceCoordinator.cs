@@ -87,6 +87,8 @@ namespace Baseball.Presentation.Owner
         public event Action<OwnerDugoutConfigurationCommand> DugoutConfigurationConfirmed;
         public event Action<IReadOnlyList<string>> TeamColorSelectionConfirmed;
         public event Action<int, IReadOnlyList<string>> TacticSelectionConfirmed;
+        public Func<TacticAutoOptions, IReadOnlyList<TacticAutoGamePlan>> AutomaticTacticPreview { get; set; }
+        public Action<IReadOnlyList<TacticAutoGamePlan>> AutomaticTacticApply { get; set; }
         public event Action<string, string> CardTrainingRequested;
         public event Action<string, string> CardStudyRequested;
         public event Action<string> CardSkillBlockAutoPlaceRequested;
@@ -556,7 +558,7 @@ namespace Baseball.Presentation.Owner
                 _shell.SetInspectorVisible(false);
                 _shell.SetActionBarVisible(false);
                 _shell.BindContext(new SharedUI.ShellContextModel(navigationRouteId,
-                    workspaceRouteId == OwnerNavigationRoutes.PowerUpStudy ? "선수 성장" : "스킬 블록 배치",
+                    workspaceRouteId == OwnerNavigationRoutes.PowerUpStudy ? "선수 성장" : "스킬 블록",
                     "선수별 성장 효과와 적용 조건을 확인합니다.", "전력보강"));
                 ActiveRouteId = navigationRouteId;
                 return true;
@@ -1132,6 +1134,8 @@ namespace Baseball.Presentation.Owner
             if (_tacticsView != null) return;
             _tacticsView = UI_Scene_OwnerTactics.CreateRuntime(_shell.MainWorkspaceHost);
             _tacticsView.SelectionConfirmed += HandleTacticSelectionConfirmed;
+            _tacticsView.AutomaticPreview = options => AutomaticTacticPreview(options);
+            _tacticsView.AutomaticApply = plans => AutomaticTacticApply(plans);
             _tacticsView.SetVisible(false);
         }
 

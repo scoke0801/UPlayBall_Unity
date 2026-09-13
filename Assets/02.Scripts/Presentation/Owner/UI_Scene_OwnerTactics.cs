@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Baseball.Core.Historical;
+using Baseball.Game.Historical;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -32,6 +33,9 @@ namespace Baseball.Presentation.Owner
         private int _selectedSlot;
         private int _editingGameId;
         private TacticCardCategory? _category;
+        private UI_Popup_OwnerAutoTactics _autoPopup;
+        public Func<TacticAutoOptions, IReadOnlyList<TacticAutoGamePlan>> AutomaticPreview { get; set; }
+        public Action<IReadOnlyList<TacticAutoGamePlan>> AutomaticApply { get; set; }
 
         private static readonly float[] ScheduleColumnEdges =
             { 0f, 0.08f, 0.19f, 0.31f, 0.43f, 0.67f, 0.76f, 0.88f, 1f };
@@ -73,12 +77,14 @@ namespace Baseball.Presentation.Owner
 
         public void SetVisible(bool visible)
         {
+            if (!visible && _autoPopup != null) _autoPopup.Close();
             if (_root != null) _root.gameObject.SetActive(visible);
         }
 
         /// <summary>열려 있는 작전카드 편집기를 저장하지 않고 닫는다.</summary>
         public bool TryHandleCancel()
         {
+            if (_autoPopup != null && _autoPopup.gameObject.activeSelf) return _autoPopup.TryHandleCancel();
             if (_editor == null || !_editor.gameObject.activeSelf)
                 return false;
             CloseEditor();
@@ -105,8 +111,10 @@ namespace Baseball.Presentation.Owner
             _root = OwnerWorkspaceUiFactory.CreateRoot(transform, "OwnerTacticsWorkspace", true);
             RectTransform title = OwnerDugoutDetailUiFactory.CreatePanel(_root, "ScheduleTitle", 0.015f, 0.88f, 0.985f, 0.975f);
             OwnerDugoutDetailUiFactory.CreateLabel(title, "Title", "작전 / 시즌 경기", 0.025f, 0.15f, 0.34f, 0.9f, 22, FontStyle.Bold);
-            OwnerDugoutDetailUiFactory.CreateLabel(title, "Guide", "앞으로 열릴 최대 10경기에 작전카드를 미리 배치합니다.", 0.35f, 0.15f, 0.78f, 0.9f, 13);
-            OwnerDugoutDetailUiFactory.CreateButton(title, "NextGame", "다음 경기", 0.82f, 0.18f, 0.975f, 0.84f, OpenEditor);
+            OwnerDugoutDetailUiFactory.CreateLabel(title, "Guide", $"향후 {TacticAutoPlanner.MaximumPlanningWeeks}주 · 최대 {TacticAutoPlanner.MaximumPlanningGames}경기 · 경기당 최대 2장", 0.35f, 0.15f, 0.66f, 0.9f, 13);
+            OwnerDugoutDetailUiFactory.CreateButton(title, "NextGame", "다음 경기 설정", 0.67f, 0.18f, 0.81f, 0.84f, OpenEditor);
+            var automatic = OwnerDugoutDetailUiFactory.CreateButton(title, "AutoTactics", "자동 설정", 0.83f, 0.18f, 0.975f, 0.84f, OpenAutomatic);
+            OwnerUiButtonSkin.Apply(automatic, OwnerButtonRole.Primary);
 
             RectTransform table = OwnerDugoutDetailUiFactory.CreatePanel(_root, "ScheduleTable", 0.015f, 0.105f, 0.985f, 0.865f);
             CreateScheduleHeader(table);
@@ -310,6 +318,12 @@ namespace Baseball.Presentation.Owner
             OwnerDashboardStyle.SetDataText(text, fontStyle == FontStyle.Bold);
             if (name == "Opponent" || name == "Header4") text.alignment = TextAnchor.MiddleLeft;
             return text;
+        }
+
+        private void OpenAutomatic()
+        {
+            if (_snapshot == null || _autoPopup != null) return;
+            _autoPopup = UI_Popup_OwnerAutoTactics.Show(_root, _snapshot, AutomaticPreview, AutomaticApply);
         }
 
         private void OpenEditor()

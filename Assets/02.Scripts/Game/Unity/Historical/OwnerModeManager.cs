@@ -89,7 +89,7 @@ namespace Baseball.Game.Historical
     public sealed partial class OwnerModeManager : ManagerBehaviour<OwnerModeManager>
     {
         private const string LosingStreakSignatureCardId = "OWNER-TACTIC-BREAK-LOSING-STREAK";
-        public const int MaximumTacticPlanningGames = 10;
+        public const int MaximumTacticPlanningGames = TacticAutoPlanner.MaximumPlanningGames;
         private string[] _availableTeamColorIds = Array.Empty<string>();
         private string[] _availableTacticCardIds = Array.Empty<string>();
         private TeamColorDefinition[] _teamColors = Array.Empty<TeamColorDefinition>();
@@ -361,11 +361,7 @@ namespace Baseball.Game.Historical
 
         public ManagerWeeklyAdvanceResult AdvanceWeek()
         {
-            var studiesBefore = new HashSet<string>(StringComparer.Ordinal);
-            for (int index = 0; index < RequireRuntime().PlayerGrowth.StudyProjects.Count; index++)
-                studiesBefore.Add(RequireRuntime().PlayerGrowth.StudyProjects[index].CardId);
             ManagerWeeklyAdvanceResult result = _coordinator.AdvanceWeek(RequireRuntime());
-            PublishCompletedStudyFacts(studiesBefore);
             InvalidatePregame();
             NotifyRuntimeChanged();
             return result;
@@ -775,7 +771,7 @@ namespace Baseball.Game.Historical
             NotifyRuntimeChanged();
         }
 
-        /// <summary>앞으로 열릴 최대 10경기 중 한 경기의 작전카드를 보유 수량까지 예약 검증해 저장한다.</summary>
+        /// <summary>앞으로 3주간 열릴 경기 중 한 경기의 작전카드를 보유 수량까지 예약 검증해 저장한다.</summary>
         public void ConfigureScheduledGameTactics(int gameId, IReadOnlyList<string> tacticCardIds)
         {
             tacticCardIds ??= Array.Empty<string>();
@@ -796,6 +792,54 @@ namespace Baseball.Game.Historical
             NotifyRuntimeChanged();
         }
 
+        /// <summary>현재 보유 수량과 모든 예정 경기 예약을 반영한 자동 설정 미리보기를 만든다.</summary>
+        public IReadOnlyList<TacticAutoGamePlan> PreviewAutomaticTactics(TacticAutoOptions options)
+        {
+            var runtime = RequireRuntime();
+            var mode = runtime.ManagerMode;
+            return TacticAutoPlanner.Build(mode.LiveSeason.Schedule.Games, mode.LiveSeason.PlayerTeamId,
+                mode.LiveSeason.NextPlayerGame, mode.GetSelectedLineupPreset().DefaultTacticCardIds,
+                GetAvailableTacticCards(), runtime.TacticCollection.GetCount, options, MaximumTacticPlanningGames);
+        }
+
+        /// <summary>전체 변경안을 검증한 후 한 번에 예약하여 부분 적용과 카드 초과 배치를 방지한다.</summary>
+        public void ConfigureAutomaticTactics(IReadOnlyList<TacticAutoGamePlan> plans)
+        {
+            if (plans == null || plans.Count == 0) throw new InvalidOperationException("적용할 경기 구성이 없습니다.");
+            var runtime = RequireRuntime();
+            var mode = runtime.ManagerMode;
+            var targets = new Dictionary<int, TacticAutoGamePlan>();
+            foreach (var plan in plans)
+            {
+                var game = FindConfigurableTacticGame(mode.LiveSeason, plan.GameId);
+                var current = TacticAutoPlanner.GetEffectiveIds(game, mode.LiveSeason.NextPlayerGame,
+                    mode.GetSelectedLineupPreset().DefaultTacticCardIds);
+                if (current.Count != plan.OriginalIds.Count)
+                    throw new InvalidOperationException("경기 설정이 변경되었습니다. 팝업을 다시 열어 주세요.");
+                for (int i = 0; i < current.Count; i++)
+                    if (current[i] != plan.OriginalIds[i])
+                        throw new InvalidOperationException("경기 설정이 변경되었습니다. 팝업을 다시 열어 주세요.");
+                var definitions = new TacticCardDefinition[plan.CardIds.Count];
+                for (int i = 0; i < definitions.Length; i++) definitions[i] = ResolveAvailableTacticCard(plan.CardIds[i]);
+                _ = new TacticLoadoutState(definitions);
+                targets.Add(plan.GameId, plan);
+            }
+            var reserved = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var game in mode.LiveSeason.Schedule.Games)
+            {
+                if (game.IsCompleted || !game.IncludesTeam(mode.LiveSeason.PlayerTeamId)) continue;
+                AddReservedTactics(reserved, targets.TryGetValue(game.GameId, out var plan) ? plan.CardIds :
+                    TacticAutoPlanner.GetEffectiveIds(game, mode.LiveSeason.NextPlayerGame, mode.GetSelectedLineupPreset().DefaultTacticCardIds));
+            }
+            foreach (var pair in reserved)
+                if (pair.Value > runtime.TacticCollection.GetCount(pair.Key))
+                    throw new InvalidOperationException("보유 카드 수량이 변경되었습니다. 조건을 바꿔 미리보기를 갱신해 주세요.");
+            foreach (var plan in plans)
+                if (plan.HasChanges) FindConfigurableTacticGame(mode.LiveSeason, plan.GameId).PlanTactics(plan.CardIds);
+            InvalidatePregame();
+            NotifyRuntimeChanged();
+        }
+
         private static ScheduledGameState FindConfigurableTacticGame(ManagerLiveSeasonState season, int gameId)
         {
             int futureIndex = 0;
@@ -807,7 +851,7 @@ namespace Baseball.Game.Historical
                 if (game.GameId == gameId) return game;
                 futureIndex++;
             }
-            throw new InvalidOperationException("작전카드는 앞으로 열릴 최대 10경기에만 미리 배치할 수 있습니다.");
+            throw new InvalidOperationException($"작전카드는 앞으로 {TacticAutoPlanner.MaximumPlanningWeeks}주간 열릴 최대 {MaximumTacticPlanningGames}경기에만 미리 배치할 수 있습니다.");
         }
 
         private void ValidateScheduledTacticInventory(
@@ -1050,15 +1094,14 @@ namespace Baseball.Game.Historical
 
         public CardTrainingResult TrainOwnedCard(string cardId, CardTrainingProgramDefinition program)
         {
-            CardTrainingResult result = _coordinator.TrainOwnedCard(RequireRuntime(), cardId, program);
+            CardTrainingResult result = default;
+            CommitGrowthChange(candidate =>
+            {
+                result = _coordinator.TrainOwnedCard(candidate, cardId, program);
+                return result.GainedPoints > 0;
+            });
             InvalidatePregame();
             NotifyRuntimeChanged();
-            PublishGrowthFact("CardTrainingCompleted", cardId,
-                new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["ability"] = result.Ability.ToString(),
-                    ["gained"] = result.GainedPoints.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                });
             return result;
         }
 
@@ -1215,18 +1258,6 @@ namespace Baseball.Game.Historical
             if (result.Items == null || result.Items.Length == 0) return;
             // 개별 획득 내역은 결과 화면에서 보여 준다. 가이드는 사용법만 게임당 한 번 안내한다.
             PublishGrowthFact("SkillBlockAcquired", string.Empty, null);
-        }
-
-        private void PublishCompletedStudyFacts(HashSet<string> studiesBefore)
-        {
-            foreach (string cardId in studiesBefore)
-            {
-                bool remains = false;
-                for (int index = 0; index < Runtime.PlayerGrowth.StudyProjects.Count; index++)
-                    if (string.Equals(Runtime.PlayerGrowth.StudyProjects[index].CardId, cardId, StringComparison.Ordinal))
-                        remains = true;
-                if (!remains) PublishGrowthFact("CardStudyCompleted", cardId, null);
-            }
         }
 
         private void PublishGrowthFact(string factType, string cardId, Dictionary<string, string> payload)
