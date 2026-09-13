@@ -13,6 +13,8 @@ namespace Baseball.Game.Historical
         private bool _isPracticeSaving;
         private LegendaryPracticeRosterBuilder _practiceRosterBuilder;
         public bool IsPracticeSaving => _isPracticeSaving;
+        /// <summary>공개 편성도 실제 연습경기에 사용한 원 시즌 수상 카드를 조회한다.</summary>
+        public WorldCardCatalog PracticeCardCatalog => EnsurePracticeRosterBuilder().CardCatalog;
         public MatchRosterSnapshot GetPracticePlayerRoster() => _matchService.CreatePracticePlayerRoster(RequireRuntime());
 
         public TeamSeasonDefinition GetPracticeTeam(string teamId)

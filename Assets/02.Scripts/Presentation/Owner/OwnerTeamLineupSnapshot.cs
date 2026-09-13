@@ -140,6 +140,7 @@ namespace Baseball.Presentation.Owner
             var runtime = RequireRuntime(manager);
             var team = manager.GetPracticeTeam(challengeId);
             var cards = manager.GetPracticeCards(challengeId);
+            var catalog = manager.PracticeCardCatalog;
             var entries = new ActiveRosterEntry[cards.Length];
             for (int i = 0; i < cards.Length; i++)
             {
@@ -151,7 +152,7 @@ namespace Baseball.Presentation.Owner
             }
             var roster = new CurrentRosterState(team.TeamSeasonKey, entries);
             var bonuses = ManagerModeMatchService.ResolveAiTeamColorBonuses(
-                roster, runtime.WorldCardCatalog, manager.Balance.TeamColor, out _);
+                roster, catalog, manager.Balance.TeamColor, out _);
             var hitters = new List<PlayerMiniCardModel>();
             var pitchers = new List<PlayerMiniCardModel>();
             var hitterDetails = new List<OwnerCollectionCardSnapshot>();
@@ -162,9 +163,9 @@ namespace Baseball.Presentation.Owner
                 string cardId = cards[player.PlayerId - OwnerModeManager.PracticePlayerIdBase - 1].CardId;
                 var development = manager.GetPracticeCardDevelopment(challengeId,
                     cards[player.PlayerId - OwnerModeManager.PracticePlayerIdBase - 1]);
-                (pitcher ? pitchers : hitters).Add(CreatePublicLineupCard(manager, roster, cardId, order, role, false, development));
+                (pitcher ? pitchers : hitters).Add(CreatePublicLineupCard(manager, roster, cardId, order, role, false, development, catalog));
                 (pitcher ? pitcherDetails : hitterDetails).Add(CreateLineupDetail(
-                    manager, runtime, roster, cardId, team.TeamSeasonKey, false, bonuses, true, development));
+                    manager, runtime, roster, cardId, team.TeamSeasonKey, false, bonuses, true, development, catalog));
             }
             var opponent = opponents[0];
             for (int i = 0; i < opponent.StartingLineup.Count; i++)
@@ -176,9 +177,9 @@ namespace Baseball.Presentation.Owner
                 string role = i < 4 ? "중계" : i == 4 ? "셋업" : "마무리";
                 Add(opponent.Bullpen[i].Player, i < 4 ? (i + 1) + "번" : role, role, true);
             }
-            var colorCards = CreateAiTeamColorCards(manager, runtime, roster, selectedColors);
+            var colorCards = CreateAiTeamColorCards(manager, runtime, roster, selectedColors, catalog);
             return new OwnerTeamLineupSnapshot(manager.GetTeamIdentityDisplayName(team.TeamSeasonKey),
-                "역대 강팀 도전 라인업", OwnerRosterEvaluationFormatter.FormatCost(new RosterCostResolver().Resolve(roster, runtime.WorldCardCatalog)),
+                "역대 강팀 도전 라인업", OwnerRosterEvaluationFormatter.FormatCost(new RosterCostResolver().Resolve(roster, catalog)),
                 hitters, pitchers, CreateLineupTeamColorTexts(null, colorCards, false), hitterDetails, pitcherDetails, colorCards);
         }
 
@@ -206,12 +207,12 @@ namespace Baseball.Presentation.Owner
             OwnerModeManager manager,
             ManagerHistoricalRuntimeState runtime,
             CurrentRosterState roster,
-            IReadOnlyList<TeamColorDefinition> selected)
+            IReadOnlyList<TeamColorDefinition> selected, WorldCardCatalog catalog = null)
         {
             var result = new OwnerTeamColorCandidateSnapshot[LineupPresetState.TeamColorSlotCount];
             IReadOnlyList<TeamColorRosterCard> rosterCards = TeamColorResolver.CreateRosterCards(
                 roster,
-                runtime.WorldCardCatalog);
+                catalog ?? runtime.WorldCardCatalog);
             int selectedCount = Math.Min(selected?.Count ?? 0, result.Length);
             for (int index = 0; index < selectedCount; index++)
             {
@@ -270,15 +271,18 @@ namespace Baseball.Presentation.Owner
 
         private static PlayerMiniCardModel CreatePublicLineupCard(OwnerModeManager manager,
             CurrentRosterState roster, string cardId, string order, string role, bool showOwnedGrowth = true,
-            OwnedPlayerCardState development = null)
+            OwnedPlayerCardState development = null, WorldCardCatalog catalog = null)
         {
             if (string.IsNullOrEmpty(cardId)) return null;
             var runtime = manager.Runtime;
+            if (roster.TeamSeasonKey != runtime.PlayerTeamSeasonKey && catalog == null)
+                development ??= runtime.GetCardDevelopment(roster.TeamSeasonKey, cardId);
+            catalog ??= runtime.WorldCardCatalog;
             ActiveRosterEntry entry = null;
             foreach (var candidate in roster.Entries)
                 if (string.Equals(candidate.CardId, cardId, StringComparison.Ordinal)) { entry = candidate; break; }
-            if (entry == null || !runtime.WorldCardCatalog.TryGetCard(cardId, out var definition)) return null;
-            var season = runtime.WorldCardCatalog.GetPlayerSeason(definition);
+            if (entry == null || !catalog.TryGetCard(cardId, out var definition)) return null;
+            var season = catalog.GetPlayerSeason(definition);
             return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 order, (season.OriginYear % 100).ToString("00"), "C " + season.Cost,
                 development == null ? string.Empty : "+" + development.EnhancementLevel, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost,
@@ -296,18 +300,21 @@ namespace Baseball.Presentation.Owner
             string currentTeamSeasonKey,
             bool isOwnTeam,
             PerCardBonusMap teamColorBonuses,
-            bool isPractice = false, OwnedPlayerCardState development = null)
+            bool isPractice = false, OwnedPlayerCardState development = null, WorldCardCatalog catalog = null)
         {
             if (string.IsNullOrEmpty(cardId)) return null;
+            if (!isOwnTeam && !isPractice)
+                development ??= runtime.GetCardDevelopment(currentTeamSeasonKey, cardId);
+            catalog ??= runtime.WorldCardCatalog;
             ActiveRosterEntry entry = null;
             foreach (ActiveRosterEntry candidate in roster.Entries)
                 if (string.Equals(candidate.CardId, cardId, StringComparison.Ordinal)) { entry = candidate; break; }
-            if (entry == null || !runtime.WorldCardCatalog.TryGetCard(cardId, out PlayerCardDefinition card))
+            if (entry == null || !catalog.TryGetCard(cardId, out PlayerCardDefinition card))
                 return null;
             if (isOwnTeam && runtime.TryGetOwnedCard(cardId, out OwnedPlayerCardState owned))
                 return CreateCollectionCard(manager, runtime, owned, card, teamColorBonuses);
 
-            PlayerSeasonDefinition season = runtime.WorldCardCatalog.GetPlayerSeason(card);
+            PlayerSeasonDefinition season = catalog.GetPlayerSeason(card);
             manager.TryGetPlayerPerson(season.PlayerPersonId, out PlayerPersonDefinition person);
             var abilityResolver = new OwnerCardAbilityResolver(manager.Balance.Growth);
             AbilityRatings abilities = abilityResolver.ResolvePermanent(season, card, development);
@@ -338,7 +345,7 @@ namespace Baseball.Presentation.Owner
                 false,
                 false,
                 abilities,
-                isPractice ? "역대 강팀 도전 선수" : OwnerLeagueDisplayNameFormatter.FormatFull(runtime.League.Grade) + " · 현재 시즌",
+                isPractice ? "역대 강팀 도전 선수" : OwnerLeagueDisplayNameFormatter.FormatFull(runtime.GetTeamLeagueGrade(currentTeamSeasonKey)) + " · 현재 시즌",
                 season.PlayerSeasonId,
                 season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                 person?.Throws,

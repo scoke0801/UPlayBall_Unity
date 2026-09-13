@@ -69,12 +69,29 @@ internal static class ContentValidation
         var balance = Baseball.Tools.CommonMatchBalanceInput.Load(Baseball.Tools.CommonMatchBalanceInput.DefaultPath,
             Baseball.Tools.CommonMatchBalanceInput.RatingCurvePath);
         var builder = new LegendaryPracticeRosterBuilder(content, balance);
+        var awards = new WorldAwardRecord(content.OriginalAwardRecords.Select(record => record.Award).ToArray());
+        var seasonCatalog = WorldCardCatalogBuilder.Build(content.PlayerSeasons, awards,
+            CardEditionBalanceTable.CreateInitial(), content.PlayerPersons, content.TeamSeasons, content.SpecialCards);
+        var upgradeSeasons = seasonCatalog.Cards.Where(card => card.Edition != PlayerCardEdition.Normal &&
+            !card.IsFranchiseWildcard).Select(card => card.PlayerSeasonId).ToHashSet(StringComparer.Ordinal);
+        var editions = new Dictionary<PlayerCardEdition, int>();
         var identities = new WorldIdentityGenerator().Generate(content.PlayerPersons, content.TeamSeasons,
             content.IdentityNameCatalog, practice.seed);
         foreach (var team in content.TeamSeasons)
         {
             var cards = builder.SelectCards(team);
             var repeatedCards = builder.SelectCards(team);
+            var originalSeasons = team.Core25CardIds.Select(id => seasonCatalog.GetRequiredCard(id).PlayerSeasonId)
+                .ToHashSet(StringComparer.Ordinal);
+            foreach (var card in cards)
+            {
+                editions[card.Edition] = editions.GetValueOrDefault(card.Edition) + 1;
+                if (card.IsFranchiseWildcard) continue;
+                if (!originalSeasons.Contains(card.PlayerSeasonId))
+                    throw new InvalidOperationException("시즌 특수 카드가 다른 선수·시즌으로 교체되었습니다: " + card.CardId);
+                if (card.Edition == PlayerCardEdition.Normal && upgradeSeasons.Contains(card.PlayerSeasonId))
+                    throw new InvalidOperationException("같은 선수·시즌의 특수 카드가 우선 배치되지 않았습니다: " + card.CardId);
+            }
             var snapshots = builder.Build(team, identities, 1, 100, out _);
             int specialRelievers = 0;
             for (int slot = 0; slot < cards.Length; slot++)
@@ -117,5 +134,7 @@ internal static class ContentValidation
                 throw new InvalidOperationException("연습경기 선발 로테이션을 구성할 수 없습니다.");
         }
         Console.WriteLine($"연습경기 전체 {content.TeamSeasons.Count}팀 참가·5선발 편성, 상위 {practice.teams.Length}팀 Bake 해시·카드 검증 통과");
+        Console.WriteLine("시즌 특수 카드 우선 배치: " + string.Join(", ", editions.OrderBy(pair => pair.Key)
+            .Select(pair => pair.Key + "=" + pair.Value)));
     }
 }

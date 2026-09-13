@@ -242,6 +242,7 @@ namespace Baseball.Presentation.Owner
         private void Build()
         {
             var root = (RectTransform)transform;
+            OwnerDashboardStyle.SetDataSurface(gameObject.AddComponent<Image>(), OwnerDashboardStyle.Ink);
             _interaction = gameObject.AddComponent<CanvasGroup>();
             gameObject.AddComponent<CareerUiPreserveTextColor>();
             var list = OwnerRuntimeUiFactory.CreatePanel("Opponents", root, "역대 강팀 · 도전 목록");
@@ -295,7 +296,8 @@ namespace Baseball.Presentation.Owner
             for (int i = 0; i < 3; i++)
             { _cards[i] = PlayerMiniCardView.CreateRuntime(center.Content); Place((RectTransform)_cards[i].transform,
                 .03f + i * .325f, .36f, .31f + i * .325f, .655f);
-                _cards[i].Selected += card => ShowCardDetails(card); }
+                _cards[i].SetPrimaryClickForDetail(true);
+                _cards[i].DetailRequested += ShowCardDetails; }
             _detail = Text(center.Content, "LineupDetails", 17); Place(_detail.rectTransform, .04f, .35f, .96f, .655f);
             _detail.gameObject.SetActive(false);
             _rotation = Text(center.Content, "Rotation", 17); Place(_rotation.rectTransform, .04f, .085f, .96f, .35f);
@@ -376,10 +378,21 @@ namespace Baseball.Presentation.Owner
 
         private void ShowCardDetails(PlayerMiniCardModel card)
         {
-            _showLineup = true; RenderLineup();
-            var text = new StringBuilder(card.DisplayName).Append(" · ").Append(card.EditionLabel).Append('\n');
-            foreach (var stat in card.Stats) text.Append(stat.Label).Append("  ").Append(stat.Value).Append('\n');
-            _detail.text = text.ToString(); _lineup.Select();
+            if (card == null || _lineupSnapshot == null) return;
+            // 연습 구단의 성장·팀컬러가 반영된 공개 상세를 라인업 화면과 공유한다.
+            var detail = FindCardDetail(_lineupSnapshot.HitterDetails, card.PlayerId)
+                ?? FindCardDetail(_lineupSnapshot.PitcherDetails, card.PlayerId);
+            if (detail == null) return;
+            UI_Popup_OwnerPlayerCard.Show(transform, detail);
+        }
+
+        private static OwnerCollectionCardSnapshot FindCardDetail(
+            IReadOnlyList<OwnerCollectionCardSnapshot> details, string cardId)
+        {
+            foreach (var detail in details)
+                if (detail != null && string.Equals(detail.CardId, cardId, StringComparison.Ordinal))
+                    return detail;
+            return null;
         }
 
         private void ShowComparison()

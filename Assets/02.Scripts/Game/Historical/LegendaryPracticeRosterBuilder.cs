@@ -51,26 +51,29 @@ namespace Baseball.Game.Historical
         private readonly BalanceTable _balance;
         private readonly LegendaryPracticeDevelopment _development;
         private readonly WorldCardCatalog _cardCatalog;
-        private readonly Dictionary<string, PlayerCardDefinition> _rareUpgrades = new Dictionary<string, PlayerCardDefinition>(StringComparer.Ordinal);
+        /// <summary>연습경기의 원 시즌 수상 카드와 공개 표시가 공유하는 카드 정본이다.</summary>
+        public WorldCardCatalog CardCatalog => _cardCatalog;
+        private readonly Dictionary<string, PlayerCardDefinition> _seasonUpgrades = new Dictionary<string, PlayerCardDefinition>(StringComparer.Ordinal);
         private readonly Dictionary<string, List<LegendCandidate>> _franchiseLegends = new Dictionary<string, List<LegendCandidate>>(StringComparer.Ordinal);
 
         public LegendaryPracticeRosterBuilder(HistoricalBakedContent content, BalanceTable balance,
-            LegendaryPracticeDevelopmentBalance development = null)
+            LegendaryPracticeDevelopmentBalance development = null, CardEditionBalanceTable cardEditionBalance = null,
+            WorldCardCatalog cardCatalog = null)
         {
             _content = content; _balance = balance;
             if (development != null) _development = new LegendaryPracticeDevelopment(balance, development);
-            var allCards = new List<PlayerCardDefinition>(content.NormalCards);
-            if (content.SpecialCards != null) allCards.AddRange(content.SpecialCards.Cards);
-            _cardCatalog = new WorldCardCatalog(content.PlayerSeasons, allCards, content.PlayerPersons,
-                content.SpecialCards?.Lineages, content.SpecialCards?.Recipes);
-            if (content.SpecialCards == null) return;
-            foreach (var card in content.SpecialCards.Cards)
+            var awards = new List<WorldAwardEntry>(content.OriginalAwardRecords.Count);
+            foreach (var record in content.OriginalAwardRecords) awards.Add(record.Award);
+            _cardCatalog = cardCatalog ?? WorldCardCatalogBuilder.Build(content.PlayerSeasons, new WorldAwardRecord(awards),
+                cardEditionBalance ?? CardEditionBalanceTable.CreateInitial(), content.PlayerPersons,
+                content.TeamSeasons, content.SpecialCards);
+            foreach (var card in _cardCatalog.Cards)
             {
-                if (card.Edition == PlayerCardEdition.Rare)
+                if (IsSeasonUpgrade(card.Edition))
                 {
-                    if (!_rareUpgrades.TryGetValue(card.PlayerSeasonId, out var chosen) ||
-                        string.CompareOrdinal(card.CardId, chosen.CardId) < 0)
-                        _rareUpgrades[card.PlayerSeasonId] = card;
+                    if (!_seasonUpgrades.TryGetValue(card.PlayerSeasonId, out var chosen) ||
+                        IsPreferredSeasonUpgrade(card, chosen))
+                        _seasonUpgrades[card.PlayerSeasonId] = card;
                     continue;
                 }
                 if (card.Edition != PlayerCardEdition.CareerHigh && card.Edition != PlayerCardEdition.Legend) continue;
@@ -87,6 +90,27 @@ namespace Baseball.Game.Historical
                 pool.Sort((a, b) => string.CompareOrdinal(a.Card.CardId, b.Card.CardId));
         }
 
+        /// <summary>커리어하이·레전드를 제외한 시즌 특수 카드만 원본 시즌의 우선 배치 후보로 사용한다.</summary>
+        private static bool IsSeasonUpgrade(PlayerCardEdition edition) =>
+            edition == PlayerCardEdition.GoldenGlove || edition == PlayerCardEdition.AllStar ||
+            edition == PlayerCardEdition.Rare || edition == PlayerCardEdition.Mvp ||
+            edition == PlayerCardEdition.Ex;
+
+        /// <summary>같은 시즌의 후보는 기존 역할별 전력 점수로 비교하고 동점은 ID 순서로 고정한다.</summary>
+        private bool IsPreferredSeasonUpgrade(PlayerCardDefinition candidate, PlayerCardDefinition current)
+        {
+            if (!_content.TryGetPlayerSeason(candidate.PlayerSeasonId, out var season))
+                throw new InvalidOperationException("역사 팀의 선수 원본이 없습니다.");
+            bool isBatter = season.PlayerType == PlayerType.Batter;
+            int staminaWeight = season.PitcherRole == PitcherRole.Starter ? 3 : 1;
+            var source = season.CreateBaseAttributes();
+            var weights = isBatter ? BatterWeights : PitcherWeights;
+            int candidateScore = Score(source, candidate, weights, isBatter, staminaWeight);
+            int currentScore = Score(source, current, weights, isBatter, staminaWeight);
+            return candidateScore > currentScore || (candidateScore == currentScore &&
+                string.CompareOrdinal(candidate.CardId, current.CardId) < 0);
+        }
+
         /// <summary>Contact·Stuff처럼 결과 기여가 큰 능력치에 가중치를 실어 슬롯 전력을 한 정수로 압축한다.</summary>
         private static int Score(AbilityRatings source, PlayerCardDefinition card, int[] weights, bool isBatter, int staminaWeight)
         {
@@ -100,21 +124,23 @@ namespace Baseball.Game.Historical
             return total;
         }
 
-        /// <summary>같은 선수의 Rare 승격을 적용한 뒤 남은 약점 슬롯을 프랜차이즈 레전드로 메운다.</summary>
-        public PlayerCardDefinition[] SelectCards(TeamSeasonDefinition team)
+        /// <summary>같은 선수·시즌의 특수 카드를 우선 적용한 뒤 남은 약점 슬롯을 프랜차이즈 레전드로 메운다.</summary>
+        public PlayerCardDefinition[] SelectCards(TeamSeasonDefinition team, int specialCardLimit = OwnerSpecialCardRosterRule.MaxTotalCount)
         {
+            if (specialCardLimit < 0 || specialCardLimit > OwnerSpecialCardRosterRule.MaxTotalCount)
+                throw new ArgumentOutOfRangeException(nameof(specialCardLimit));
             var cards = new PlayerCardDefinition[25];
             var seasons = new PlayerSeasonDefinition[25];
             for (int i = 0; i < 25; i++)
             {
                 if (!_content.TryGetNormalCard(team.Core25CardIds[i], out var card))
                     throw new InvalidOperationException("역사 팀의 기본 카드가 없습니다.");
-                if (_rareUpgrades.TryGetValue(card.PlayerSeasonId, out var rare)) card = rare;
+                if (_seasonUpgrades.TryGetValue(card.PlayerSeasonId, out var upgrade)) card = upgrade;
                 if (!_content.TryGetPlayerSeason(card.PlayerSeasonId, out seasons[i]))
                     throw new InvalidOperationException("역사 팀의 선수 원본이 없습니다.");
                 cards[i] = card;
             }
-            FillRosterHoles(team, cards, seasons);
+            FillRosterHoles(team, cards, seasons, specialCardLimit);
             ArrangeSpecialRelievers(cards);
             return cards;
         }
@@ -135,7 +161,7 @@ namespace Baseball.Game.Historical
         }
 
         /// <summary>선발 야수와 투수진에서 이득이 가장 큰 슬롯부터 차례로 보강한다.</summary>
-        private void FillRosterHoles(TeamSeasonDefinition team, PlayerCardDefinition[] cards, PlayerSeasonDefinition[] seasons)
+        private void FillRosterHoles(TeamSeasonDefinition team, PlayerCardDefinition[] cards, PlayerSeasonDefinition[] seasons, int specialCardLimit)
         {
             if (!_franchiseLegends.TryGetValue(team.FranchiseId, out var pool)) return;
             var persons = new HashSet<string>(StringComparer.Ordinal);
@@ -149,7 +175,7 @@ namespace Baseball.Game.Historical
                     : Score(source, cards[i], PitcherWeights, isBatter: false, staminaWeight: i < 19 ? 3 : 1);
             }
             int total = 0, hitters = 0, pitchers = 0, relievers = 0;
-            while (total < OwnerSpecialCardRosterRule.MaxTotalCount)
+            while (total < specialCardLimit)
             {
                 int bestSlot = -1, bestCandidate = -1, bestGain = 0;
                 for (int slot = 0; slot < 25; slot++)
