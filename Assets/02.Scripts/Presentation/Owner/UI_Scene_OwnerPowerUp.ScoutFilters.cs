@@ -26,12 +26,15 @@ namespace Baseball.Presentation.Owner
             _scoutScopeSearch.targetGraphic = search;
             _scoutScopeSearch.textComponent = ScoutLabel(search.transform, "ScopeSearchText", "", 12, 8, 2, 168, 24);
             _scoutScopeSearch.placeholder = ScoutLabel(search.transform, "ScopePlaceholder", "구단·연도 검색", 12, 8, 2, 168, 24);
+            OwnerDashboardStyle.SetDataInput(_scoutScopeSearch);
             _scoutScopeSearch.onValueChanged.AddListener(_ => RefreshScoutScopeFilters());
             ScoutButton(board, "ResetScopeFilters", "초기화", ResetScoutScopeFilters, 216, 128, 52, 28);
             _scoutTeamFilter = OwnerCardFilters.CreateDropdown(board, "ScoutTeamFilter", new List<string> { "전체 구단" }, 0);
             PlaceReference(_scoutTeamFilter.GetComponent<RectTransform>(), 24, 164, 244, 28);
             _scoutYearFilter = OwnerCardFilters.CreateDropdown(board, "ScoutYearFilter", new List<string> { "전체 연도" }, 0);
             PlaceReference(_scoutYearFilter.GetComponent<RectTransform>(), 24, 200, 152, 28);
+            StyleScoutDropdown(_scoutTeamFilter);
+            StyleScoutDropdown(_scoutYearFilter);
             ScoutButton(board, "ShowSelectedScope", "현재 선택", () =>
             {
                 RevealScoutScope(FindScoutProduct(_selectedScoutProductId));
@@ -40,6 +43,15 @@ namespace Baseball.Presentation.Owner
             }, 184, 200, 84, 28);
             _scoutTeamFilter.onValueChanged.AddListener(_ => RefreshScoutScopeFilters());
             _scoutYearFilter.onValueChanged.AddListener(_ => RefreshScoutScopeFilters());
+        }
+
+        private static void StyleScoutDropdown(Dropdown dropdown)
+        {
+            OwnerDashboardStyle.SetDataDropdown(dropdown);
+            Text arrow = dropdown.transform.Find("DropdownArrow")?.GetComponent<Text>();
+            if (arrow != null) OwnerDashboardStyle.SetDataText(arrow);
+            foreach (Toggle option in dropdown.template.GetComponentsInChildren<Toggle>(true))
+                if (option.graphic != null) option.graphic.color = OwnerDashboardStyle.Gold;
         }
 
         private void RefreshScoutScopeFilters()
@@ -129,6 +141,7 @@ namespace Baseball.Presentation.Owner
             int year = _scoutYearFilter.value == 0 ? 0 : _scoutYears[_scoutYearFilter.value - 1];
             foreach (OwnerScoutProductSnapshot product in screen.Products)
             {
+                if (!MatchesScoutStaff(product)) continue;
                 if (teamId.Length > 0 && product.TargetFranchiseId != teamId) continue;
                 if (year != 0 && product.TargetYear != year) continue;
                 if (!MatchesScoutQuery(product, _scoutScopeSearch.text)) continue;
@@ -151,7 +164,7 @@ namespace Baseball.Presentation.Owner
             OwnerScoutProductSnapshot next = scope;
             foreach (OwnerScoutProductSnapshot product in _snapshot.Scout.Products)
             {
-                if (product.Scope != scope.Scope || current == null) continue;
+                if (!MatchesScoutStaff(product) || product.Scope != scope.Scope || current == null) continue;
                 if (product.DrawCount == current.DrawCount && DescribeScoutPolicy(product) == DescribeScoutPolicy(current))
                 { next = product; break; }
             }
@@ -183,6 +196,7 @@ namespace Baseball.Presentation.Owner
         private void ToggleScoutPolicyScope()
         {
             _hasScoutPolicyScopeFilter = !_hasScoutPolicyScopeFilter;
+            OwnerUiButtonSkin.SetSelected(_scoutPolicyScopeButton, _hasScoutPolicyScopeFilter);
             _scoutPolicyScopeButton.transform.Find("Label").GetComponent<Text>().text =
                 _hasScoutPolicyScopeFilter ? "선택 범위 ▾" : "전체 범위 ▾";
             _scoutPolicyPage = 0;

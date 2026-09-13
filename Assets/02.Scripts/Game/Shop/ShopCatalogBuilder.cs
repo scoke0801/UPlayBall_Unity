@@ -71,7 +71,7 @@ namespace Baseball.Game.Shop
                     productId: "shop.player." + pool.ScoutPoolId,
                     kind: ShopProductKind.PlayerCardPack,
                     sourceId: pool.ScoutPoolId,
-                    displayName: "선수 카드",
+                    displayName: pool.Staff == null ? "선수 카드" : pool.Staff.DisplayName,
                     scopeLabel: DescribeScoutScope(
                         pool,
                         franchiseDisplayNameResolver,
@@ -91,7 +91,7 @@ namespace Baseball.Game.Shop
                     productId: "shop.player." + pool.ScoutPoolId + ".x10",
                     kind: ShopProductKind.PlayerCardPack,
                     sourceId: pool.ScoutPoolId,
-                    displayName: "선수 카드 10회",
+                    displayName: pool.Staff == null ? "선수 카드 10회" : pool.Staff.DisplayName + " 10회",
                     scopeLabel: DescribeScoutScope(
                         pool,
                         franchiseDisplayNameResolver,
@@ -115,7 +115,7 @@ namespace Baseball.Game.Shop
                     productId: GetGuaranteedProductId(pool.ScoutPoolId),
                     kind: ShopProductKind.PlayerCardPack,
                     sourceId: pool.ScoutPoolId,
-                    displayName: "보장 영입",
+                    displayName: pool.Staff == null ? "보장 영입" : pool.Staff.DisplayName + " 보장 영입",
                     scopeLabel: DescribeScoutScope(
                         pool,
                         franchiseDisplayNameResolver,

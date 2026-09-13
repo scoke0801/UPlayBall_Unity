@@ -235,7 +235,8 @@ namespace Baseball.Core.Historical
             string franchiseFilter = null,
             int? yearFilter = null,
             PlayerCardEdition? editionFilter = null,
-            ScoutRosterScope rosterScope = ScoutRosterScope.AllPlayers)
+            ScoutRosterScope rosterScope = ScoutRosterScope.AllPlayers,
+            ScoutStaffDefinition staff = null)
         {
             if (string.IsNullOrWhiteSpace(scoutPoolId))
                 throw new ArgumentException("ScoutPoolId는 비어 있을 수 없습니다.", nameof(scoutPoolId));
@@ -261,6 +262,7 @@ namespace Baseball.Core.Historical
             YearFilter = yearFilter;
             EditionFilter = editionFilter;
             RosterScope = rosterScope;
+            Staff = staff;
             _costWeights = CopyWeights(costWeights, 11, nameof(costWeights));
             if (editionWeights == null || (editionWeights.Count != 4 && editionWeights.Count != 8))
                 throw new ArgumentException("Edition 가중치는 기존 4종 또는 전체 8종이어야 합니다.", nameof(editionWeights));
@@ -274,6 +276,7 @@ namespace Baseball.Core.Historical
         public int? YearFilter { get; }
         public PlayerCardEdition? EditionFilter { get; }
         public ScoutRosterScope RosterScope { get; }
+        public ScoutStaffDefinition Staff { get; }
 
         public double GetCostWeight(int cost)
         {

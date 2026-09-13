@@ -19,6 +19,36 @@ namespace Baseball.Game.Shop
         private const ulong ShopStreamTag = 0x5348_4F50_0000_0000UL;
 
         [System.Serializable]
+        private sealed class ScoutStaffConfig
+        {
+            public ScoutStaffEntry[] staff;
+        }
+
+        [System.Serializable]
+        private sealed class ScoutStaffEntry
+        {
+            public string id;
+            public string displayName;
+            public string description;
+            public double priceMultiplier;
+            public double costWeightStep;
+        }
+
+        private static IReadOnlyList<ScoutStaffDefinition> LoadScoutStaff()
+        {
+            var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>("NewGame/ScoutStaff");
+            if (asset == null) throw new System.InvalidOperationException("스카우터 밸런스 설정이 없습니다.");
+            var config = UnityEngine.JsonUtility.FromJson<ScoutStaffConfig>(asset.text);
+            if (config?.staff == null || config.staff.Length == 0)
+                throw new System.InvalidOperationException("스카우터 정의가 없습니다.");
+            var result = new List<ScoutStaffDefinition>(config.staff.Length);
+            foreach (ScoutStaffEntry entry in config.staff)
+                result.Add(new ScoutStaffDefinition(entry.id, entry.displayName, entry.description,
+                    entry.priceMultiplier, entry.costWeightStep));
+            return result;
+        }
+
+        [System.Serializable]
         private sealed class StudyResetConfig
         {
             public long developmentPointPrice;
@@ -61,10 +91,12 @@ namespace Baseball.Game.Shop
                 manager.Balance.ConditionChemistry,
                 pityBalance,
                 (franchiseId, originYear) => originYear.HasValue
-                    ? manager.GetTeamDisplayName(string.Concat(
+                    // 영입 대상은 원본 TeamSeason이다. 운영 구단의 개명·브랜딩을 적용하지 않는다.
+                    ? runtime.IdentityRegistry.GetPresentationTeamSeasonName(string.Concat(
                         franchiseId,
                         "_",
-                        originYear.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                        originYear.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)), franchiseId)
+                        + " · " + originYear.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) + "년"
                     : runtime.IdentityRegistry.GetPresentationFranchiseName(franchiseId), studyResetPrice);
             var detailsResolver = OwnerShopDetailsBuilder.CreateResolver(
                 manager.Balance.Growth.SkillGacha,
@@ -135,7 +167,8 @@ namespace Baseball.Game.Shop
         {
             if (catalog == null) throw new System.ArgumentNullException(nameof(catalog));
             if (featurePolicy == null) throw new System.ArgumentNullException(nameof(featurePolicy));
-            return ShopDefaultPools.CreateScoutPools(featurePolicy, ResolveScoutMarketTargets(catalog));
+            return ScoutStaffPoolFactory.Create(
+                ShopDefaultPools.CreateScoutPools(featurePolicy, ResolveScoutMarketTargets(catalog)), LoadScoutStaff());
         }
 
         /// <summary>Normal과 특수 Edition의 중복을 제거해 월드에 실재하는 구단·연도 Scout 대상만 만든다.</summary>

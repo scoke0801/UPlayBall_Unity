@@ -1,0 +1,18 @@
+{
+  "staff": [
+    {
+      "id": "economy",
+      "displayName": "청년 스카우터",
+      "description": "절약형 · 비용 20% 절감\n고코스트 정밀도 낮음",
+      "priceMultiplier": 0.8,
+      "costWeightStep": 0.9
+    },
+    {
+      "id": "precision",
+      "displayName": "베테랑 스카우터",
+      "description": "정밀형 · 비용 25% 증가\n고코스트 정밀도 높음",
+      "priceMultiplier": 1.25,
+      "costWeightStep": 1.12
+    }
+  ]
+}
