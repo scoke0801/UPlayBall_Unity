@@ -20,7 +20,7 @@ namespace Baseball.Presentation.Owner
         public string BlockedReason { get; }
         public bool IsUnlocked { get; }
         public bool CanStart => IsUnlocked && BlockedReason.Length == 0;
-        public string CostText => Program.MoneyCost > 0 ? Program.MoneyCost.ToString("N0") + " PT" : "육성 포인트 " + Program.DevelopmentPointCost.ToString("N0");
+        public string CostText => Program.MoneyCost > 0 ? OwnerMoneyFormatter.Format(Program.MoneyCost) : "육성 포인트 " + Program.DevelopmentPointCost.ToString("N0");
 
         public OwnerStudyOption(
             CardStudyProgramDefinition program,

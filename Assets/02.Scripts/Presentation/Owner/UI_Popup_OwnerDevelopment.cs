@@ -82,7 +82,7 @@ namespace Baseball.Presentation.Owner
             bool needsPlayer = _tab == 0 || _tab == 1 || _tab == 4;
             _players.gameObject.SetActive(needsPlayer);
             Place(_body, needsPlayer ? .36f : .025f, .17f, .975f, .785f);
-            _status.text = "성장 관리 · 남은 일정 " + _manager.Runtime.PlayerGrowth.Offseason.RemainingWeeks + "주 · " + _manager.Runtime.Economy.Money.ToString("N0") + " PT";
+            _status.text = "성장 관리 · 남은 일정 " + _manager.Runtime.PlayerGrowth.Offseason.RemainingWeeks + "주 · " + OwnerMoneyFormatter.Format(_manager.Runtime.Economy.Money);
             _feedback.text = "변화와 비용을 확인한 뒤 확정하세요.";
             try
             {
@@ -97,10 +97,10 @@ namespace Baseball.Presentation.Owner
             bool allowed = OwnerScheduleGateService.GetPhase(_manager.Runtime) == OwnerSeasonPhase.Offseason;
             _confirm.interactable = allowed && _action != null && !_isSubmitting && _manager.Runtime.Economy.Money >= _cost;
             if (!allowed) _feedback.text = "모든 조의 포스트시즌이 끝나면 성장 관리를 실행할 수 있습니다.";
-            else if (_action != null && _manager.Runtime.Economy.Money < _cost) _feedback.text = "필요 PT가 부족합니다. 비용 " + _cost.ToString("N0") + " PT";
-            else if (_action != null) _feedback.text = _actionLabel + "  ·  " + (_cost == 0 ? "PT 소모 없음" : "비용 " + _cost.ToString("N0") + " PT")
+            else if (_action != null && _manager.Runtime.Economy.Money < _cost) _feedback.text = "자금이 부족합니다. 비용 " + OwnerMoneyFormatter.Format(_cost);
+            else if (_action != null) _feedback.text = _actionLabel + "  ·  " + (_cost == 0 ? "자금 소모 없음" : "비용 " + OwnerMoneyFormatter.Format(_cost))
                 + "\n실행을 누르면 최종 확인 후 적용합니다.";
-            if (_isConfirming) _feedback.text = _actionLabel + " · 비용 " + _cost.ToString("N0") + " PT\n선택한 결과를 적용하고 저장할까요?";
+            if (_isConfirming) _feedback.text = _actionLabel + " · 비용 " + OwnerMoneyFormatter.Format(_cost) + "\n선택한 결과를 적용하고 저장할까요?";
             _confirm.GetComponentInChildren<Text>().text = _isConfirming ? "최종 확정" : _actionLabel;
             _cancel.gameObject.SetActive(_isConfirming);
             foreach (var button in _frame.GetComponentsInChildren<Button>())
@@ -304,7 +304,7 @@ namespace Baseball.Presentation.Owner
                 UIOwnerFrontOfficePanel.Apply(reward, "ManagerReport");
                 Text(reward, "RewardTitle", "이번 연구 보상", .08f, .77f, .92f, .92f, 19);
                 Text(reward, "RewardCount", "스킬 블록 2개", .08f, .51f, .92f, .70f, 26);
-                Text(reward, "RewardCost", balance.researchCost.ToString("N0") + " PT\n등급과 모양은 무작위로 결정됩니다.", .08f, .12f, .92f, .42f, 17);
+                Text(reward, "RewardCost", OwnerMoneyFormatter.Format(balance.researchCost) + "\n등급과 모양은 무작위로 결정됩니다.", .08f, .12f, .92f, .42f, 17);
                 Command("블록 2개 연구", balance.researchCost, _manager.ResearchSkillBlocks); return;
             }
             Text(_body, "ChooseResult", "1  획득할 블록 선택", .035f, .67f, .57f, .75f, 19);
@@ -369,7 +369,8 @@ namespace Baseball.Presentation.Owner
             {
                 float x = left + (cell.X - minX) * size, y = top - (cell.Y - minY) * size;
                 var rect = OwnerDugoutDetailUiFactory.CreateRect(square, "SkillTile" + cell.X + "_" + cell.Y, x, y - size, x + size, y);
-                SkillBlockVisual.ApplyTile(rect.gameObject.AddComponent<RawImage>(), definition.Rarity);
+                SkillBlockVisual.ApplyDirectionalTile(rect.gameObject.AddComponent<RawImage>(), definition.Rarity,
+                    definition.ShapeCells, Array.IndexOf(definition.ShapeCells, cell));
             }
         }
         private void BuildSlogan()
@@ -408,7 +409,7 @@ namespace Baseball.Presentation.Owner
             }
             var program = _manager.Balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId);
             Text(_body, "Project", program.DisplayName + "\n" + (project.DurationWeeks - project.RemainingWeeks) + "주 진행 · " + project.RemainingWeeks + "주 후 귀환"
-                + "\n\n취소 환급: " + OwnerStudyCancellationService.GetMoneyRefund(project).ToString("N0") + " PT"
+                + "\n\n취소 환급: " + OwnerMoneyFormatter.Format(OwnerStudyCancellationService.GetMoneyRefund(project))
                 + (project.PaidDevelopmentPoints > 0 ? " · 육성 포인트 " + OwnerStudyCancellationService.GetPointRefund(project) : "")
                 + "\n\n진행 전 취소는 전액, 진행 후 취소는 절반을 환급합니다.\n취소하면 이번 유학의 성장 보상을 받지 않습니다.", .035f, .12f, .95f, .78f, 20);
             Command("유학 취소·귀환", 0, () => _manager.CancelStudy(_cardId));

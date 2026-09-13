@@ -113,7 +113,7 @@ namespace Baseball.Presentation.Owner
         private void Refresh()
         {
             var runtime = _manager.Runtime; var balance = _manager.TraitBalance; var card = Card();
-            _wallet.text = $"특성 포인트 {runtime.PlayerGrowth.Traits.points:N0} TP   ·   구단 자금 {runtime.Economy.Money:N0} PT";
+            _wallet.text = $"특성 포인트 {runtime.PlayerGrowth.Traits.points:N0} TP   ·   구단 자금 {OwnerMoneyFormatter.Format(runtime.Economy.Money)}";
             _seenSeason = runtime.ManagerMode.LiveSeason.SeasonNumber; _seenRevision = card?.Trait.revision ?? 0;
             _targetCard.gameObject.SetActive(card != null && Snapshot(_cardId) != null);
             if (_targetCard.gameObject.activeSelf) _targetCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(Snapshot(_cardId), false));
@@ -141,7 +141,7 @@ namespace Baseball.Presentation.Owner
                     _trainingPreview = OwnerTraitTrainingService.Preview(runtime, _cardId, _partners, balance); _hasPreview = true;
                     _preview.text = $"경험치 +{_trainingPreview.Experience:N0}   →   {_trainingPreview.TotalExperience:N0}\n"
                         + (_trainingPreview.Rank > card.Trait.rank ? $"{_trainingPreview.Rank}등급 도달 · " + (card.Trait.trait == CardTraitKind.None ? "특성 후보 3개 선택" : "확정 승급") : "경험치는 다음 훈련에도 그대로 유지됩니다.");
-                    _cost.text = $"이번 훈련  {_trainingPreview.Points:N0} TP  +  {_trainingPreview.Money:N0} PT";
+                    _cost.text = $"이번 훈련  {_trainingPreview.Points:N0} TP  +  {OwnerMoneyFormatter.Format(_trainingPreview.Money)}";
                     _train.interactable = !_isSubmitting && runtime.PlayerGrowth.Traits.points >= _trainingPreview.Points && runtime.Economy.Money >= _trainingPreview.Money;
                     if (!_train.interactable) _feedback.text = runtime.PlayerGrowth.Traits.points < _trainingPreview.Points ? "특성 훈련 포인트가 부족합니다." : "구단 자금이 부족합니다.";
                 }

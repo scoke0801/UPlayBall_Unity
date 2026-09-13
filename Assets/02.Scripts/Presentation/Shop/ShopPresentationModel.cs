@@ -303,12 +303,14 @@ namespace Baseball.Presentation.Shop
         private static string DescribePrice(ShopProductDefinition product)
         {
             return string.Concat(
-                ShopCurrencyNames.GetSymbol(product.Currency), " ", product.Price.ToString("N0"));
+                product.Currency == ShopCurrency.Money ? "₩" : ShopCurrencyNames.Get(product.Currency),
+                " ", product.Price.ToString("N0"));
         }
 
         private static string DescribeCountBadge(ShopProductDefinition product)
         {
             if (product.Kind == ShopProductKind.StudyReset) return "선수 지정";
+            if (product.Kind == ShopProductKind.ConditionItem) return "즉시 사용";
             return product.DrawCount == 1 ? "무작위" : product.DrawCount + "회 묶음";
         }
 
