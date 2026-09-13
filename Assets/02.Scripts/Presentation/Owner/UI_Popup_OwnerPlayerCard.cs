@@ -416,7 +416,10 @@ namespace Baseball.Presentation.Owner
         {
             Rect bounds = _drawerRoot.rect;
             const float aspect = 2f / 3f;
-            const float gap = 24f;
+            const float navigationWidth = 56f;
+            const float navigationMargin = 12f;
+            const float gap = navigationWidth + navigationMargin * 2f;
+            const float navigationOffset = navigationMargin + navigationWidth * .5f;
             const float edge = 88f;
             float closedHeight = Mathf.Min(bounds.height * .82f, (bounds.width - edge * 2) / aspect);
             float panelWidth = Mathf.Min(760f, bounds.width * .53f);
@@ -442,9 +445,9 @@ namespace Baseball.Presentation.Owner
             }
             if (_closeButton == null || _previousButton == null || _nextButton == null) return;
             PositionCardControl(_previousButton.GetComponent<RectTransform>(),
-                new Vector2(cardX - width * .5f - 40, 0), new Vector2(56, 48));
+                new Vector2(cardX - width * .5f - navigationOffset, 0), new Vector2(navigationWidth, 48));
             PositionCardControl(_nextButton.GetComponent<RectTransform>(),
-                new Vector2(cardX + width * .5f + 40, Mathf.Lerp(0, -height * .5f - 24, t)), new Vector2(56, 48));
+                new Vector2(cardX + width * .5f + navigationOffset, 0), new Vector2(navigationWidth, 48));
             PositionCardControl(_closeButton,
                 new Vector2(bounds.width * .5f - 64, bounds.height * .5f - 36), new Vector2(96, 44));
             if (_growthHistoryButton != null)
