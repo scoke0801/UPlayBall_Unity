@@ -217,10 +217,11 @@ namespace Baseball.Presentation.Owner
                     float y1 = 1f - (cell.Y - minimumY) / (float)baseHeight;
                     RectTransform tile = OwnerRuntimeUiFactory.CreateRect("SkillTile_" + cellIndex, rect);
                     OwnerRuntimeUiFactory.SetAnchors(tile, new Vector2(x0, y1 - 1f / baseHeight),
-                        new Vector2(x0 + 1f / baseWidth, y1), Vector2.one, -Vector2.one);
+                        new Vector2(x0 + 1f / baseWidth, y1), Vector2.zero, Vector2.zero);
                     // 배치 모양만 회전하고 문양과 광원은 두 화면에서 항상 정방향을 유지한다.
                     tile.localEulerAngles = new Vector3(0, 0, -placement.RotationQuarterTurns * 90f);
-                    SkillBlockVisual.ApplyTile(tile.gameObject.AddComponent<RawImage>(), placement.Rarity);
+                    SkillBlockVisual.ApplyDirectionalTile(tile.gameObject.AddComponent<RawImage>(), placement.Rarity,
+                        shapeCells, cellIndex, placement.RotationQuarterTurns);
                 }
             }
         }

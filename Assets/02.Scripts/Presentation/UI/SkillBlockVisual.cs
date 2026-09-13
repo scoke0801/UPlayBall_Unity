@@ -11,6 +11,39 @@ namespace Baseball.Presentation.UI
         private static Texture2D _circleTile;
         private static Texture2D _starTile;
 
+        private static readonly Texture2D[] DirectionalTiles = new Texture2D[16];
+
+        /// <summary>실제 인접 방향의 연결선이 포함된 타일 이미지를 선택한다.</summary>
+        public static void ApplyDirectionalTile(RawImage image, SkillBlockRarity rarity,
+            BoardCell[] cells, int cellIndex, int rotationQuarterTurns = 0)
+        {
+            int mask = GetConnectionMask(cells, cellIndex, rotationQuarterTurns);
+            if (DirectionalTiles[mask] == null)
+                DirectionalTiles[mask] = Resources.Load<Texture2D>("UI/OwnerPowerUp/skill_direction_" + mask);
+            image.texture = DirectionalTiles[mask];
+            image.color = GetRarityColor(rarity);
+            image.raycastTarget = false;
+            image.enabled = image.texture != null;
+        }
+
+        /// <summary>오른쪽·아래·왼쪽·위 비트로 같은 블록 내부의 연결만 구한다.</summary>
+        internal static int GetConnectionMask(BoardCell[] cells, int cellIndex, int rotationQuarterTurns = 0)
+        {
+            int mask = 0;
+            int rotation = NormalizeRotation(rotationQuarterTurns);
+            GetRotatedCoordinates(cells[cellIndex], rotation, out int x, out int y);
+            for (int index = 0; index < cells.Length; index++)
+            {
+                GetRotatedCoordinates(cells[index], rotation, out int otherX, out int otherY);
+                int dx = otherX - x, dy = otherY - y;
+                if (dy == 0 && dx == 1) mask |= 1;
+                if (dx == 0 && dy == 1) mask |= 2;
+                if (dy == 0 && dx == -1) mask |= 4;
+                if (dx == 0 && dy == -1) mask |= 8;
+            }
+            return mask;
+        }
+
         /// <summary>작은 목록과 카드 뒷면 모두 같은 원형·상위 등급 별 문양을 사용한다.</summary>
         public static void ApplyTile(RawImage image, SkillBlockRarity rarity)
         {
