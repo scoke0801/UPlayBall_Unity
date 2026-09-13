@@ -158,7 +158,7 @@ namespace Baseball.Presentation.Owner
             PlaceReference(_scoutPolicyOptions, 250, 120, 594, 266);
             _scoutPolicyConfirmButton = ScoutButton(window, "ConfirmPolicy", "방침 적용", ApplyScoutPolicy, 620, 396, 224, 28, role: OwnerButtonRole.Primary);
             ScoutButton(window, "CancelPolicy", "취소", CloseScoutPolicy, 488, 396, 120, 28);
-            ScoutLabel(window, "PolicyHint", "방침 적용 후 파견할 때 포인트를 사용합니다.", 11, 18, 396, 450, 28);
+            ScoutLabel(window, "PolicyHint", "정밀도가 높을수록 고코스트 선수 영입에 유리합니다.\n같은 타입의 남녀는 효과가 같습니다. 비용은 파견 시 사용합니다.", 11, 18, 392, 450, 36);
             _scoutPolicyOverlay.gameObject.SetActive(false);
         }
 
@@ -373,8 +373,7 @@ namespace Baseball.Presentation.Owner
 
         private static string DescribeScoutPolicy(OwnerScoutProductSnapshot product)
         {
-            int separator = product.Title.LastIndexOf('·');
-            return separator < 0 ? product.Title : product.Title.Substring(separator + 1).Trim();
+            return product.PolicyName;
         }
 
         private void ChangeScoutPortrait(int direction)

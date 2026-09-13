@@ -7,6 +7,7 @@ namespace Baseball.Game.Shop
     /// <summary>동일한 후보 범위에 스카우터 비용·정밀도를 적용해 공개 확률과 실제 구매가 공유할 풀을 만든다.</summary>
     public static class ScoutStaffPoolFactory
     {
+        /// <summary>원본 풀의 후보와 Edition 비율을 보존하고 각 스카우터의 비용·코스트 가중치를 적용한다.</summary>
         public static IReadOnlyList<ScoutPoolDefinition> Create(
             IReadOnlyList<ScoutPoolDefinition> source, IReadOnlyList<ScoutStaffDefinition> staff)
         {

@@ -70,7 +70,8 @@ namespace Baseball.Presentation.Owner
             string targetFranchiseName = null,
             int? targetYear = null,
             ScoutStaffDefinition staff = null,
-            bool isGuaranteed = false)
+            bool isGuaranteed = false,
+            string policyName = null)
         {
             ProductId = productId ?? string.Empty;
             Title = title ?? string.Empty;
@@ -80,6 +81,7 @@ namespace Baseball.Presentation.Owner
             TargetYear = targetYear;
             Staff = staff;
             IsGuaranteed = isGuaranteed;
+            PolicyName = policyName ?? title ?? string.Empty;
             PriceText = priceText ?? string.Empty;
             CanPurchase = canPurchase;
             BlockedReason = blockedReason ?? string.Empty;
@@ -105,6 +107,7 @@ namespace Baseball.Presentation.Owner
         public int? TargetYear { get; }
         public ScoutStaffDefinition Staff { get; }
         public bool IsGuaranteed { get; }
+        public string PolicyName { get; }
         public string PriceText { get; }
         public bool CanPurchase { get; }
         public string BlockedReason { get; }
@@ -466,7 +469,8 @@ namespace Baseball.Presentation.Owner
                     : manager.Runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(product.TargetFranchiseId),
                 product.TargetYear,
                 scoutPool.Staff,
-                product.Currency == ShopCurrency.ScoutPity);
+                product.Currency == ShopCurrency.ScoutPity,
+                product.GradeLabel);
         }
 
         private static ScoutPoolDefinition FindScoutPool(

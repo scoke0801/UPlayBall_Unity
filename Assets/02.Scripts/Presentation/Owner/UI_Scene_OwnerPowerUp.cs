@@ -105,6 +105,7 @@ namespace Baseball.Presentation.Owner
             _scoutSummary.text = "스카우트 정보를 불러오는 중입니다.";
             _scoutCost.text = "파견 비용  —";
             _scoutDispatch.text = "파견 정보를 불러오는 중입니다.";
+            _scoutStaffEffect.text = string.Empty;
             _scoutPolicyButton.interactable = false;
             _trainingDetails.text = "보유 선수와 훈련 정보를 불러오는 중입니다.";
             _enhancementDetails.text = "보유 카드와 합성 정보를 불러오는 중입니다.";
@@ -307,6 +308,7 @@ namespace Baseball.Presentation.Owner
                 _scoutSummary.text = _scoutDetails.text;
                 _scoutCost.text = "비 용   —";
                 _scoutDispatch.text = "이용 가능한\n상품 없음";
+                _scoutStaffEffect.text = string.Empty;
                 _scoutGaugeLabel.text = "—";
                 _scoutGaugeFill.rectTransform.sizeDelta = new Vector2(0, 6);
                 _scoutSummary.color = scout.State == OwnerPowerUpContentState.Error ? CareerUiTheme.Error : ScoutInk;
@@ -424,7 +426,10 @@ namespace Baseball.Presentation.Owner
             OwnerScoutProductSnapshot product = FindScoutProduct(_selectedScoutProductId);
             if (product == null) return;
             var text = new StringBuilder()
-                .Append(product.Title).AppendLine().AppendLine()
+                  .Append(product.Title).AppendLine().AppendLine()
+                  .AppendLine(DescribeScoutStaffEffect(product))
+                  .AppendLine("정밀도는 선택 범위 안에서 높은 코스트 선수를 찾는 정도입니다.")
+                  .AppendLine("비용 증감은 기존 기본 파견 비용 기준이며 같은 타입의 남녀는 효과가 같습니다.")
                 .Append("대상 범위  ").Append(product.Scope).AppendLine()
                 .Append("비용  ").Append(product.PriceText).AppendLine()
                 .Append("획득 수  ").Append(product.DrawCount).AppendLine().AppendLine()
