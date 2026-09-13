@@ -9,6 +9,8 @@ namespace Baseball.Presentation.Owner
     internal static class OwnerWorkspaceUiFactory
     {
         private static Font _font;
+        private static RectTransform _surfacePrefab;
+        private static RectTransform _controlPrefab;
 
         internal readonly struct Panel
         {
@@ -34,14 +36,15 @@ namespace Baseball.Presentation.Owner
                 background.color = background.sprite == null ? CareerUiTheme.Background : Color.white;
                 background.preserveAspect = false;
                 background.raycastTarget = false;
+                if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.ApplyBackdrop(background, true);
             }
             return root;
         }
 
         public static Panel CreatePanel(Transform parent, string name, string title, bool isHero = false)
         {
-            RectTransform root = CreateRect(name, parent);
-            Image frameImage = root.gameObject.AddComponent<Image>();
+            RectTransform root = CreateSkinRoot(name, parent, false);
+            Image frameImage = root.GetComponent<Image>() ?? root.gameObject.AddComponent<Image>();
             frameImage.color = CareerUiTheme.ReferencePanel;
             frameImage.raycastTarget = false;
             CareerUiVisualElement visual = root.gameObject.AddComponent<CareerUiVisualElement>();
@@ -139,9 +142,10 @@ namespace Baseball.Presentation.Owner
 
         public static Button CreateButton(Transform parent, string name, string label, Action onClick)
         {
-            RectTransform rect = CreateRect(name, parent);
-            var image = rect.gameObject.AddComponent<Image>();
+            RectTransform rect = CreateSkinRoot(name, parent, true);
+            var image = rect.GetComponent<Image>() ?? rect.gameObject.AddComponent<Image>();
             image.color = CareerUiTheme.ReferenceButton;
+            image.raycastTarget = true;
             image.gameObject.AddComponent<CareerUiVisualElement>()
                 .Initialize(CareerUiVisualRole.FlatSurface);
             var button = rect.gameObject.AddComponent<Button>();
@@ -210,6 +214,20 @@ namespace Baseball.Presentation.Owner
             var value = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             value.SetParent(parent, false);
             return value;
+        }
+
+        private static RectTransform CreateSkinRoot(string name, Transform parent, bool control)
+        {
+            if (!UIOwnerFrontOfficeSkin.IsOwnerContext) return CreateRect(name, parent);
+            if (control)
+                _controlPrefab ??= Resources.Load<RectTransform>(UIOwnerFrontOfficeSkin.ResourceRoot + "Prefabs/UI_Control");
+            else
+                _surfacePrefab ??= Resources.Load<RectTransform>(UIOwnerFrontOfficeSkin.ResourceRoot + "Prefabs/UI_Surface");
+            var prefab = control ? _controlPrefab : _surfacePrefab;
+            if (prefab == null) return CreateRect(name, parent);
+            var root = UnityEngine.Object.Instantiate(prefab, parent, false);
+            root.name = name;
+            return root;
         }
 
         private static Color ResolveTextColor(Color requested)

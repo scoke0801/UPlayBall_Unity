@@ -44,6 +44,7 @@ namespace Baseball.Presentation.Owner
         private bool _isStadiumSectionSelected = true;
         private int _selectedStadiumIndex;
         private int _pendingStadiumIndex;
+        private GameObject _stadiumReturnFocus;
 
         public int SelectedStadiumIndex => _selectedStadiumIndex;
 
@@ -175,7 +176,7 @@ namespace Baseball.Presentation.Owner
             Text instruction = OwnerRuntimeUiFactory.CreateText(
                 "Instruction", navigation.transform,
                 "구장 외형 선택 · 수용 인원 증축 · 운영 시설 투자",
-                13, FontStyle.Normal, TextAnchor.MiddleRight, new Color32(82, 90, 101, 255));
+                13, FontStyle.Normal, TextAnchor.MiddleRight, OwnerDashboardStyle.Muted);
             OwnerRuntimeUiFactory.SetAnchors(
                 instruction.rectTransform,
                 new Vector2(0.58f, 0f),
@@ -249,7 +250,8 @@ namespace Baseball.Presentation.Owner
             close.onClick.AddListener(CloseStadiumSelection);
 
             Image choiceArea = OwnerRuntimeUiFactory.CreateImage(
-                "ChoiceArea", panel.transform, new Color32(235, 238, 240, 255));
+                "ChoiceArea", panel.transform, OwnerDashboardStyle.TableSurface);
+            OwnerDashboardStyle.SetDataSurface(choiceArea, OwnerDashboardStyle.TableSurface);
             OwnerRuntimeUiFactory.SetAnchors(
                 choiceArea.rectTransform,
                 new Vector2(0.018f, 0.12f),
@@ -258,7 +260,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero);
             Text sectionTitle = OwnerRuntimeUiFactory.CreateText(
                 "SectionTitle", choiceArea.transform, "일반 구장", 16, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Color32(39, 44, 51, 255));
+                TextAnchor.MiddleLeft, OwnerDashboardStyle.Ivory);
             OwnerRuntimeUiFactory.SetAnchors(
                 sectionTitle.rectTransform,
                 new Vector2(0.02f, 0.91f),
@@ -270,18 +272,18 @@ namespace Baseball.Presentation.Owner
                 CreateStadiumChoice(choiceArea.transform, index);
 
             Image detail = OwnerRuntimeUiFactory.CreateImage(
-                "Detail", panel.transform, Color.white);
+                "Detail", panel.transform, OwnerDashboardStyle.TableSurface);
+            OwnerDashboardStyle.SetDataSurface(detail, OwnerDashboardStyle.TableSurface);
             OwnerRuntimeUiFactory.SetAnchors(
                 detail.rectTransform,
                 new Vector2(0.645f, 0.12f),
                 new Vector2(0.982f, 0.89f),
                 Vector2.zero,
                 Vector2.zero);
-            AddOutline(detail.gameObject, new Color32(145, 153, 161, 255), 1f);
 
             Text selectedLabel = OwnerRuntimeUiFactory.CreateText(
                 "SelectedLabel", detail.transform, "선택한 시설", 14, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Color32(135, 74, 28, 255));
+                TextAnchor.MiddleLeft, OwnerDashboardStyle.Gold);
             OwnerRuntimeUiFactory.SetAnchors(
                 selectedLabel.rectTransform,
                 new Vector2(0.04f, 0.92f),
@@ -301,7 +303,7 @@ namespace Baseball.Presentation.Owner
 
             _stadiumPopupTitleText = OwnerRuntimeUiFactory.CreateText(
                 "StadiumName", detail.transform, string.Empty, 20, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Color32(34, 39, 46, 255));
+                TextAnchor.MiddleLeft, OwnerDashboardStyle.Ivory);
             OwnerRuntimeUiFactory.SetAnchors(
                 _stadiumPopupTitleText.rectTransform,
                 new Vector2(0.05f, 0.48f),
@@ -310,7 +312,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero);
             _stadiumPopupSpecificationText = OwnerRuntimeUiFactory.CreateText(
                 "Specification", detail.transform, string.Empty, 15, FontStyle.Bold,
-                TextAnchor.UpperLeft, new Color32(73, 80, 89, 255));
+                TextAnchor.UpperLeft, OwnerDashboardStyle.Muted);
             OwnerRuntimeUiFactory.SetAnchors(
                 _stadiumPopupSpecificationText.rectTransform,
                 new Vector2(0.05f, 0.30f),
@@ -319,7 +321,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero);
             _stadiumPopupDescriptionText = OwnerRuntimeUiFactory.CreateText(
                 "Description", detail.transform, string.Empty, 14, FontStyle.Normal,
-                TextAnchor.UpperLeft, new Color32(75, 82, 91, 255));
+                TextAnchor.UpperLeft, OwnerDashboardStyle.Muted);
             _stadiumPopupDescriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
             _stadiumPopupDescriptionText.verticalOverflow = VerticalWrapMode.Truncate;
             OwnerRuntimeUiFactory.SetAnchors(
@@ -337,7 +339,7 @@ namespace Baseball.Presentation.Owner
                 new Vector2(0.50f, 0.095f),
                 Vector2.zero,
                 Vector2.zero);
-            AddOutline(confirm.gameObject, new Color32(92, 100, 109, 255), 1f);
+            OwnerUiButtonSkin.Apply(confirm, OwnerButtonRole.Primary);
             confirm.onClick.AddListener(ConfirmStadiumSelection);
             Button cancel = OwnerRuntimeUiFactory.CreateButton(
                 "Cancel", panel.transform, "취소", new Color32(245, 246, 247, 255), 16);
@@ -347,7 +349,6 @@ namespace Baseball.Presentation.Owner
                 new Vector2(0.65f, 0.095f),
                 Vector2.zero,
                 Vector2.zero);
-            AddOutline(cancel.gameObject, new Color32(92, 100, 109, 255), 1f);
             cancel.onClick.AddListener(CloseStadiumSelection);
 
             _stadiumPopupRoot.gameObject.SetActive(false);
@@ -369,7 +370,7 @@ namespace Baseball.Presentation.Owner
                 new Vector2(maxX, maxY),
                 Vector2.zero,
                 Vector2.zero);
-            AddOutline(choice.gameObject, new Color32(118, 128, 138, 255), 1f);
+            OwnerDashboardStyle.SetDataRow(choice, false, OwnerDashboardStyle.TableSurface);
 
             Image artwork = OwnerRuntimeUiFactory.CreateImage("Artwork", choice.transform, Color.white);
             artwork.sprite = LoadStadiumChoiceSprite(index);
@@ -382,7 +383,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero);
             Text name = OwnerRuntimeUiFactory.CreateText(
                 "Name", choice.transform, StadiumNames[index], 15, FontStyle.Bold,
-                TextAnchor.MiddleLeft, new Color32(38, 43, 49, 255));
+                TextAnchor.MiddleLeft, OwnerDashboardStyle.Ivory);
             OwnerRuntimeUiFactory.SetAnchors(
                 name.rectTransform,
                 new Vector2(0.05f, 0.13f),
@@ -391,7 +392,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.zero);
             Text capacity = OwnerRuntimeUiFactory.CreateText(
                 "Capacity", choice.transform, "구장 외형", 12, FontStyle.Normal,
-                TextAnchor.MiddleRight, new Color32(87, 95, 104, 255));
+                TextAnchor.MiddleRight, OwnerDashboardStyle.Muted);
             OwnerRuntimeUiFactory.SetAnchors(
                 capacity.rectTransform,
                 new Vector2(0.58f, 0.13f),
@@ -408,7 +409,10 @@ namespace Baseball.Presentation.Owner
             _stadiumModel = model;
             if (_stadiumSceneNameText == null) return;
             _stadiumSceneNameText.text = string.Concat(StadiumNames[_selectedStadiumIndex], "  /  ", model.StadiumText);
-            _stadiumSceneStatusText.text = string.Concat(model.FanBaseText, "     ", model.PopularityText);
+            _stadiumSceneStatusText.text = model.Snapshot.CanUpgradeStadium
+                ? string.Concat(model.FanBaseText, "     ", model.PopularityText)
+                : model.Snapshot.StadiumUpgradeDisabledReason;
+            _stadiumSceneStatusText.color = model.Snapshot.CanUpgradeStadium ? OwnerDashboardStyle.Muted : OwnerDashboardStyle.Gold;
             _stadiumSceneAttendanceText.text = string.Concat(
                 model.ExpectedAttendanceText, "\n", model.RecentAttendanceText);
             _stadiumSceneUpgradeButton.interactable = model.Snapshot.CanUpgradeStadium;
@@ -444,15 +448,20 @@ namespace Baseball.Presentation.Owner
 
         private void OpenStadiumSelection()
         {
+            _stadiumReturnFocus = UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject;
             _pendingStadiumIndex = _selectedStadiumIndex;
             RefreshStadiumChoice();
             _stadiumPopupRoot.gameObject.SetActive(true);
             _stadiumPopupRoot.SetAsLastSibling();
+            _stadiumChoiceButtons[_pendingStadiumIndex]?.Select();
         }
 
         private void CloseStadiumSelection()
         {
             if (_stadiumPopupRoot != null) _stadiumPopupRoot.gameObject.SetActive(false);
+            if (_stadiumReturnFocus != null && _stadiumReturnFocus.activeInHierarchy)
+                UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(_stadiumReturnFocus);
+            _stadiumReturnFocus = null;
         }
 
         private void SelectStadiumChoice(int index)
@@ -484,14 +493,7 @@ namespace Baseball.Presentation.Owner
             {
                 Button choice = _stadiumChoiceButtons[index];
                 if (choice == null) continue;
-                choice.GetComponent<Image>().color = index == _pendingStadiumIndex
-                    ? new Color32(220, 234, 248, 255)
-                    : Color.white;
-                Outline outline = choice.GetComponent<Outline>();
-                if (outline != null)
-                    outline.effectColor = index == _pendingStadiumIndex
-                        ? new Color32(22, 74, 132, 255)
-                        : new Color32(118, 128, 138, 255);
+                OwnerDashboardStyle.SetDataRow(choice, index == _pendingStadiumIndex, OwnerDashboardStyle.TableSurface);
             }
             _stadiumPopupPreview.sprite = LoadStadiumChoiceSprite(_pendingStadiumIndex);
             _stadiumPopupTitleText.text = StadiumNames[_pendingStadiumIndex];
@@ -539,11 +541,7 @@ namespace Baseball.Presentation.Owner
 
         private static void StyleDarkButton(Button button, bool primary)
         {
-            button.GetComponent<Image>().color = primary
-                ? new Color32(4, 7, 10, 255)
-                : new Color32(49, 56, 64, 255);
-            button.transform.Find("Label").GetComponent<Text>().color = Color.white;
-            AddOutline(button.gameObject, new Color32(208, 214, 220, 255), 2f);
+            OwnerUiButtonSkin.Apply(button, primary ? OwnerButtonRole.Secondary : OwnerButtonRole.Primary);
         }
 
         private static void AddOutline(GameObject target, Color color, float distance)

@@ -27,9 +27,9 @@ namespace Baseball.Presentation.Owner
             Pitcher
         }
 
-        private static readonly Color RoleBoardSurface = new Color(0.92f, 0.93f, 0.93f, 1f);
-        private static readonly Color RoleBoardBorder = new Color(0.31f, 0.38f, 0.44f, 1f);
-        private static readonly Color InspectorMessage = new Color(0.94f, 0.95f, 0.93f, 1f);
+        private static readonly Color RoleBoardSurface = OwnerDashboardStyle.TableSurface;
+        private static readonly Color RoleBoardBorder = OwnerDashboardStyle.Line;
+        private static readonly Color InspectorMessage = OwnerDashboardStyle.Ivory;
         private const int OwnedCardsPerPage = 18;
         private static readonly string[] AssignedPanelNames =
             { "PrimaryAssignedPanel", "SecondaryAssignedPanel", "SetupPanel", "CloserPanel" };
@@ -187,7 +187,7 @@ namespace Baseball.Presentation.Owner
         {
             EnsureBuilt();
             _validationText.text = string.IsNullOrWhiteSpace(message) ? "작업 결과가 없습니다." : message;
-            _validationText.color = isError ? CareerUiTheme.Error : CareerUiTheme.Success;
+            _validationText.color = isError ? OwnerDashboardStyle.Danger : OwnerDashboardStyle.Success;
         }
 
         public void SetVisible(bool visible)
@@ -1354,14 +1354,17 @@ namespace Baseball.Presentation.Owner
             SetImageColor(panel, RoleBoardSurface);
             SetImageColor(panel.Find("HeaderSurface"), RoleBoardSurface);
             SetImageColor(panel.Find("HeaderAccent"), RoleBoardBorder);
-            SetTextColor(panel.Find("HeaderSlot"), CareerUiTheme.ReferenceText);
+            SetTextColor(panel.Find("HeaderSlot"), OwnerDashboardStyle.Ivory);
         }
 
         private static void SetImageColor(Transform target, Color color)
         {
             if (target == null) return;
             Image image = target.GetComponent<Image>();
-            if (image != null) image.color = color;
+            if (image == null) return;
+            var frame = image.GetComponent<UIOwnerFrontOfficePanel>();
+            if (frame != null) frame.Refresh();
+            else OwnerDashboardStyle.SetDataSurface(image, color, image.raycastTarget);
         }
 
         private static void SetTextColor(Transform target, Color color)

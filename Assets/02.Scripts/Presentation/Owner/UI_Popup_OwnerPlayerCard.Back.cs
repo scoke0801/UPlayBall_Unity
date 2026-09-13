@@ -35,7 +35,7 @@ namespace Baseball.Presentation.Owner
                 ?? PlayerPortraitSprites.GetAssigned(card.CardId)
                 ?? PlayerPortraitSprites.GetForPlayer(card.PlayerPersonId, card.Position);
             portrait.preserveAspect = true;
-            string enhancement = card.IsOwnedCard ? "\n강화 +" + card.EnhancementLevel : string.Empty;
+            string enhancement = card.IsOwnedCard || card.EnhancementLevel > 0 ? "\n강화 +" + card.EnhancementLevel : string.Empty;
             Text profile = Label(parent, "Profile", hands + "\n" + roleText + "\n비용 " + card.Cost + enhancement,
                 .025f, pitcher ? .615f : .42f, .265f, pitcher ? .765f : .68f, 14, pitcher ? PitchIvory : Ink);
             if (pitcher) profile.fontStyle = FontStyle.Normal;
@@ -55,7 +55,7 @@ namespace Baseball.Presentation.Owner
                 BuildDefenseDiagram(role, card.Position, card.IsPositionEvidenceMissing);
                 BuildPreferredBattingOrderBadge(role, card.PreferredBattingOrder);
             }
-            if (card.IsOwnedCard) BuildSkillBlockBoard(parent, paper, panel, card);
+            if (card.IsOwnedCard || card.PlacedSkillBlockCount > 0) BuildSkillBlockBoard(parent, paper, panel, card);
             else BuildPublicLineupNotice(parent, paper, panel);
         }
 
@@ -171,9 +171,11 @@ namespace Baseball.Presentation.Owner
             BuildPlacedSkillBlocks(grid, card.SkillBlockPlacements, definition.Width, definition.Height);
             Label(section, "State", card.PlacedSkillBlockCount == 0 ? "장착한 블록이 없습니다" : "스킬 블록 장착 중",
                 .36f, .60f, .96f, .78f, 13, Gold);
-            Label(section, "Inventory", $"장착 {card.PlacedSkillBlockCount}개  ·  보관 {card.AvailableSkillBlockCount}개",
+            Label(section, "Inventory", card.IsOwnedCard
+                    ? $"장착 {card.PlacedSkillBlockCount}개  ·  보관 {card.AvailableSkillBlockCount}개"
+                    : $"장착 {card.PlacedSkillBlockCount}개 · {card.StudyStatus}",
                 .36f, .40f, .96f, .56f, 11, PitchSilver).fontStyle = FontStyle.Normal;
-            Label(section, "Hint", "보유 선수 › 카드훈련에서 배치",
+            Label(section, "Hint", card.IsOwnedCard ? "보유 선수 › 카드훈련에서 배치" : "상대 선수의 경기 적용 성장 정보",
                 .36f, .16f, .96f, .32f, 10, PitchSilver).fontStyle = FontStyle.Normal;
         }
 

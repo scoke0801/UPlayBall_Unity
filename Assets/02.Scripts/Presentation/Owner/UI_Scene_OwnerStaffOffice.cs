@@ -123,7 +123,7 @@ namespace Baseball.Presentation.Owner
             _isSubmitting = false;
             CancelReview(false);
             _signStateText.text = string.IsNullOrWhiteSpace(message) ? "작업 결과가 없습니다." : message;
-            _signStateText.color = isError ? CareerUiTheme.Error : CareerUiTheme.Success;
+            _signStateText.color = isError ? OwnerDashboardStyle.Danger : OwnerDashboardStyle.Success;
         }
 
         private void OnDestroy()

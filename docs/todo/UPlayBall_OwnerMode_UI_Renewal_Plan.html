@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UPlayBall 구단주 모드 UI 전면 개선 기획서</title>
+  <style>
+    :root{--bg:#07111c;--surface:#0d1b2a;--surface2:#122638;--line:#29465d;--text:#edf3f8;--muted:#9cafbf;--gold:#dcb86a;--blue:#5ca9df;--green:#63c58d;--red:#ed7b75;--shadow:0 16px 40px #0008}
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;background:radial-gradient(circle at 80% 0,#17334b 0,transparent 35%),var(--bg);color:var(--text);font-family:Pretendard,"Noto Sans KR",system-ui,sans-serif;line-height:1.65}
+    header{padding:72px max(28px,calc((100% - 1180px)/2));border-bottom:1px solid var(--line);background:linear-gradient(110deg,#07111ee8,#10283be8)}
+    header .eyebrow,.kicker{color:var(--gold);font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase} h1{margin:12px 0 16px;font-size:clamp(34px,5vw,62px);line-height:1.12;letter-spacing:-.04em} header p{max-width:830px;color:#c2d0da;font-size:18px;margin:0}
+    main{max-width:1180px;margin:auto;padding:36px 24px 100px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:34px}
+    nav{position:sticky;top:22px;align-self:start;padding:18px;background:#0d1b2add;border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(12px)} nav a{display:block;color:var(--muted);text-decoration:none;padding:8px 10px;border-left:2px solid transparent;font-size:14px} nav a:hover{color:var(--text);border-color:var(--gold)}
+    article{min-width:0} section{margin:0 0 60px;scroll-margin-top:24px} h2{margin:0 0 18px;font-size:30px;letter-spacing:-.03em} h3{margin:28px 0 12px;color:#e7c77e;font-size:20px} h4{margin:20px 0 8px} p{margin:8px 0;color:#c7d2db}.lead{font-size:18px;color:#dce6ed}.callout{padding:20px 22px;border:1px solid var(--line);border-left:4px solid var(--gold);background:linear-gradient(100deg,#13283a,#0d1b2a);border-radius:8px;margin:16px 0}.danger{border-left-color:var(--red)}.success{border-left-color:var(--green)}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{padding:20px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(145deg,#122638,#0b1723);box-shadow:0 8px 20px #0003}.card strong{display:block;color:var(--text);margin-bottom:5px}.card p{font-size:14px;margin:0}
+    table{width:100%;border-collapse:collapse;margin:14px 0 22px;background:#0b1824;border:1px solid var(--line);font-size:14px} th,td{padding:12px 13px;text-align:left;vertical-align:top;border-bottom:1px solid #21394c} th{background:#142a3d;color:#e9c979;font-weight:750} tr:last-child td{border-bottom:0}.tag{display:inline-block;padding:2px 8px;border:1px solid #42627b;border-radius:99px;color:#bcd0de;font-size:12px;white-space:nowrap}.must{color:#f2d68f}.no{color:#ff9a94}.yes{color:#8ee0ad}
+    .flow{counter-reset:step;display:grid;gap:10px}.flow div{position:relative;padding:15px 18px 15px 58px;background:#102233;border:1px solid var(--line);border-radius:8px}.flow div:before{counter-increment:step;content:counter(step);position:absolute;left:16px;top:13px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:var(--gold);color:#13202a;font-weight:900}
+    pre{white-space:pre-wrap;background:#050c13;border:1px solid #274156;border-radius:8px;padding:18px;color:#d7e4ed;overflow:auto;font:13px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace}.checklist{list-style:none;padding:0}.checklist li{padding:7px 0 7px 30px;position:relative;color:#cbd7df}.checklist li:before{content:"□";position:absolute;left:3px;color:var(--gold);font-size:18px}.mini{font-size:13px;color:var(--muted)} footer{border-top:1px solid var(--line);padding:24px;text-align:center;color:#7890a2;font-size:13px}
+    @media(max-width:860px){main{display:block}nav{position:relative;top:0;margin-bottom:30px}.grid{grid-template-columns:1fr}header{padding:48px 24px}table{display:block;overflow:auto}}
+    @media print{body{background:white;color:#16202a}header{background:#0b1a27;-webkit-print-color-adjust:exact;print-color-adjust:exact}main{display:block;max-width:none}nav{display:none}.card,.callout,table,pre{break-inside:avoid}section{break-before:auto}.card,p,td{color:#263746}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">UPlayBall · Owner Mode · UI Renewal</div>
+    <h1>구단주 모드 UI<br />전면 개선 기획서</h1>
+    <p>Unity 기본 Image 패널을 반복한 인상을 제거하고, 구단주 모드 전체에 일관된 야구 프런트 오피스 경험을 구축하기 위한 조사·디자인·구현 기준서.</p>
+  </header>
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#mandate">1. 필수 지시 사항</a><a href="#problem">2. 현황과 목표</a><a href="#audit">3. UI 전수조사</a><a href="#system">4. 디자인 시스템</a><a href="#screens">5. 화면별 개선</a><a href="#imagegen">6. ImageGen 제작</a><a href="#implementation">7. 구현 절차</a><a href="#acceptance">8. 검수 기준</a><a href="#deliverables">9. 산출물</a><a href="#scope">10. 테스트 범위</a>
+    </nav>
+    <article>
+      <section id="mandate">
+        <div class="kicker">Mandatory</div><h2>필수 지시 사항</h2>
+        <div class="callout danger"><strong>본 작업은 카드 훈련·구단 정보 두 화면만 수정하는 작업이 아니다.</strong><p>프로젝트에 존재하는 <span class="must">구단주 모드 내 모든 UI를 전수조사하고, 발견되는 모든 화면·팝업·탭·오버레이·공통 상태를 개선 대상으로 등록하여 수정</span>한다. 아래 화면 목록은 조사 시작용 기준이며 최종 범위를 제한하지 않는다.</p></div>
+        <ul class="checklist">
+          <li>필요한 신규 프레임, 버튼, 탭, 배지, 게이지, 아이콘, 텍스처 및 배경 이미지는 <strong>ImageGen으로 생성</strong>한다.</li>
+          <li>기존 캐릭터·선수 카드·구단 로고는 자산 정체성을 유지하며, 별도 승인 없이 교체하지 않는다.</li>
+          <li>화면마다 임의 스타일을 만들지 않고 본 문서의 공용 토큰과 Prefab을 우선 사용한다.</li>
+          <li><strong>Unity Editor 실행, Play Mode, Edit Mode 및 에디터 기반 테스트는 진행하지 않는다.</strong></li>
+          <li>에디터 테스트 미진행으로 인해 런타임 배치·앵커·9-Slice·폰트 폴백은 후속 확인 항목으로 명시한다.</li>
+        </ul>
+      </section>
+
+      <section id="problem">
+        <div class="kicker">Diagnosis</div><h2>현황과 개선 목표</h2>
+        <div class="grid">
+          <div class="card"><strong>동일한 사각형의 반복</strong><p>검색창, 정보 셀, 말풍선, 버튼이 같은 남청색 면으로 보여 기능적 차이가 없다.</p></div>
+          <div class="card"><strong>과도한 중첩 프레임</strong><p>화면→패널→하위 패널→셀을 모두 테두리로 감싸 엑셀·툴 UI처럼 보인다.</p></div>
+          <div class="card"><strong>미설계 공백</strong><p>카드 그리드 옆과 정보 패널 중앙의 공백이 의도된 여백보다 미완성 영역처럼 보인다.</p></div>
+          <div class="card"><strong>혼재된 시각 언어</strong><p>고전적인 금색 코너, 회색 기본 패널, 현대적인 카드 FX가 서로 다른 제품처럼 충돌한다.</p></div>
+        </div>
+        <h3>목표 경험</h3>
+        <p class="lead">“야구 구단의 업무 공간”이라는 맥락은 살리되, 장식이 기능을 덮지 않는 프리미엄 PC 매니지먼트 UI를 지향한다. 정보 밀도는 유지하고, 시선이 <strong>화면 제목 → 핵심 지표 → 선택 대상 → 다음 행동</strong> 순서로 흐르게 한다.</p>
+      </section>
+
+      <section id="audit">
+        <div class="kicker">Inventory First</div><h2>구단주 모드 UI 전수조사</h2>
+        <p>디자인 변경 전에 코드와 리소스를 기준으로 실제 화면 목록을 확정한다. 기획서에 알려진 화면만 골라 수정하는 방식은 금지한다.</p>
+        <div class="flow">
+          <div><strong>진입 경로 조사</strong><br><span class="mini">구단주 모드 메인 메뉴, 하단·상단 내비게이션, 버튼 이벤트, 라우터, 씬 전환 경로를 수집한다.</span></div>
+          <div><strong>UI 자산 조사</strong><br><span class="mini">Scene, Prefab, View/Presenter, Canvas, Addressables, Resources, Sprite Atlas에서 UI 후보를 검색한다.</span></div>
+          <div><strong>상태 변형 조사</strong><br><span class="mini">기본·Hover·Pressed·Selected·Disabled·Loading·Empty·Error·Locked·Reward 상태를 별도 항목으로 기록한다.</span></div>
+          <div><strong>인벤토리 표 작성</strong><br><span class="mini">화면 ID, 진입 경로, Prefab, 담당 스크립트, 해상도, 공용 컴포넌트, 문제점, 수정 여부를 매핑한다.</span></div>
+          <div><strong>누락 화면 편입</strong><br><span class="mini">조사 중 아래 기준 목록에 없는 화면이 발견되면 신규 범위로 즉시 추가한다.</span></div>
+        </div>
+        <h3>최소 조사 대상</h3>
+        <table><thead><tr><th>영역</th><th>반드시 확인할 UI</th><th>주요 상태</th></tr></thead><tbody>
+          <tr><td>공통 셸</td><td>타이틀, 모드 선택, 구단주 홈, 글로벌 헤더, 재화, 알림, 내비게이션</td><td>잠금, 알림 배지, 선택 탭</td></tr>
+          <tr><td>경기 흐름</td><td>일정, 경기 준비, 선발 확인, 경기 진행, 결과, 리그 순위, 포스트시즌</td><td>경기 전/중/후, 승·패, 스킵</td></tr>
+          <tr><td>선수 관리</td><td>로스터, 선수 상세, 카드 목록, 검색·필터, 라인업, 엔트리, 방출·교체</td><td>선택, 비교, 제한 초과, 빈 슬롯</td></tr>
+          <tr><td>전력 운영</td><td>타순, 수비 위치, 선발 로테이션, 불펜, 작전·전술, 팀컬러</td><td>유효/무효 배치, 경고, 자동 편성</td></tr>
+          <tr><td>성장</td><td>카드 훈련, 특성 훈련, 성장 블록, 육성 포인트, 훈련 파트너, 해외 훈련</td><td>미리보기, 비용 부족, 최대치, 완료</td></tr>
+          <tr><td>구단 운영</td><td>구단 정보, 구단 평판, 구단주 기록, 프런트 매니저, 매니저 리포트</td><td>신규 기록, 조언, 교체, 미집계</td></tr>
+          <tr><td>콘텐츠</td><td>연습게임, 역사별 강팀 100팀, 도전 진행도, 3승 보상, 보상 수령</td><td>잠금, 진행, 클리어, 로테이션</td></tr>
+          <tr><td>경제·획득</td><td>상점, 스카우트·영입, 보상함, 아이템, 재화 상세</td><td>구매 확인, 부족, 획득 연출</td></tr>
+          <tr><td>시즌 전환</td><td>오프시즌, 주차 진행, 승강, 시즌 결산, 신규 시즌 시작</td><td>진행 불가 사유, 미완료 업무</td></tr>
+          <tr><td>공통 오버레이</td><td>도움말, 튜토리얼, 툴팁, 확인창, 토스트, 로딩, 오류, 빈 화면</td><td>키보드·패드 포커스 포함</td></tr>
+          <tr><td>환경 설정</td><td>설정, 저장·불러오기, 종료 확인, 접근성</td><td>변경·복구·저장 실패</td></tr>
+        </tbody></table>
+        <div class="callout"><strong>전수조사 완료 조건</strong><p>모든 진입 버튼이 화면 인벤토리의 대상 ID와 연결되고, 모든 UI Prefab 또는 View가 어느 화면에 사용되는지 역방향으로 추적되어야 한다. 고아 Prefab과 미연결 화면도 별도로 기록한다.</p></div>
+      </section>
+
+      <section id="system">
+        <div class="kicker">Design System</div><h2>공용 디자인 시스템</h2>
+        <h3>표면 깊이: 3단계만 사용</h3>
+        <table><thead><tr><th>레벨</th><th>역할</th><th>표현 규칙</th></tr></thead><tbody>
+          <tr><td>Level 0</td><td>페이지 배경</td><td>구장·클럽하우스 이미지 + 75~88% 어두운 오버레이. 정보 가독성을 방해하지 않는다.</td></tr>
+          <tr><td>Level 1</td><td>주요 콘텐츠 Surface</td><td>남청색 반투명 면, 1px 외곽선, 미세 텍스처. 화면당 2~4개 권장.</td></tr>
+          <tr><td>Level 2</td><td>조작·선택 컴포넌트</td><td>입력, 탭, 버튼, 선택 카드에만 높이·음영·강조를 부여한다.</td></tr>
+        </tbody></table>
+        <h3>디자인 토큰</h3>
+        <table><thead><tr><th>토큰</th><th>기준</th><th>용도</th></tr></thead><tbody>
+          <tr><td>Base / Surface</td><td>#07111C / #0D1B2A / #122638</td><td>배경과 정보 면</td></tr>
+          <tr><td>Line</td><td>#29465D, 1px</td><td>필수 경계와 구분선</td></tr>
+          <tr><td>Text</td><td>#EDF3F8 / #9CAFBF</td><td>주요·보조 텍스트</td></tr>
+          <tr><td>Primary</td><td>#DCB86A</td><td>화면당 한 개의 핵심 행동, 선택 강조</td></tr>
+          <tr><td>Info / Success / Danger</td><td>#5CA9DF / #63C58D / #ED7B75</td><td>상태 의미에 한정</td></tr>
+          <tr><td>Radius</td><td>4 / 6 / 8 / 12px</td><td>입력 / 버튼 / 패널 / 모달</td></tr>
+          <tr><td>Spacing</td><td>4px 기반: 4·8·12·16·24·32</td><td>임의 여백 금지</td></tr>
+        </tbody></table>
+        <h3>공용 Prefab 후보</h3>
+        <div class="grid">
+          <div class="card"><strong>UI_Surface / SectionHeader</strong><p>대형 패널과 아이콘·제목·보조 설명·구분선을 통일한다.</p></div>
+          <div class="card"><strong>UI_Input / Dropdown / FilterChip</strong><p>검색·필터 조작의 높이, 패딩, 상태 이미지를 통일한다.</p></div>
+          <div class="card"><strong>UI_Button_Primary / Secondary</strong><p>금색 핵심 행동과 남청색 보조 행동을 분리한다.</p></div>
+          <div class="card"><strong>UI_StatRow / KpiCard</strong><p>현재 값, 예상 값, 증감, 게이지 표현을 재사용한다.</p></div>
+          <div class="card"><strong>UI_BadgeSlot / RewardItem</strong><p>업적·우승·보상·잠금 상태를 공용화한다.</p></div>
+          <div class="card"><strong>UI_Dialog / Tooltip / Toast</strong><p>확인·경고·도움말과 시스템 피드백을 일관화한다.</p></div>
+          <div class="card"><strong>UI_Empty / Loading / Error</strong><p>데이터가 없을 때 큰 빈 패널이 남지 않게 한다.</p></div>
+          <div class="card"><strong>UI_FocusFrame</strong><p>키보드·게임패드 포커스를 마우스 Hover와 구분한다.</p></div>
+        </div>
+        <h3>9-Slice 및 이미지 사용 규칙</h3>
+        <ul class="checklist">
+          <li>프레임은 모서리 장식과 테두리가 늘어나지 않도록 Sprite Border를 지정한다.</li>
+          <li>금색 코너 장식은 최상위 Surface 또는 핵심 모달에만 사용하고 셀마다 반복하지 않는다.</li>
+          <li>질감은 텍스트 대비를 떨어뜨리지 않는 3~8% 불투명도로 제한한다.</li>
+          <li>버튼 상태는 Default, Hover/Focus, Pressed, Disabled, Selected를 모두 준비한다.</li>
+          <li>그림자와 Glow는 정보 우선순위 표현에만 사용하며 장식 목적으로 중첩하지 않는다.</li>
+        </ul>
+      </section>
+
+      <section id="screens">
+        <div class="kicker">Screen Direction</div><h2>대표 화면별 개선 방향</h2>
+        <h3>카드 훈련</h3>
+        <ul class="checklist"><li>카드 그리드 컨테이너 폭을 실제 열 수에 맞추고 남는 공백을 제거한다.</li><li>필터는 밝은 기본 Image 대신 입력형 컴포넌트로 통일한다.</li><li>우측은 선택 카드, 기본 정보, 현재→예상 능력치, 비용, 훈련 CTA 순으로 정렬한다.</li><li>상승 수치는 금색 예상 막대와 초록색 증감치로 표현한다.</li></ul>
+        <h3>구단 정보</h3>
+        <ul class="checklist"><li>로고·구단명·연고지를 구단 ID Hero 카드로 통합한다.</li><li>명성·팬 기반은 숫자만 있는 빈 패널 대신 게이지로 시각화한다.</li><li>시즌 기록은 121승 22패를 중심으로 재편하고 보조 지표는 한 줄로 압축한다.</li><li>누적 기록은 트로피·승격·강등 배지 슬롯으로 표현한다.</li><li>매니저 도움말은 캐릭터에 연결된 말풍선으로 변경한다.</li></ul>
+        <h3>그 외 모든 화면 공통 변환</h3>
+        <table><thead><tr><th>기존 패턴</th><th>교체 패턴</th></tr></thead><tbody>
+          <tr><td>정보마다 회색 사각 셀</td><td>하나의 Surface + 타이포그래피 + 얇은 구분선</td></tr>
+          <tr><td>큰 빈 패널</td><td>핵심 지표, 시각화, Empty State 또는 맥락 이미지</td></tr>
+          <tr><td>동일 색상의 모든 버튼</td><td>Primary 1개 + Secondary + Text Action 위계</td></tr>
+          <tr><td>독립적으로 떠 있는 도움말</td><td>발화자 또는 대상 컴포넌트에 연결된 도움말</td></tr>
+          <tr><td>색만 바뀌는 선택 상태</td><td>외곽선, 아이콘, 높이, 배경을 조합한 선택 상태</td></tr>
+          <tr><td>표 전체를 박스로 분할</td><td>행 Hover, 핵심 열 강조, 헤더와 행 구분선 중심</td></tr>
+        </tbody></table>
+      </section>
+
+      <section id="imagegen">
+        <div class="kicker">Asset Production</div><h2>ImageGen 이미지 제작 지침</h2>
+        <div class="callout success"><strong>신규 UI 시각 자산은 ImageGen으로 제작한다.</strong><p>임시 Unity 기본 Sprite를 최종 리소스로 사용하지 않는다. 먼저 화면 시안으로 전체 방향을 검증한 뒤, 프레임·버튼·탭·배지 등 실제 적용 가능한 단위 자산을 별도로 생성한다.</p></div>
+        <h3>제작 대상</h3>
+        <p>화면 시안, 대형 Surface 프레임, 검색·필터 프레임, Primary/Secondary 버튼, 탭, KPI 배경, 업적 배지, 보상 슬롯, 말풍선, 툴팁, 상태 아이콘, 빈 화면 일러스트, 구장·클럽하우스 배경, 미세 금속·직물 텍스처.</p>
+        <h3>공통 생성 프롬프트</h3>
+        <pre>Use case: ui-mockup / game UI asset
+Asset type: UPlayBall PC baseball management game UI
+Primary request: [대상 화면 또는 자산]을 고해상도 게임 UI로 제작
+Style: 세련된 한국 PC 야구 매니지먼트, 절제된 스포츠 중계 그래픽과 프런트 오피스 분위기
+Palette: charcoal, midnight navy, muted steel blue, sparse warm gold
+Materials: subtle brushed metal or fabric texture, thin blue-gray keyline, restrained inner highlight
+Constraints: functional hierarchy first, crisp edges, 9-slice friendly where applicable, no watermark
+Avoid: Unity default panel, mobile fantasy RPG, excessive gold ornaments, neon sci-fi, thick frame on every element, baked Korean text unless requested</pre>
+        <h3>단위 자산 생성 규칙</h3>
+        <ul class="checklist"><li>화면 목업과 실제 자산 생성 요청을 분리한다.</li><li>텍스트는 Unity TMP로 출력하므로 프레임·버튼 이미지에는 원칙적으로 문자와 숫자를 굽지 않는다.</li><li>아이콘은 의미별로 한 장씩 생성하거나 규격화된 시트로 생성하고 배경 투명도를 요청한다.</li><li>9-Slice 자산은 중앙부가 균일하고 모서리 장식이 독립되도록 요청한다.</li><li>기존 선수 카드와 캐릭터는 레퍼런스 이미지로 제공하고 외형 보존을 명시한다.</li><li>생성 결과는 실제 알파 채널, 가장자리, 반복 텍스처, 작은 크기 가독성을 확인한 후 적용한다.</li></ul>
+      </section>
+
+      <section id="implementation">
+        <div class="kicker">Execution</div><h2>구현 절차</h2>
+        <table><thead><tr><th>단계</th><th>작업</th><th>종료 조건</th></tr></thead><tbody>
+          <tr><td>1. Inventory</td><td>전체 화면·Prefab·상태·경로 전수조사</td><td>진입점↔화면↔Prefab 추적표 완성</td></tr>
+          <tr><td>2. Foundation</td><td>색·간격·폰트·Sprite·상태 토큰 정의</td><td>임의 값 대신 공용 토큰 사용 가능</td></tr>
+          <tr><td>3. Components</td><td>Surface, Button, Tab, Input, KPI, Dialog 등 공용 Prefab 제작</td><td>대표 상태 전부 제공</td></tr>
+          <tr><td>4. Pilot</td><td>카드 훈련·구단 정보 우선 교체</td><td>두 화면에서 스타일·밀도 규칙 확정</td></tr>
+          <tr><td>5. Rollout</td><td>전수조사표 순서대로 구단주 모드 전체 확장</td><td>모든 대상 상태가 완료 또는 사유 기록</td></tr>
+          <tr><td>6. Static QA</td><td>참조 누락, Sprite 설정, 컴포넌트 사용, 텍스트 구조 정적 확인</td><td>검수표와 잔여 위험 작성</td></tr>
+        </tbody></table>
+        <h3>우선순위</h3>
+        <p><span class="tag">P0</span> 글로벌 셸·내비게이션·공용 버튼·모달 → <span class="tag">P1</span> 홈·경기·선수·라인업·성장 → <span class="tag">P2</span> 구단 운영·연습게임·시즌 전환 → <span class="tag">P3</span> 설정·도움말·예외 상태 순으로 진행한다.</p>
+      </section>
+
+      <section id="acceptance">
+        <div class="kicker">Definition of Done</div><h2>검수 및 완료 기준</h2>
+        <ul class="checklist">
+          <li>전수조사표의 모든 항목이 완료, 제외, 보류 중 하나로 표시되고 제외·보류 사유가 있다.</li>
+          <li>기본 Unity UI Sprite 또는 임시 단색 Image가 최종 노출 화면에 남아 있지 않다.</li>
+          <li>화면의 Primary CTA는 원칙적으로 하나이며 Secondary와 시각적으로 구분된다.</li>
+          <li>패널 깊이가 3단계를 넘지 않고, 동일 정보군은 박스보다 간격과 구분선으로 묶인다.</li>
+          <li>검색, 필터, 탭, 버튼, 모달의 크기와 상태 표현이 모든 화면에서 일관된다.</li>
+          <li>Loading, Empty, Error, Disabled, Locked 상태가 큰 빈 패널로 방치되지 않는다.</li>
+          <li>선수 카드·매니저·구단 로고 등 기존 핵심 자산의 정체성이 보존된다.</li>
+          <li>신규 이미지의 파일명, 용도, 규격, 9-Slice Border, 생성 프롬프트가 자산 목록에 기록된다.</li>
+          <li>화면 구조 변경으로 기존 버튼 이벤트와 데이터 바인딩이 누락되지 않았음을 코드상 확인한다.</li>
+        </ul>
+        <div class="callout"><strong>해상도 기준</strong><p>프로젝트 기준 해상도를 우선 적용하고, 최소한 16:9의 1920×1080과 2560×1440 설계를 고려한다. Safe Area, Canvas Scaler, 긴 한국어 문자열, 숫자 자릿수 증가에 대한 여유를 레이아웃에 포함한다.</p></div>
+      </section>
+
+      <section id="deliverables">
+        <div class="kicker">Output</div><h2>필수 산출물</h2>
+        <table><thead><tr><th>산출물</th><th>내용</th></tr></thead><tbody>
+          <tr><td>UI 전수조사표</td><td>화면 ID, 진입 경로, Prefab, View/Script, 상태, 문제점, 조치, 완료 여부</td></tr>
+          <tr><td>공용 스타일 가이드</td><td>색상, 폰트, 간격, 레이어, 버튼, 탭, 패널, 상태 규칙</td></tr>
+          <tr><td>공용 Prefab 세트</td><td>표준 컴포넌트와 모든 상호작용 상태</td></tr>
+          <tr><td>ImageGen 자산 목록</td><td>이미지 파일, 규격, 프롬프트, 사용 화면, 9-Slice 값</td></tr>
+          <tr><td>화면별 수정 기록</td><td>Before 문제, After 구조, 재사용 컴포넌트, 잔여 이슈</td></tr>
+          <tr><td>정적 검수 보고서</td><td>완료 범위, 미확인 위험, 에디터에서 후속 확인할 항목</td></tr>
+        </tbody></table>
+      </section>
+
+      <section id="scope">
+        <div class="kicker">Explicit Exclusion</div><h2>테스트 범위 및 제외 사항</h2>
+        <div class="callout danger"><strong>에디터 테스트는 진행하지 않는다.</strong><p>본 작업 범위에서는 Unity Editor를 실행하지 않으며, Play Mode·Edit Mode·Game View·Prefab Mode·실기기 실행을 통한 테스트도 수행하지 않는다. 가능한 검증은 파일 구성, 코드 참조, 직렬화 필드, 명명, 리소스 경로 등 정적 확인으로 한정한다.</p></div>
+        <h3>후속 에디터 확인이 필요한 위험</h3>
+        <ul class="checklist"><li>Canvas Scaler와 해상도별 앵커·레이아웃 결과</li><li>9-Slice Border와 Sprite Import 설정의 실제 렌더링</li><li>TMP 폰트 폴백, 줄바꿈, 긴 문자열, 숫자 오버플로</li><li>Hover·Pressed·Selected·Disabled·게임패드 Focus 상태</li><li>ScrollRect, Mask, 카드 풀링, 애니메이션 및 트윈</li><li>버튼 이벤트, 데이터 바인딩, 팝업 스택, 뒤로가기</li><li>Draw Call, Atlas, 이미지 메모리 및 로딩 성능</li></ul>
+        <p class="mini">따라서 정적 작업 완료는 런타임 정상 동작을 보증하지 않는다. 위 항목은 후속 에디터 검증 단계의 인수인계 체크리스트로 전달한다.</p>
+      </section>
+    </article>
+  </main>
+  <footer>UPlayBall · 구단주 모드 UI Renewal Planning Document · 2026-09-12</footer>
+</body>
+</html>

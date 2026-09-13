@@ -15,7 +15,8 @@ namespace Baseball.Presentation.Owner
             string ownerName = "구단주",
             string frontManagerId = "FRONT_MANAGER_DEFAULT_01",
             string sourceTeamName = null,
-            string region = null)
+            string region = null,
+            OwnerClubHistoryPresentationModel history = null)
         {
             if (home == null) throw new ArgumentNullException(nameof(home));
             if (collection == null) throw new ArgumentNullException(nameof(collection));
@@ -33,6 +34,23 @@ namespace Baseball.Presentation.Owner
             ActiveRosterText = string.Concat(home.ActiveRosterCount, "/", home.ActiveRosterCapacity);
             FanBaseText = Math.Round(operation.FanBase).ToString("N0");
             PopularityText = Math.Round(operation.Popularity).ToString("N0");
+            Popularity = (float)operation.Popularity;
+            FanBase = (float)operation.FanBase;
+            HasHistory = history != null;
+            Championships = history?.CountHonors(null, 1) ?? 0;
+            RunnerUps = history?.CountHonors(null, 2) ?? 0;
+            if (history != null)
+            {
+                for (int index = 1; index < history.Seasons.Count; index++)
+                {
+                    var newer = history.Seasons[index - 1];
+                    var older = history.Seasons[index];
+                    // 빠진 시즌을 건너뛰어 승강 횟수를 추측하지 않는다.
+                    if (!older.IsCompleted || newer.Number != older.Number + 1) continue;
+                    if ((int)newer.Grade > (int)older.Grade) Promotions++;
+                    if ((int)newer.Grade < (int)older.Grade) Relegations++;
+                }
+            }
             StadiumText = string.Concat("구장 ", operation.StadiumLevel, "단계 · ", operation.StadiumCapacity.ToString("N0"), "석");
 
             int normal = 0;
@@ -77,6 +95,13 @@ namespace Baseball.Presentation.Owner
         public string FrontManagerId { get; }
         public string FanBaseText { get; }
         public string PopularityText { get; }
+        public float Popularity { get; }
+        public float FanBase { get; }
+        public bool HasHistory { get; }
+        public int Championships { get; }
+        public int RunnerUps { get; }
+        public int Promotions { get; }
+        public int Relegations { get; }
         public string StadiumText { get; }
         public string ActiveRosterText { get; }
         public int OwnedPlayerCount { get; }

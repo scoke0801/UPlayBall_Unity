@@ -36,6 +36,20 @@ namespace Baseball.Presentation.UI
             label.raycastTarget = false; label.rectTransform.anchorMin = Vector2.zero; label.rectTransform.anchorMax = Vector2.one;
             label.rectTransform.offsetMin = new Vector2(12, 8); label.rectTransform.offsetMax = new Vector2(-12, -8);
             _hint.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            if (Baseball.Presentation.Owner.UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                Baseball.Presentation.Owner.UIOwnerFrontOfficePanel.Apply(_hint, "CompactStrip");
+                Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataText(label);
+                label.fontSize = 16;
+            }
+            // 긴 비활성 사유도 말줄임 없이 안전 영역 안에서 읽을 수 있게 높이를 계산한다.
+            float width = Mathf.Min(340, Mathf.Max(120, _host.rect.width - 24));
+            _hint.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            float height = Mathf.Min(Mathf.Max(64, label.preferredHeight + 16), Mathf.Max(64, _host.rect.height - 24));
+            _hint.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            position.x = Mathf.Clamp(position.x, _host.rect.xMin + width + 12, _host.rect.xMax - 12);
+            position.y = Mathf.Clamp(position.y, _host.rect.yMin + height + 12, _host.rect.yMax - 12);
+            _hint.localPosition = position;
         }
 
         private void OnDisable() => Hide();

@@ -75,7 +75,8 @@ namespace Baseball.Presentation.Owner
             for (int week = 0; week < _weeks.Length; week++)
             {
                 float left = .46f + week * .132f;
-                var cell = OwnerRuntimeUiFactory.CreateImage("Week" + (week + 1), panel.Content, CareerUiTheme.ReferencePanelHeader);
+                var cell = OwnerRuntimeUiFactory.CreateImage("Week" + (week + 1), panel.Content, OwnerDashboardStyle.TableHeader);
+                OwnerDashboardStyle.SetDataSurface(cell, OwnerDashboardStyle.TableHeader);
                 Place(cell.rectTransform, left, .68f, left + .117f, .81f);
                 cell.raycastTarget = false;
                 _weekBackgrounds[week] = cell;
@@ -95,7 +96,8 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < _trainingRows.Length; index++)
             {
                 float top = .355f - index * .06f;
-                var row = OwnerRuntimeUiFactory.CreateImage("TrainingRow" + index, panel.Content, CareerUiTheme.ReferenceDataHeader);
+                var row = OwnerRuntimeUiFactory.CreateImage("TrainingRow" + index, panel.Content, OwnerDashboardStyle.TableSurface);
+                OwnerDashboardStyle.SetDataSurface(row, OwnerDashboardStyle.TableSurface);
                 Place(row.rectTransform, .015f, top - .055f, .985f, top);
                 row.raycastTarget = false;
                 _trainingRows[index] = row;
@@ -159,8 +161,8 @@ namespace Baseball.Presentation.Owner
             {
                 bool completed = week < model.CompletedWeeks;
                 _weeks[week].text = $"{week + 1}주차\n" + (completed ? "완료" : week == model.CompletedWeeks ? "다음 정산" : "대기");
-                _weekBackgrounds[week].color = completed ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferencePanelHeader;
-                _weeks[week].color = completed ? Color.white : CareerUiTheme.ReferenceText;
+                _weekBackgrounds[week].color = completed ? OwnerDashboardStyle.TableSelected : OwnerDashboardStyle.TableHeader;
+                _weeks[week].color = completed ? OwnerDashboardStyle.Success : OwnerDashboardStyle.Muted;
             }
             for (int index = 0; index < _trainingRows.Length; index++)
             {
@@ -172,7 +174,7 @@ namespace Baseball.Presentation.Owner
                 _playerNames[index].text = row.PlayerName;
                 _programNames[index].text = row.ProgramName;
                 _returnDates[index].text = row.RemainingWeeks == 1 ? "이번 주 귀환" : $"{row.RemainingWeeks}주 후 귀환";
-                _trainingRows[index].color = row.RemainingWeeks == 1 ? CareerUiTheme.ReferenceDataFocus : CareerUiTheme.ReferenceDataHeader;
+                _trainingRows[index].color = row.RemainingWeeks == 1 ? OwnerDashboardStyle.TableSelected : OwnerDashboardStyle.TableSurface;
             }
             _training.gameObject.SetActive(model.Training.Length == 0);
             _training.text = "파견 중인 선수가 없습니다. 유학에서 선수와 훈련 과정을 먼저 선택하세요.";
@@ -283,6 +285,7 @@ namespace Baseball.Presentation.Owner
         {
             var text = OwnerWorkspaceUiFactory.CreateText(parent, name, value, size, style, alignment, CareerUiTheme.ReferenceText);
             Place(text.rectTransform, left, bottom, right, top);
+            OwnerDashboardStyle.SetDataText(text, style == FontStyle.Bold);
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             return text;
         }

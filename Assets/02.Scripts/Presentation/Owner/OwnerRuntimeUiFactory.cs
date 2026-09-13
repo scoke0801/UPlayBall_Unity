@@ -128,6 +128,8 @@ namespace Baseball.Presentation.Owner
             outline.effectColor = CareerUiTheme.ReferenceBorder;
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = false;
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+                OwnerDashboardStyle.SetDataSurface(scrollSurface, OwnerDashboardStyle.TableSurface, true);
             ScrollRect scroll = scrollSurface.gameObject.AddComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;

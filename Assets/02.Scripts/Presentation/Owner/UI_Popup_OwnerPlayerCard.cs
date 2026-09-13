@@ -82,6 +82,7 @@ namespace Baseball.Presentation.Owner
             view._closeButton.GetComponent<Image>().raycastTarget = true;
             view._closeButton.gameObject.AddComponent<Button>().onClick.AddListener(view.Close);
             Label(view._closeButton, "Label", "닫기 ×", 0, 0, 1, 1, 14, Color.white);
+            UIOwnerFrontOfficeSkin.ApplyButton(view._closeButton.GetComponent<Button>(), OwnerButtonRole.Secondary);
             view._front = Surface(panel, "Front", Ink, 0, 0, 1, 1);
             view._back = Surface(panel, "Back", Ink, 0, 0, 1, 1);
             view._previousButton = CreateNavigationButton(root, "PreviousCard", "<", .5f, 0, .5f, 0, view.ShowPrevious);
@@ -146,11 +147,8 @@ namespace Baseball.Presentation.Owner
             RectTransform teamPlate = BuildTeamPlate(parent);
             if (!string.IsNullOrWhiteSpace(card.TeamDisplayName))
                 Label(teamPlate, "Team", card.TeamDisplayName, .04f, .02f, .96f, .98f, 14, Color.white);
-            RectTransform editionPlate = ContentRect(parent, "EditionPlate", .72f, .895f, .95f, .933f);
-            Label(editionPlate, "Edition", OwnerCollectionPresentationBuilder.FormatEdition(card.Edition),
-                .03f, 0, .97f, 1, 12, Gold);
             if (card.EnhancementLevel > 0)
-                Label(parent, "Enhancement", "+" + card.EnhancementLevel, .79f, .94f, .95f, .98f, 19, Gold);
+                Label(parent, "Enhancement", "+" + card.EnhancementLevel, .72f, .895f, .95f, .933f, 19, Gold);
             if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);
             RectTransform positionPlate = ContentRect(parent, "PositionPlate", .04f, .91f, .24f, .94f);
             Label(positionPlate, "Position",
@@ -314,6 +312,7 @@ namespace Baseball.Presentation.Owner
             button.targetGraphic = image;
             button.onClick.AddListener(action);
             Label(rect, "Label", label, 0, 0, 1, 1, 34, Color.white);
+            UIOwnerFrontOfficeSkin.ApplyButton(button, OwnerButtonRole.Utility);
             return button;
         }
 

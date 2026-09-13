@@ -8,7 +8,7 @@ namespace Baseball.Presentation.Owner
 {
     /// <summary>구단주 정규시즌 자동 진행의 현재 라운드·대진·처리량을 Owner Skin으로 표시한다.</summary>
     [DisallowMultipleComponent]
-    public sealed class UI_Popup_OwnerSeasonSimulation : MonoBehaviour
+    public sealed class UI_Popup_OwnerSeasonSimulation : MonoBehaviour, UnityEngine.EventSystems.ICancelHandler
     {
         private const float ProgressAnimationSmoothTime = 0.18f;
         private const float ProgressAnimationSnapThreshold = 0.0005f;
@@ -25,6 +25,9 @@ namespace Baseball.Presentation.Owner
         private float _targetProgress;
         private float _progressVelocity;
         private bool _hasProgressValue;
+        private Button _stopButton;
+        private RectTransform _modal;
+        private GameObject _previousFocus;
 
         public event Action StopRequested;
 
@@ -110,8 +113,14 @@ namespace Baseball.Presentation.Owner
 
         public void Show()
         {
+            var events = UnityEngine.EventSystems.EventSystem.current;
+            if (events != null && (events.currentSelectedGameObject == null ||
+                !events.currentSelectedGameObject.transform.IsChildOf(transform)))
+                _previousFocus = events.currentSelectedGameObject;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
+            FitDialog();
+            _stopButton?.Select();
         }
 
         public void Hide()
@@ -119,6 +128,27 @@ namespace Baseball.Presentation.Owner
             gameObject.SetActive(false);
             _hasProgressValue = false;
             _progressVelocity = 0f;
+            if (_previousFocus != null && _previousFocus.activeInHierarchy)
+                UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(_previousFocus);
+            _previousFocus = null;
+        }
+
+        /// <summary>취소 입력도 완료된 경기 결과를 보존하는 기존 중단 명령에 연결한다.</summary>
+        public void OnCancel(UnityEngine.EventSystems.BaseEventData eventData)
+        {
+            StopRequested?.Invoke();
+            eventData.Use();
+        }
+
+        private void OnRectTransformDimensionsChange() => FitDialog();
+
+        private void FitDialog()
+        {
+            if (_modal == null) return;
+            var bounds = ((RectTransform)transform).rect;
+            if (bounds.width <= 0 || bounds.height <= 0) return;
+            float scale = Mathf.Min(1, (bounds.width - 32) / 680, (bounds.height - 32) / 410);
+            _modal.localScale = Vector3.one * Mathf.Max(.1f, scale);
         }
 
         private void Awake()
@@ -192,6 +222,7 @@ namespace Baseball.Presentation.Owner
             Image modalImage = OwnerRuntimeUiFactory.CreateImage(
                 "SeasonSimulationDialog", root, CareerUiTheme.ReferencePanel);
             RectTransform modal = modalImage.rectTransform;
+            _modal = modal;
             modal.anchorMin = modal.anchorMax = new Vector2(0.5f, 0.5f);
             modal.pivot = new Vector2(0.5f, 0.5f);
             modal.sizeDelta = new Vector2(680f, 410f);
@@ -259,6 +290,7 @@ namespace Baseball.Presentation.Owner
 
             Button stopButton = OwnerWorkspaceUiFactory.CreateButton(
                 modal, "StopSimulation", "완료한 경기까지 유지하고 중단", () => StopRequested?.Invoke());
+            _stopButton = stopButton;
             SetRect(stopButton.GetComponent<RectTransform>(), new Vector2(202f, 28f), new Vector2(478f, 82f));
             OwnerUiButtonSkin.Apply(stopButton, OwnerButtonRole.Secondary);
         }

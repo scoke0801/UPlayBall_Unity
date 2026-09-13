@@ -22,6 +22,7 @@ namespace Baseball.Presentation.Owner
         private string _assetKey;
         private Sprite unread;
         private bool _underline;
+        private GameObject _focusFrame;
 
         /// <summary>배경만 교체하고 텍스트·아이콘·콜백과 클릭 영역은 유지한다.</summary>
         public void Configure(Button target, string folder, string prefix, bool isPrimary, bool underline, float backgroundOpacity = 1)
@@ -79,15 +80,32 @@ namespace Baseball.Presentation.Owner
             var oldRule = target.transform.Find("SelectedRule")?.GetComponent<Graphic>();
             if (underline && oldRule != null) oldRule.enabled = false;
             button.targetGraphic = frame; button.transition = Selectable.Transition.SpriteSwap;
+            EnsureFocusFrame();
             Refresh();
         }
 
+        private void EnsureFocusFrame()
+        {
+            if (_focusFrame != null) return;
+            var root = OwnerRuntimeUiFactory.CreateRect("KeyboardFocus", button.transform);
+            OwnerRuntimeUiFactory.Stretch(root, Vector2.one * 2, -Vector2.one * 2);
+            root.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            OwnerDashboardStyle.Rule(root, "Top", Vector2.up, Vector2.one, new Vector2(0, -1), Vector2.zero, OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.Rule(root, "Bottom", Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 1), OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.Rule(root, "Left", Vector2.zero, Vector2.up, Vector2.zero, new Vector2(1, 0), OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.Rule(root, "Right", Vector2.right, Vector2.one, new Vector2(-1, 0), Vector2.zero, OwnerDashboardStyle.Ivory);
+            _focusFrame = root.gameObject;
+            _focusFrame.SetActive(false);
+        }
+
         private void OnEnable() { _hovered = _pressed = false; if (button != null && frame != null) Refresh(); }
-        private void OnDisable() { _hovered = _pressed = _focused = false; }
+        private void OnDisable() { _hovered = _pressed = _focused = false; if (_focusFrame != null) _focusFrame.SetActive(false); }
         private void LateUpdate()
         {
             if (button == null || frame == null) return;
-            if (_lastSelected != (_semantic != null && _semantic.IsSelected) || _lastInteractable != button.IsInteractable()) Refresh();
+            bool focused = EventSystem.current != null && EventSystem.current.currentSelectedGameObject == button.gameObject;
+            if (_focused != focused || _lastSelected != (_semantic != null && _semantic.IsSelected)
+                || _lastInteractable != button.IsInteractable()) Refresh();
         }
 
         public void OnPointerEnter(PointerEventData eventData) { _hovered = true; Refresh(); }
@@ -95,7 +113,8 @@ namespace Baseball.Presentation.Owner
         public void OnPointerDown(PointerEventData eventData) { if (eventData.button == PointerEventData.InputButton.Left) { _pressed = true; Refresh(); } }
         public void OnPointerUp(PointerEventData eventData) { _pressed = false; Refresh(); }
         public void OnSelect(BaseEventData eventData) { _focused = true; Refresh(); }
-        public void OnDeselect(BaseEventData eventData) { _focused = false; Refresh(); }
+        // 모달이 포인터를 가로채면 Exit가 오지 않으므로 임시 강조도 해제한다.
+        public void OnDeselect(BaseEventData eventData) { _focused = _hovered = _pressed = false; Refresh(); }
 
         /// <summary>읽음 상태는 입력 포커스·지속 선택과 독립적으로 갱신한다.</summary>
         public void SetUnread(bool value) { _unread = value; Refresh(); }
@@ -118,6 +137,11 @@ namespace Baseball.Presentation.Owner
             _focused = EventSystem.current != null && EventSystem.current.currentSelectedGameObject == button.gameObject;
             _lastSelected = _semantic != null && _semantic.IsSelected;
             _lastInteractable = button.IsInteractable();
+            if (_focusFrame != null)
+            {
+                _focusFrame.SetActive(_focused && _lastInteractable);
+                if (_focusFrame.activeSelf) _focusFrame.transform.SetAsLastSibling();
+            }
             frame.sprite = _lastSelected && selected != null ? selected : _unread && unread != null ? unread : normal;
             var states = button.spriteState;
             states.highlightedSprite = hover; states.pressedSprite = pressed;

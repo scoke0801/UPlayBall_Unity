@@ -66,7 +66,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_status == null) return;
             _status.text = message ?? string.Empty;
-            _status.color = isError ? new Color(0.72f, 0.16f, 0.12f) : new Color(0.12f, 0.35f, 0.20f);
+            _status.color = isError ? OwnerDashboardStyle.Danger : OwnerDashboardStyle.Success;
         }
 
         /// <summary>저장되지 않은 감독방침이 있을 때만 저장값으로 되돌린다.</summary>
@@ -103,7 +103,8 @@ namespace Baseball.Presentation.Owner
 
             _status = OwnerDugoutDetailUiFactory.CreateLabel(_root, "Status", string.Empty, 0.02f, 0.025f, 0.68f, 0.085f, 13);
             OwnerDugoutDetailUiFactory.CreateButton(_root, "Restore", "되돌리기", 0.70f, 0.02f, 0.82f, 0.085f, Restore);
-            OwnerDugoutDetailUiFactory.CreateButton(_root, "Confirm", "결정", 0.84f, 0.02f, 0.98f, 0.085f, Confirm);
+            var confirm = OwnerDugoutDetailUiFactory.CreateButton(_root, "Confirm", "방침 적용", 0.84f, 0.02f, 0.98f, 0.085f, Confirm);
+            OwnerUiButtonSkin.Apply(confirm, OwnerButtonRole.Primary);
         }
 
         private void BuildAxis(Transform parent, int index)
@@ -117,7 +118,7 @@ namespace Baseball.Presentation.Owner
                 top - 0.055f,
                 0.82f,
                 top - 0.005f);
-            var selector = new OwnerPolicyStepSelector(selectorRect, new Color(0.22f, 0.43f, 0.58f));
+            var selector = new OwnerPolicyStepSelector(selectorRect, OwnerDashboardStyle.Gold);
             _policySelectors[index] = selector;
             int axisIndex = index;
             selector.ValueChanged += _ => OnAxisChanged(axisIndex);

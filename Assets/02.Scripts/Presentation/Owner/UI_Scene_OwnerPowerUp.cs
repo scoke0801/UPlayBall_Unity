@@ -198,7 +198,7 @@ namespace Baseball.Presentation.Owner
         {
             if (_feedback == null) return;
             _feedback.text = message ?? string.Empty;
-            _feedback.color = isError ? CareerUiTheme.Error : new Color32(210, 225, 242, 255);
+            _feedback.color = isError ? OwnerDashboardStyle.Danger : OwnerDashboardStyle.Success;
         }
 
         /// <summary>이미 확정된 Scout 결과를 신규·중복 상태와 함께 Reveal한다.</summary>

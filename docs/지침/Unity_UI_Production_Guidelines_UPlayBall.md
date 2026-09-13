@@ -28,6 +28,16 @@
 
 ## 0. 문서 목적
 
+### 2026-09-13 구단주 전체 리뉴얼 우선 규칙
+
+`docs/todo/UPlayBall_OwnerMode_UI_Renewal_Plan.html`의 명시적 요청에 따라 구단주 일반 작업면은
+ImageGen `UI_Frame_Surface`와 기존 V2 버튼·탭을 사용한다. `OwnerDashboardStyle`에 네이비·골드·상태색을
+모으고 내부 면에는 장식 코너를 반복하지 않는다. 기존 홈 Hero·선수 카드·초상·로고는 보존한다.
+카드 훈련의 3열 목록 폭과 예상 성장 막대, 구단 정보의 평판 게이지·실제 누적 기록은
+[리뉴얼 스타일](../reports/owner-ui-renewal/STYLE.md)을 따른다.
+이번 요청은 에디터·실행 테스트를 제외하므로 완료 보고는 정적 구현과 실행 미검수 항목을 구분한다.
+이 예외는 향후 작업의 일반적인 실행 검수 기준을 제거하지 않는다.
+
 ### 2026-09-12 구단주 메인 개편 우선 규칙
 
 `docs/todo/UPlayBall_Main_UI_Revision_Plan.html`이 지정한 구단주 헤더·홈은 다음을 우선한다.

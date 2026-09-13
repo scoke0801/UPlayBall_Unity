@@ -659,7 +659,11 @@ namespace Baseball.Presentation.Career
             shade.GetComponent<Image>().raycastTarget = true;
             RectTransform modal = CreateImage(name, parent, PanelColor,
                 new Vector2(760f, 390f), Vector2.zero);
-            ApplySettingsPanel(modal);
+            // 확인창은 아래 설정을 가려야 하므로 중첩 업무면의 감광 없이 불투명 PNG를 사용한다.
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+                UIOwnerFrontOfficePanel.Apply(modal, "Surface");
+            else
+                ApplySettingsPanel(modal);
             return modal;
         }
 

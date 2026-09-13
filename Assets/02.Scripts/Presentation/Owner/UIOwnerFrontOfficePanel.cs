@@ -62,11 +62,19 @@ namespace Baseball.Presentation.Owner
         {
             if (_image == null) _image = GetComponent<Image>();
             if (_image == null) return;
-            _image.sprite = UIOwnerFrontOfficeSkin.Load("Frames/UI_Frame_" + frameName);
+            // 일반 업무면은 하나의 얇은 프레임을 공유한다. 홈의 경기·매니저 Hero는 원래 자산을 유지한다.
+            bool isWorkSurface = frameName == "ManagerReport" || frameName == "CompactStrip";
+            _image.sprite = isWorkSurface
+                ? UIOwnerFrontOfficeSkin.Load("Frames/UI_Frame_Surface")
+                : UIOwnerFrontOfficeSkin.Load("Frames/UI_Frame_" + frameName);
             _image.overrideSprite = null;
             _image.type = Image.Type.Sliced;
-            _image.pixelsPerUnitMultiplier = 2f;
+            _image.pixelsPerUnitMultiplier = frameName == "Speech" ? 8f : 2f;
             _image.color = Color.white;
+            // 중첩 패널은 표면 깊이를 더하지 않는다. 제목과 ContentSafeRect는 그대로 유지한다.
+            if (isWorkSurface && transform.parent != null &&
+                transform.parent.GetComponentInParent<UIOwnerFrontOfficePanel>() != null)
+                _image.color = new Color(1, 1, 1, .35f);
             var outline = GetComponent<Outline>();
             if (outline != null) outline.enabled = false;
             var gradient = GetComponent<UIOwnerSurfaceGradient>();

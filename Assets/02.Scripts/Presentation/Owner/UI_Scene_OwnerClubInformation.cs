@@ -53,24 +53,27 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.ClearChildren(transform);
             if (_model == null) return;
             RectTransform root = (RectTransform)transform;
-            UIOwnerFrontOfficePanel.ApplyWorkspace(root);
+            var safe = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", root);
+            OwnerRuntimeUiFactory.Stretch(safe, new Vector2(16, 16), new Vector2(-16, -16));
+            root = safe;
             BuildIdentity(root);
             if (_showOwner) BuildOwnerInformation(root);
             else BuildClubInformation(root);
-            Label(root, "DataNotice", "현재 저장 데이터 기준 · 과거 우승 및 이전 시즌 기록은 집계 완료 후 표시됩니다.",
+            Label(root, "DataNotice", "누적 기록은 이 구단의 진행 이력 기준입니다. 자세한 시즌 성적은 구단 기록실에서 확인하세요.",
                 .025f, .012f, .975f, .055f, 12, Muted, TextAnchor.MiddleLeft);
         }
 
         private void BuildIdentity(RectTransform root)
         {
-            RectTransform card = Surface(root, "Identity", new Color32(19, 21, 24, 255), .025f, .69f, .49f, .955f, true);
-            RectTransform emblemBox = Surface(card, "EmblemBox", new Color32(239, 241, 243, 255), .018f, .08f, .27f, .92f, true);
+            RectTransform card = Surface(root, "Identity", OwnerDashboardStyle.Surface, .025f, .69f, .49f, .955f);
+            UIOwnerFrontOfficePanel.Apply(card, "ManagerReport");
+            RectTransform emblemBox = Surface(card, "EmblemBox", Color.clear, .025f, .12f, .27f, .88f);
             Image emblem = OwnerRuntimeUiFactory.CreateImage("Emblem", emblemBox, Color.white);
             Place(emblem.rectTransform, .08f, .08f, .92f, .92f);
             TeamEmblemSprites.TryApply(emblem, 0, _model.EmblemTeamName);
             Label(card, "NameCaption", "구 단 명", .31f, .56f, .47f, .86f, 15, Lime, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(card, "TeamName", _model.TeamName, .47f, .56f, .96f, .86f, 22, White, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Surface(card, "Divider", new Color32(58, 61, 66, 255), .3f, .49f, .98f, .505f);
+            Surface(card, "Divider", Grid, .31f, .49f, .96f, .495f);
             Label(card, "LocationCaption", "연 고 지", .31f, .16f, .47f, .45f, 15, Lime, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(card, "Location", _model.LocationLabel, .47f, .16f, .96f, .45f, 17, White, TextAnchor.MiddleLeft, FontStyle.Bold);
         }
@@ -78,29 +81,27 @@ namespace Baseball.Presentation.Owner
         private void BuildOwnerInformation(RectTransform root)
         {
             RectTransform metrics = Panel(root, "Prestige", "구단 평판", .51f, .69f, .975f, .955f);
-            Metric(metrics, "명성", _model.PopularityText, "현재 인기도", .02f, .49f);
-            Metric(metrics, "팬 기반", _model.FanBaseText, "구단 지지 규모", .51f, .98f);
+            Metric(metrics, "명성", _model.PopularityText, "현재 인기도 / 100", _model.Popularity, .04f, .48f);
+            Metric(metrics, "팬 기반", _model.FanBaseText, "구단 지지 규모 / 100", _model.FanBase, .52f, .96f);
 
             RectTransform history = Panel(root, "OwnerHistory", "구단주 기록 정보", .025f, .08f, .49f, .665f);
             InfoBand(history, "구단주", _model.OwnerName, .82f);
             InfoBand(history, "소속 구단", _model.TeamName, .69f);
             Section(history, "현재 시즌 성적", .59f);
-            GridRow(history, .48f, new[] { "경기", "승", "패", "무" }, new[]
-            {
-                _model.Games.ToString(), _model.Wins.ToString(), _model.Losses.ToString(), _model.Ties.ToString()
-            });
-            GridRow(history, .34f, new[] { "순위", "승률", "득점", "실점" }, new[]
+            SeasonHeadline(history, .43f, .59f);
+            GridRow(history, .30f, new[] { "순위", "승률", "득점", "실점" }, new[]
             {
                 RankText(), _model.WinningPercentage, _model.Runs.ToString(), _model.RunsAllowed.ToString()
             });
-            Section(history, "누적 구단 기록", .22f);
-            GridRow(history, .08f, new[] { "우승", "준우승", "승격", "강등" }, new[] { "—", "—", "—", "—" });
+            Section(history, "누적 구단 기록", .20f);
+            HonorSlots(history);
 
             RectTransform manager = Panel(root, "FrontManager", "프런트 매니저", .51f, .08f, .975f, .665f);
             Image office = OwnerRuntimeUiFactory.CreateImage("Office", manager, Color.white);
             office.sprite = Resources.Load<Sprite>("UI/Generated/bg_owner_container_office_v2");
             office.type = Image.Type.Simple;
             office.preserveAspect = false;
+            office.gameObject.AddComponent<RectMask2D>();
             Place(office.rectTransform, .02f, .23f, .98f, .87f);
             Image shade = OwnerRuntimeUiFactory.CreateImage("Shade", office.transform, new Color(0f, 0f, 0f, .38f));
             OwnerRuntimeUiFactory.Stretch(shade.rectTransform);
@@ -108,9 +109,10 @@ namespace Baseball.Presentation.Owner
             portrait.sprite = FrontManagerPortraitSprites.LoadForManager(_model.FrontManagerId, "FM_WELCOME");
             portrait.preserveAspect = true;
             Place(portrait.rectTransform, .45f, .02f, 1f, .98f);
-            RectTransform speech = Surface(office.rectTransform, "Speech", OwnerDashboardStyle.TableHeader, .04f, .56f, .63f, .91f, true);
-            Label(speech, "Message", "이번 시즌의 모든 결정은 기록으로 남습니다.\n구단의 현재 상태를 함께 확인해요.",
-                .06f, .1f, .94f, .9f, 15, Ink, TextAnchor.MiddleLeft);
+            RectTransform speech = Surface(office.rectTransform, "Speech", OwnerDashboardStyle.TableHeader, .04f, .50f, .59f, .91f);
+            UIOwnerFrontOfficePanel.Apply(speech, "Speech");
+            Label(speech, "Message", "다음 승리를 준비해요.\n구단의 현재 상태를\n함께 확인하세요.",
+                .10f, .18f, .83f, .82f, 15, Ink, TextAnchor.MiddleLeft);
             _changeManagerButton = OwnerWorkspaceUiFactory.CreateButton(manager, "ChangeFrontManager", "매니저 교체",
                 () => ChangeFrontManagerRequested?.Invoke());
             Place((RectTransform)_changeManagerButton.transform, .65f, .12f, .96f, .215f);
@@ -129,8 +131,8 @@ namespace Baseball.Presentation.Owner
                 _model.NormalCardCount.ToString(), _model.AllStarCardCount.ToString(),
                 _model.GoldenGloveCardCount.ToString(), _model.MvpCardCount.ToString()
             });
-            Label(roster, "Watermark", "프로야구 구단주", .04f, .25f, .96f, .37f, 18,
-                new Color32(216, 219, 222, 255), TextAnchor.MiddleCenter, FontStyle.Bold);
+            Label(roster, "RosterHint", "선수단에서 현재 편성을 확인하고\n전력보강에서 다음 성장을 준비하세요.", .04f, .25f, .96f, .37f, 15,
+                Muted, TextAnchor.MiddleCenter);
             Section(roster, "현재 구단 운영", .18f);
             GridRow(roster, .035f, new[] { "인기도", "팬 기반", "순위", "승률" }, new[]
             {
@@ -139,10 +141,7 @@ namespace Baseball.Presentation.Owner
 
             RectTransform season = Panel(root, "Season", "현재 리그 성적", .51f, .47f, .975f, .955f);
             InfoBand(season, "시즌 / 리그", _model.LeagueLabel, .78f);
-            GridRow(season, .5f, new[] { "경기", "승", "패", "무" }, new[]
-            {
-                _model.Games.ToString(), _model.Wins.ToString(), _model.Losses.ToString(), _model.Ties.ToString()
-            });
+            SeasonHeadline(season, .43f, .69f);
             GridRow(season, .22f, new[] { "순위", "승률", "득점", "실점" }, new[]
             {
                 RankText(), _model.WinningPercentage, _model.Runs.ToString(), _model.RunsAllowed.ToString()
@@ -153,14 +152,42 @@ namespace Baseball.Presentation.Owner
             Label(previous, "HistoryEmptyDetail", "완료된 시즌의 상세 성적은 구단 기록실에서 확인하세요.", .06f, .20f, .94f, .43f, 14, Muted);
         }
 
-        private void Metric(RectTransform host, string title, string value, string note, float minX, float maxX)
+        private void Metric(RectTransform host, string title, string value, string note, float amount, float minX, float maxX)
         {
-            RectTransform box = Surface(host, "Metric_" + title, OwnerDashboardStyle.TableAlternate, minX, .08f, maxX, .84f, true);
-            Surface(box, "GoldBar", Gold, 0f, .86f, 1f, 1f);
+            RectTransform box = Surface(host, "Metric_" + title, Color.clear, minX, .08f, maxX, .84f);
             Label(box, "Title", title, .04f, .47f, .46f, .82f, 18, Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(box, "Value", value, .47f, .44f, .95f, .84f, 32, Ink, TextAnchor.MiddleRight, FontStyle.Bold);
-            Label(box, "Note", note, .05f, .08f, .95f, .4f, 12, Muted);
+            Label(box, "Note", note, .05f, .04f, .95f, .27f, 12, Muted);
+            var gauge = UIOwnerMetricBar.Create(box, "ReputationGauge");
+            Place((RectTransform)gauge.transform, .05f, .31f, .95f, .36f);
+            gauge.Bind(amount, amount, 100);
         }
+
+        private void SeasonHeadline(RectTransform parent, float bottom, float top)
+        {
+            Label(parent, "SeasonRecord", _model.Games == 0 ? "시즌 개막을 기다리고 있습니다" : $"{_model.Wins}승  {_model.Losses}패",
+                .05f, bottom + .05f, .95f, top, _model.Games == 0 ? 20 : 32, Gold, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Label(parent, "SeasonRecordDetail", $"{_model.Games}경기 · {_model.Ties}무 · 승률 {_model.WinningPercentage}",
+                .05f, bottom, .95f, bottom + .05f, 12, Muted, TextAnchor.MiddleLeft);
+        }
+
+        private void HonorSlots(RectTransform parent)
+        {
+            string[] labels = { "우승", "준우승", "승격", "강등" };
+            int[] counts = { _model.Championships, _model.RunnerUps, _model.Promotions, _model.Relegations };
+            for (int index = 0; index < labels.Length; index++)
+            {
+                float left = .04f + index * .24f;
+                var slot = OwnerRuntimeUiFactory.CreateRect("HonorSlot" + index, parent);
+                Place(slot, left, .04f, left + .20f, .21f);
+                var badge = UIOwnerFrontOfficeSkin.CreateBadge(slot, "Badge", "Count", 28);
+                Place(badge.rectTransform, .28f, .33f, .72f, 1f);
+                badge.color = counts[index] > 0 ? Color.white : OwnerDashboardStyle.Muted;
+                Label(slot, "Count", _model.HasHistory ? counts[index].ToString() : "—", .28f, .33f, .72f, 1f, 17, OwnerDashboardStyle.Ivory, TextAnchor.MiddleCenter);
+                Label(slot, "Caption", labels[index], 0, 0, 1, .33f, 12, Muted);
+            }
+        }
+
 
         private static RectTransform Panel(RectTransform parent, string name, string title, float minX, float minY, float maxX, float maxY)
         {
@@ -174,14 +201,15 @@ namespace Baseball.Presentation.Owner
 
         private static void InfoBand(RectTransform parent, string caption, string value, float y)
         {
-            RectTransform band = Surface(parent, "Info_" + caption, OwnerDashboardStyle.TableAlternate, .025f, y - .09f, .975f, y, true);
+            RectTransform band = Surface(parent, "Info_" + caption, Color.clear, .025f, y - .09f, .975f, y);
             Label(band, "Caption_" + caption, caption, .0263f, 0f, .3316f, 1f, 14, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
             Label(band, "Value_" + caption, value, .3421f, 0f, .9632f, 1f, 16, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
         }
 
         private static void Section(RectTransform parent, string title, float y)
         {
-            RectTransform section = Surface(parent, "Section_" + title, OwnerDashboardStyle.TableHeader, .025f, y, .975f, y + .085f, true);
+            RectTransform section = Surface(parent, "Section_" + title, Color.clear, .025f, y, .975f, y + .085f);
+            OwnerDashboardStyle.Rule(section, "Rule", Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 1), Grid);
             Label(section, "SectionLabel_" + title, title, .016f, 0f, .984f, 1f, 14, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
         }
 
@@ -191,7 +219,7 @@ namespace Baseball.Presentation.Owner
             for (int index = 0; index < captions.Length; index++)
             {
                 float left = .025f + index * width;
-                RectTransform cell = Surface(parent, "Cell_" + y + "_" + index, OwnerDashboardStyle.TableAlternate, left, y, left + width - .008f, y + .12f, true);
+                RectTransform cell = Surface(parent, "Cell_" + y + "_" + index, Color.clear, left, y, left + width - .008f, y + .12f);
                 Label(cell, "Caption", captions[index], 0f, .51f, 1f, 1f, 12, Blue, TextAnchor.MiddleCenter, FontStyle.Bold);
                 Label(cell, "Value", values[index], 0f, 0f, 1f, .55f, 21, Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
             }

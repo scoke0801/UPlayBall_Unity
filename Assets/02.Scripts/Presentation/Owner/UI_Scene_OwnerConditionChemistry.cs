@@ -20,6 +20,7 @@ namespace Baseball.Presentation.Owner
         private OwnerConditionChemistryPresentationModel _model;
         private string _selectedPlayerId = string.Empty;
         private bool _isBuilt;
+        private readonly List<Button> _rowButtons = new List<Button>();
 
         public event Action<string> PlayerSelected;
         public event Action LineupRequested;
@@ -125,7 +126,7 @@ namespace Baseball.Presentation.Owner
 
         private void BuildTableHeader(Transform parent)
         {
-            Image header = OwnerRuntimeUiFactory.CreateImage("TableHeader", parent, CareerUiTheme.RoleBand);
+            Image header = OwnerRuntimeUiFactory.CreateImage("TableHeader", parent, OwnerDashboardStyle.TableHeader);
             header.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
             OwnerRuntimeUiFactory.SetAnchors(header.rectTransform, new Vector2(0f, 0.855f), new Vector2(1f, 0.925f),
                 Vector2.zero, Vector2.zero);
@@ -137,13 +138,14 @@ namespace Baseball.Presentation.Owner
         private void RenderPlayers(IReadOnlyList<OwnerConditionPlayerPresentationRow> players)
         {
             OwnerRuntimeUiFactory.ClearChildren(_playerContent);
+            _rowButtons.Clear();
             for (int index = 0; index < players.Count; index++)
                 CreatePlayerRow(players[index], index);
         }
 
         private void CreatePlayerRow(OwnerConditionPlayerPresentationRow row, int index)
         {
-            Color surfaceColor = index % 2 == 0 ? CareerUiTheme.SurfaceSubtle : CareerUiTheme.PanelDark;
+            Color surfaceColor = index % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate;
             Image surface = OwnerRuntimeUiFactory.CreateImage(
                 string.Concat("Player_", row.Snapshot.PlayerPersonId),
                 _playerContent,
@@ -155,6 +157,8 @@ namespace Baseball.Presentation.Owner
             surface.raycastTarget = true;
             Button button = surface.gameObject.AddComponent<Button>();
             button.targetGraphic = surface;
+            OwnerDashboardStyle.SetDataRow(button, row.Snapshot.PlayerPersonId == _selectedPlayerId, surfaceColor);
+            _rowButtons.Add(button);
             string playerId = row.Snapshot.PlayerPersonId;
             button.onClick.AddListener(() => SelectPlayer(playerId));
 
@@ -191,11 +195,19 @@ namespace Baseball.Presentation.Owner
 
         private void RenderSelection(OwnerConditionPlayerPresentationRow row)
         {
+            for (int index = 0; index < _rowButtons.Count; index++)
+                OwnerDashboardStyle.SetDataRow(_rowButtons[index], row != null && _model != null &&
+                    _model.Players[index].Snapshot.PlayerPersonId == row.Snapshot.PlayerPersonId,
+                    index % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate);
             OwnerRuntimeUiFactory.ClearChildren(_plotContent);
             if (row == null)
             {
                 _detailTitle.text = "선수를 선택하세요.";
                 _detailText.text = "다음 경기에 적용될 컨디션과 궁합 근거가 이곳에 표시됩니다.";
+                var empty = OwnerRuntimeUiFactory.CreateText("EmptyCondition", _plotContent,
+                    "표시할 컨디션이 없습니다.\n다음 경기와 등록 선수를 확인하세요.", 16, FontStyle.Normal,
+                    TextAnchor.MiddleCenter, OwnerDashboardStyle.Muted);
+                OwnerRuntimeUiFactory.Stretch(empty.rectTransform, Vector2.one * 16, -Vector2.one * 16);
                 return;
             }
 
@@ -235,6 +247,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerRuntimeUiFactory.CreateText(
                 name, parent, value, 14, FontStyle.Normal, alignment, CareerUiTheme.TextSecondary);
+            OwnerDashboardStyle.SetDataText(text);
             OwnerRuntimeUiFactory.SetAnchors(
                 text.rectTransform,
                 new Vector2(anchorMinX, 0f),

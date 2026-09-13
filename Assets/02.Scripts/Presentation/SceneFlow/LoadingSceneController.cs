@@ -40,6 +40,16 @@ namespace Baseball.Presentation.SceneFlow
             _progressBar.maxValue = 1f;
             _progressBar.SetValueWithoutNotify(0f);
             CareerUiSkin.ApplySlider(_progressBar);
+            if (Baseball.Presentation.Owner.UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                var track = _progressBar.GetComponent<Image>();
+                if (track != null) Baseball.Presentation.Owner.OwnerDashboardStyle.ApplyInset(track);
+                var fill = _progressBar.fillRect != null ? _progressBar.fillRect.GetComponent<Image>() : null;
+                if (fill != null) Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataSurface(fill,
+                    Baseball.Presentation.Owner.OwnerDashboardStyle.Gold);
+                Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataText(_statusLabel);
+                _statusLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            }
         }
 
         private IEnumerator Start()

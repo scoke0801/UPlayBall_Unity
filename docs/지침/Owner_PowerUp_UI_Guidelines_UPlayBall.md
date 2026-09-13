@@ -1,5 +1,10 @@
 # 구단주 모드 전력보강 UI 구현 지침
 
+> 2026-09-13 전체 UI 리뉴얼 우선 규칙: 카드 훈련의 목록은 3열과 min 320 / preferred 432 너비를 사용하고
+> 남은 폭을 카드 상세·과정에 배분한다. 기존 34/28/38 비율보다 우선한다. 과정은 박스 대신 공용 데이터 행,
+> 현재/예상 막대·초록 증감을 표시한다. Preview·비용·확인 Command 계약은 유지한다.
+> [공용 스타일·검증 범위](../reports/owner-ui-renewal/README.md)를 따른다.
+
 ## 목적과 적용 범위
 
 이 문서는 구단주 모드의 `Owner.PowerUp.Scout`, `Owner.PowerUp.Training`,

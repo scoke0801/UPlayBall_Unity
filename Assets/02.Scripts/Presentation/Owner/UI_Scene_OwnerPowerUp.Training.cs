@@ -19,6 +19,7 @@ namespace Baseball.Presentation.Owner
             public Text Value;
             public Text Cost;
             public Image Marker;
+            public UIOwnerMetricBar Progress;
         }
 
         private GameObject _trainingConfirmationFocus;
@@ -44,6 +45,11 @@ namespace Baseball.Presentation.Owner
             var columns = OwnerWorkspaceUiFactory.AddHorizontalLayout(_trainingRoot, CareerUiTheme.Space3);
             columns.padding = new RectOffset(0, 0, 0, 36);
             RectTransform left = CreateTrainingColumn("TrainingTargets", .34f, "보유 선수");
+            // 세 열의 실제 카드 폭에 맞춰 목록의 상한을 고정하고 남는 폭은 상세에 배분한다.
+            var inventoryWidth = left.parent.GetComponent<LayoutElement>();
+            inventoryWidth.minWidth = 320;
+            inventoryWidth.preferredWidth = 432;
+            inventoryWidth.flexibleWidth = 0;
             OwnerWorkspaceUiFactory.AddVerticalLayout(left, 8);
             BuildTrainingFilters(left);
             BuildTrainingListToolbar(left);
@@ -71,7 +77,7 @@ namespace Baseball.Presentation.Owner
             OwnerWorkspaceUiFactory.AddVerticalLayout(right, 8);
             _trainingWallet = TrainingText(right, "TrainingWallet", 32, 19, TextAnchor.MiddleRight);
             _trainingWallet.color = CareerUiTheme.AccentGold;
-ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", right, out _trainingProgramList);
+            ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", right, out _trainingProgramList);
             StyleTrainingScroll(_trainingProgramList);
             SetPreferred(scroll.GetComponent<RectTransform>(), 120, 1);
             _trainingProgramList.GetComponent<VerticalLayoutGroup>().spacing = 4;
@@ -93,9 +99,6 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             SetTrainingSurface(panel.Find("HeaderAccent").GetComponent<Image>(), CareerUiTheme.RosterDivider);
             // 투명한 전면 Image의 Outline은 원본 알파를 무시하면 패널 전체를 덮는다.
             panel.Find("ThinBorder").gameObject.SetActive(false);
-            var outline = panel.gameObject.AddComponent<Outline>();
-            outline.effectColor = CareerUiTheme.RosterDivider;
-            outline.effectDistance = new Vector2(1, -1);
             Text header = panel.GetComponent<CareerUiFrame>().HeaderRoot.GetComponent<Text>();
             header.color = CareerUiTheme.RosterText;
             header.fontStyle = FontStyle.Normal;
@@ -148,7 +151,7 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             Image surface = content.GetComponentInParent<ScrollRect>().GetComponent<Image>();
             SetTrainingSurface(surface, CareerUiTheme.RosterBoard);
             surface.raycastTarget = true;
-            surface.GetComponent<Outline>().effectColor = CareerUiTheme.RosterDivider;
+            OwnerDashboardStyle.SetDataSurface(surface, OwnerDashboardStyle.TableSurface, true);
         }
 
         private void ClearTrainingPrograms()
@@ -165,7 +168,7 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             Button button = OwnerWorkspaceUiFactory.CreateButton(_trainingProgramList,
                 "Program_" + program.ProgramId, program.Title, () => SelectTrainingProgram(program.ProgramId));
             SetPreferred(button.GetComponent<RectTransform>(), 72);
-            OwnerUiButtonSkin.SetBoardStyle(button);
+            OwnerDashboardStyle.SetDataRow(button, false, OwnerDashboardStyle.TableSurface);
             Text title = button.transform.Find("Label").GetComponent<Text>();
             title.fontStyle = FontStyle.Normal;
             title.fontSize = 15;
@@ -176,14 +179,17 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             OwnerRuntimeUiFactory.SetAnchors(value.rectTransform, new Vector2(.46f, .48f), Vector2.one,
                 Vector2.zero, new Vector2(-16, -4));
             Text cost = OwnerWorkspaceUiFactory.CreateText(button.transform, "TrainingCost", "", 12, FontStyle.Normal, TextAnchor.MiddleLeft);
-            OwnerRuntimeUiFactory.SetAnchors(cost.rectTransform, Vector2.zero, new Vector2(1, .48f),
-                new Vector2(16, 4), new Vector2(-16, 0));
+            OwnerRuntimeUiFactory.SetAnchors(cost.rectTransform, new Vector2(0, .14f), new Vector2(1, .48f),
+                new Vector2(16, 2), new Vector2(-16, 0));
+            var progress = UIOwnerMetricBar.Create(button.transform, "GrowthBar");
+            OwnerRuntimeUiFactory.SetAnchors((RectTransform)progress.transform, Vector2.zero, Vector2.right,
+                new Vector2(16, 4), new Vector2(-16, 8));
             Image marker = OwnerRuntimeUiFactory.CreateImage("SelectionMarker", button.transform, CareerUiTheme.RosterAccent);
             SetTrainingSurface(marker, CareerUiTheme.RosterAccent);
             OwnerRuntimeUiFactory.SetAnchors(marker.rectTransform, Vector2.zero, new Vector2(0, 1),
                 new Vector2(4, 12), new Vector2(7, -12));
             button.gameObject.AddComponent<UICardGridFocusRelay>().Selected = () => RevealTrainingProgram(button);
-            _trainingPrograms.Add(new TrainingProgramView { Program = program, Button = button, Value = value, Cost = cost, Marker = marker });
+            _trainingPrograms.Add(new TrainingProgramView { Program = program, Button = button, Value = value, Cost = cost, Marker = marker, Progress = progress });
         }
 
         private void ResizeTrainingPrograms()
@@ -191,7 +197,7 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             if (!_trainingRoot.gameObject.activeInHierarchy) return;
             var inventory = _trainingCardList.GetComponentInParent<ScrollRect>();
             var grid = _trainingCardList.GetComponent<GridLayoutGroup>();
-            float width = Mathf.Clamp((inventory.viewport.rect.width - grid.padding.horizontal - grid.spacing.x * 2) / 3, 72, 144);
+            float width = Mathf.Max(1, (inventory.viewport.rect.width - grid.padding.horizontal - grid.spacing.x * 2) / 3);
             grid.cellSize = new Vector2(width, width * 1.5f);
             if (_trainingPrograms.Count == 0) return;
             ScrollRect scroll = _trainingProgramList.GetComponentInParent<ScrollRect>();
@@ -225,10 +231,11 @@ ScrollRect scroll = OwnerRuntimeUiFactory.CreateVerticalScroll("ProgramScroll", 
             {
                 var program = view.Program;
                 bool selected = program.ProgramId == _selectedTrainingProgramId;
-                OwnerUiButtonSkin.SetSelected(view.Button, selected);
+                OwnerDashboardStyle.SetDataRow(view.Button, selected, OwnerDashboardStyle.TableSurface);
                 view.Marker.gameObject.SetActive(selected);
-                view.Value.text = program.CanTrain ? $"{program.Current} → {program.Current + program.GainedPoints}" : program.Current.ToString();
-                view.Value.color = program.CanTrain ? CareerUiTheme.RosterText : CareerUiTheme.RosterTextSecondary;
+                view.Value.text = program.CanTrain ? $"{program.Current} → {program.Current + program.GainedPoints}  (+{program.GainedPoints})" : program.Current.ToString();
+                view.Value.color = program.CanTrain ? OwnerDashboardStyle.Success : OwnerDashboardStyle.Muted;
+                view.Progress.Bind(program.Current, program.Current + (program.CanTrain ? program.GainedPoints : 0), program.Ceiling);
                 view.Cost.text = program.CanTrain
                     ? $"훈련 상한 {program.Ceiling}   ·   {program.DpCost:N0} 포인트"
                     : program.BlockedReason.Replace("DP", "육성 포인트");

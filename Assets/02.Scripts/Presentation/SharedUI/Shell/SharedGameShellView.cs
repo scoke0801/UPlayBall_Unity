@@ -510,6 +510,8 @@ namespace Baseball.Presentation.SharedUI
                 ? Color.clear
                 : CareerUiTheme.ShellBackdropTint;
             _modeBackground.gameObject.SetActive(!_isChromeOverlayMode && _modeBackground.sprite != null);
+            Baseball.Presentation.Owner.OwnerDashboardStyle.ApplyBackdrop(_modeBackground,
+                _profile != null && _profile.Mode == UiGameMode.OwnerCareer);
             if (_modeBackground.sprite != null)
             {
                 var fitter = _modeBackground.GetComponent<AspectRatioFitter>();

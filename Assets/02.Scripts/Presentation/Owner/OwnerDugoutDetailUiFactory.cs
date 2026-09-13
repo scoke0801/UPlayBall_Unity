@@ -121,6 +121,7 @@ namespace Baseball.Presentation.Owner
                 bool isAllowed = index >= _minimum && index <= _maximum;
                 bool isSelected = index == _value;
                 _buttons[index].interactable = isAllowed;
+                OwnerUiButtonSkin.SetSelected(_buttons[index], isSelected);
                 _surfaces[index].sprite = null;
                 _surfaces[index].type = Image.Type.Simple;
                 _surfaces[index].color = isSelected

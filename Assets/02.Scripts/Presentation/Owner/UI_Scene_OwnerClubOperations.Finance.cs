@@ -93,7 +93,6 @@ namespace Baseball.Presentation.Owner
             SetLayout(button.GetComponent<RectTransform>(), x, .025f, right, .085f, 0f);
             button.GetComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
             Text label = button.transform.Find("Label").GetComponent<Text>();
-            label.gameObject.AddComponent<CareerUiPreserveTextColor>();
             button.GetComponent<Image>().color = primary ? UIClubOfficeStyle.Blue : Color.white;
             label.color = primary ? Color.white : UIClubOfficeStyle.Ink;
             OwnerUiButtonSkin.Apply(button, primary ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);

@@ -20,8 +20,8 @@ namespace Baseball.Presentation.SharedUI
             float chromeHeight = headerHeight + navigationHeight;
             SetAnchors(_globalTopBar, new Vector2(0f, 1f), Vector2.one,
                 new Vector2(0f, -headerHeight), Vector2.zero);
-            _globalTopBar.GetComponent<Image>().color = TopBar;
-            _globalTopBar.Find("BottomBorder").GetComponent<Image>().color = isOwner ? CareerUiTheme.ReferenceBorder : GoldAccent;
+            _globalTopBar.GetComponent<Image>().color = isOwner ? OwnerDashboardStyle.Ink : TopBar;
+            _globalTopBar.Find("BottomBorder").GetComponent<Image>().color = isOwner ? OwnerDashboardStyle.Line : GoldAccent;
             if (_ownerStatusPlate == null)
             {
                 _ownerStatusPlate = CreateAnchoredImage("OwnerStatusPlate", _globalTopBar, TopBar,
@@ -29,6 +29,7 @@ namespace Baseball.Presentation.SharedUI
                 _ownerStatusPlate.SetAsFirstSibling();
             }
             _ownerStatusPlate.gameObject.SetActive(isOwner);
+            if (isOwner) _ownerStatusPlate.GetComponent<Image>().color = OwnerDashboardStyle.Ink;
             RectTransform brand = (RectTransform)_globalTopBar.Find("Brand");
             SetAnchors(brand, Vector2.zero, new Vector2(isOwner ? .13f : 0f, 1f),
                 new Vector2(20f, 0f), new Vector2(isOwner ? -12f : 250f, 0f));

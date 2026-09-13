@@ -83,7 +83,7 @@ namespace Baseball.Presentation.Owner
         {
             EnsureBuilt();
             _startStateText.text = string.IsNullOrWhiteSpace(message) ? "작업 결과가 없습니다." : message;
-            _startStateText.color = isError ? CareerUiTheme.Error : CareerUiTheme.Success;
+            _startStateText.color = isError ? OwnerDashboardStyle.Danger : OwnerDashboardStyle.Success;
         }
 
         private void OnDestroy()

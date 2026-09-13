@@ -27,7 +27,7 @@ namespace Baseball.Presentation.Owner
                 { _honor = _honor == captured ? -1 : captured; Render(); });
                 _honors[i] = button;
                 Place((RectTransform)button.transform, i / 3f + .004f, 0f, (i + 1) / 3f - .004f, 1f);
-                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Primary);
+                OwnerUiButtonSkin.Apply(button, OwnerButtonRole.Secondary);
                 var content = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", button.transform);
                 OwnerRuntimeUiFactory.Stretch(content, Vector2.one * CareerUiTheme.Space4,
                     -Vector2.one * CareerUiTheme.Space4);

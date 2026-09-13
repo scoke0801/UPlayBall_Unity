@@ -173,7 +173,8 @@ namespace Baseball.Presentation.Owner
             _status = OwnerDugoutDetailUiFactory.CreateLabel(_root, "Status", string.Empty, 0.02f, 0.025f, 0.98f, 0.085f, 13);
             _editorStatus = OwnerDugoutDetailUiFactory.CreateLabel(_editor, "Status", string.Empty, 0.03f, 0.035f, 0.62f, 0.115f, 12);
             OwnerDugoutDetailUiFactory.CreateButton(_editor, "Restore", "되돌리기", 0.65f, 0.035f, 0.80f, 0.115f, Restore);
-            OwnerDugoutDetailUiFactory.CreateButton(_editor, "Confirm", "결정", 0.82f, 0.035f, 0.975f, 0.115f, Confirm);
+            var confirm = OwnerDugoutDetailUiFactory.CreateButton(_editor, "Confirm", "작전 적용", 0.82f, 0.035f, 0.975f, 0.115f, Confirm);
+            OwnerUiButtonSkin.Apply(confirm, OwnerButtonRole.Primary);
             _editorScrim.gameObject.SetActive(false);
             _editor.gameObject.SetActive(false);
         }

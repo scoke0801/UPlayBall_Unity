@@ -7,21 +7,40 @@ namespace Baseball.Presentation.Owner
     /// <summary>홈과 매니저 리포트가 공유하는 재질·타이포그래피 규격이다.</summary>
     public static class OwnerDashboardStyle
     {
-        public static readonly Color Ink = new Color32(18, 27, 34, 255);
-        public static readonly Color Surface = new Color32(23, 33, 42, 248);
-        public static readonly Color Raised = new Color32(42, 57, 69, 255);
-        public static readonly Color Gold = new Color32(218, 187, 123, 255);
-        public static readonly Color Ivory = new Color32(239, 235, 222, 255);
-        public static readonly Color Muted = new Color32(155, 168, 175, 255);
-        public static readonly Color Line = new Color32(111, 130, 144, 65);
+        public static readonly Color Ink = new Color32(7, 17, 28, 255);
+        public static readonly Color Surface = new Color32(13, 27, 42, 248);
+        public static readonly Color Raised = new Color32(18, 38, 56, 255);
+        public static readonly Color Gold = new Color32(220, 184, 106, 255);
+        public static readonly Color Ivory = new Color32(237, 243, 248, 255);
+        public static readonly Color Muted = new Color32(156, 175, 191, 255);
+        public static readonly Color Line = new Color32(41, 70, 93, 255);
+        public static readonly Color Info = new Color32(92, 169, 223, 255);
+        public static readonly Color Success = new Color32(99, 197, 141, 255);
+        public static readonly Color Danger = new Color32(237, 123, 117, 255);
 
         // 기록표는 장식 프레임 안에서도 불투명한 저대비 작업면을 유지한다.
-        public static readonly Color TableSurface = new Color32(32, 42, 53, 255);
-        public static readonly Color TableAlternate = new Color32(37, 49, 62, 255);
-        public static readonly Color TableHeader = new Color32(43, 55, 69, 255);
-        public static readonly Color TableSelected = new Color32(48, 65, 81, 255);
-        public static readonly Color TableSecondary = new Color32(170, 183, 197, 255);
-        public static readonly Color InsetSurface = new Color32(15, 31, 46, 255);
+        public static readonly Color TableSurface = new Color32(13, 27, 42, 255);
+        public static readonly Color TableAlternate = new Color32(16, 32, 48, 255);
+        public static readonly Color TableHeader = new Color32(18, 38, 56, 255);
+        public static readonly Color TableSelected = new Color32(32, 58, 78, 255);
+        public static readonly Color TableSecondary = Muted;
+        public static readonly Color InsetSurface = TableSurface;
+
+        /// <summary>환경 원화 위의 본문 가독성을 위해 구단주 페이지에만 82% 차광을 적용한다.</summary>
+        public static void ApplyBackdrop(Image background, bool enabled)
+        {
+            var shade = background.transform.Find("OwnerReadability");
+            if (shade == null && enabled)
+            {
+                var image = OwnerRuntimeUiFactory.CreateImage("OwnerReadability", background.transform,
+                    new Color(Ink.r, Ink.g, Ink.b, .82f));
+                OwnerRuntimeUiFactory.Stretch(image.rectTransform);
+                image.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+                image.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+                shade = image.transform;
+            }
+            if (shade != null) shade.gameObject.SetActive(enabled);
+        }
 
         /// <summary>업무 구획의 제목 띠와 본문 음영을 분리한다. 장식은 입력을 받지 않는다.</summary>
         public static void ApplySection(Image image, float headingHeight = 36f)
@@ -54,8 +73,6 @@ namespace Baseball.Presentation.Owner
             edge.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             Rule(edge, "Top", Vector2.up, Vector2.one, new Vector2(0, -1), Vector2.zero, Line);
             Rule(edge, "Bottom", Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 1), Ink);
-            Rule(edge, "Left", Vector2.zero, Vector2.up, Vector2.zero, new Vector2(1, 0), Line);
-            Rule(edge, "Right", Vector2.right, Vector2.one, new Vector2(-1, 0), Vector2.zero, Ink);
         }
 
         /// <summary>공용 하단 행동 영역에 V2 띠를 연결한다.</summary>
@@ -146,6 +163,7 @@ namespace Baseball.Presentation.Owner
             var rect = (RectTransform)control.transform;
             if (rect.Find("DataFocus") != null) return;
             var focus = OwnerRuntimeUiFactory.CreateRect("DataFocus", rect);
+            OwnerRuntimeUiFactory.Stretch(focus);
             focus.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
             Rule(focus, "Top", Vector2.up, Vector2.one, new Vector2(0, -1), Vector2.zero, TableSecondary);
             Rule(focus, "Bottom", Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 1), TableSecondary);

@@ -1,0 +1,9 @@
+<Project>
+  <!-- Unity를 열지 않아 갱신되지 않은 생성 csproj에 신규 UI 소스만 보충한다. -->
+  <Target Name="IncludeOwnerRenewalSources" BeforeTargets="CoreCompile" Condition="'$(MSBuildProjectName)' == 'Baseball.Presentation'">
+    <ItemGroup>
+      <Compile Include="$(MSBuildProjectDirectory)/Assets/02.Scripts/Presentation/Owner/UIOwnerMetricBar.cs"
+               Exclude="@(Compile)" />
+    </ItemGroup>
+  </Target>
+</Project>

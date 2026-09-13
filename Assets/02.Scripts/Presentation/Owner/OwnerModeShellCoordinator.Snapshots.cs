@@ -128,7 +128,8 @@ namespace Baseball.Presentation.Owner
                         _snapshotFactory.CreateClubOperation(_manager),
                         _sharedInformationSnapshotFactory.CreateSchedule(_manager),
                         _manager.Runtime.OwnerProfile.Nickname, _manager.Runtime.OwnerProfile.FrontManagerId,
-                        sourceTeamName: _manager.GetTeamIdentityDisplayName(playerTeamKey), region: region));
+                        sourceTeamName: _manager.GetTeamIdentityDisplayName(playerTeamKey), region: region,
+                        history: _sharedInformationSnapshotFactory.CreateClubHistory(_manager)));
                     break;
             }
         }
