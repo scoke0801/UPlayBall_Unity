@@ -140,7 +140,7 @@ namespace Baseball.Game.Shop
             List<ShopProductDefinition> products,
             SkillGachaBalanceTable skillGacha)
         {
-            for (int tierIndex = 0; tierIndex <= (int)SkillGachaPurchaseTier.Legendary; tierIndex++)
+            for (int tierIndex = 0; tierIndex < SkillBlockGradeCatalog.Count; tierIndex++)
             {
                 var tier = (SkillGachaPurchaseTier)tierIndex;
                 SkillGachaOfferBalance offer = skillGacha.GetOffer(tier);
@@ -296,11 +296,12 @@ namespace Baseball.Game.Shop
         {
             switch (tier)
             {
-                case SkillGachaPurchaseTier.Normal: return "일반";
-                case SkillGachaPurchaseTier.Rare: return "희귀";
-                case SkillGachaPurchaseTier.Elite: return "정예";
-                case SkillGachaPurchaseTier.Unique: return "고유";
-                case SkillGachaPurchaseTier.Legendary: return "전설";
+                case SkillGachaPurchaseTier.Normal: return "C";
+                case SkillGachaPurchaseTier.Rare: return "B";
+                case SkillGachaPurchaseTier.Elite: return "A";
+                case SkillGachaPurchaseTier.Unique: return "S";
+                case SkillGachaPurchaseTier.Legendary: return "SS";
+                case SkillGachaPurchaseTier.Mythic: return "SSS";
                 default: throw new ArgumentOutOfRangeException(nameof(tier));
             }
         }

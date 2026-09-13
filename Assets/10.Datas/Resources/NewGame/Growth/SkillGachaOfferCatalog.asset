@@ -54,6 +54,15 @@ MonoBehaviour:
     _elite: 0
     _unique: 0
     _legendary: 1
+  - _tier: 5
+    _price: 625000000
+    _maxPurchasesPerOffseason: 1
+    _normal: 0
+    _rare: 0
+    _elite: 0
+    _unique: 0
+    _legendary: 0
+    _mythic: 1
   _fivePullDiscountRate: 0.05
   _elitePity: 10
   _uniquePity: 30

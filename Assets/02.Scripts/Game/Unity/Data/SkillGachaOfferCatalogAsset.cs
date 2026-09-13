@@ -21,6 +21,7 @@ namespace Baseball.Game.Data
             [SerializeField, Range(0f, 1f)] private double _elite;
             [SerializeField, Range(0f, 1f)] private double _unique;
             [SerializeField, Range(0f, 1f)] private double _legendary;
+            [SerializeField, Range(0f, 1f)] private double _mythic;
 
             public SkillGachaOfferBalance ToDefinition()
             {
@@ -33,7 +34,7 @@ namespace Baseball.Game.Data
                     _rare,
                     _elite,
                     _unique,
-                    _legendary);
+                    _legendary, _mythic);
             }
 
             public void AppendContent(StringBuilder builder)
@@ -49,6 +50,8 @@ namespace Baseball.Game.Data
                 GrowthContentHashFormatting.AppendDouble(builder, _unique);
                 builder.Append(':');
                 GrowthContentHashFormatting.AppendDouble(builder, _legendary);
+                builder.Append(':');
+                GrowthContentHashFormatting.AppendDouble(builder, _mythic);
                 builder.Append(';');
             }
         }
@@ -66,16 +69,16 @@ namespace Baseball.Game.Data
         {
             if (!_replaceBuiltInOffers)
                 return builtIn;
-            if (_offers == null || _offers.Length != 5)
-                throw new InvalidOperationException("Normal부터 Legendary까지 다섯 뽑기 상품이 필요합니다.");
-            var definitions = new SkillGachaOfferBalance[5];
+            if (_offers == null || _offers.Length != SkillBlockGradeCatalog.Count)
+                throw new InvalidOperationException("C부터 SSS까지 여섯 뽑기 상품이 필요합니다.");
+            var definitions = new SkillGachaOfferBalance[SkillBlockGradeCatalog.Count];
             for (int index = 0; index < _offers.Length; index++)
             {
                 SkillGachaOfferBalance offer = _offers[index].ToDefinition();
                 definitions[(int)offer.Tier] = offer;
             }
             return new SkillGachaBalanceTable(
-                definitions[0], definitions[1], definitions[2], definitions[3], definitions[4],
+                definitions[0], definitions[1], definitions[2], definitions[3], definitions[4], definitions[5],
                 _fivePullDiscountRate,
                 _elitePity,
                 _uniquePity,

@@ -114,18 +114,7 @@ namespace Baseball.Game.Shop
             throw new InvalidOperationException("지급된 스킬 블록 정의를 찾을 수 없습니다.");
         }
 
-        private static string DescribeRarity(SkillBlockRarity rarity)
-        {
-            switch (rarity)
-            {
-                case SkillBlockRarity.Normal: return "일반";
-                case SkillBlockRarity.Rare: return "희귀";
-                case SkillBlockRarity.Elite: return "정예";
-                case SkillBlockRarity.Unique: return "고유";
-                case SkillBlockRarity.Legendary: return "전설";
-                default: throw new ArgumentOutOfRangeException(nameof(rarity));
-            }
-        }
+        private static string DescribeRarity(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
     }
 
     /// <summary>구단주 지갑을 한 번 결제하고 공유 스킬 블록 인벤토리에 결과를 지급한다.</summary>
@@ -190,18 +179,7 @@ namespace Baseball.Game.Shop
             throw new InvalidOperationException("지급된 스킬 블록 정의를 찾을 수 없습니다.");
         }
 
-        private static string DescribeRarity(SkillBlockRarity rarity)
-        {
-            switch (rarity)
-            {
-                case SkillBlockRarity.Normal: return "일반";
-                case SkillBlockRarity.Rare: return "희귀";
-                case SkillBlockRarity.Elite: return "정예";
-                case SkillBlockRarity.Unique: return "고유";
-                case SkillBlockRarity.Legendary: return "전설";
-                default: throw new ArgumentOutOfRangeException(nameof(rarity));
-            }
-        }
+        private static string DescribeRarity(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
         private static ShopRevealIntensity DescribeRarityIntensity(SkillBlockRarity rarity)
         {
@@ -211,7 +189,8 @@ namespace Baseball.Game.Shop
                 case SkillBlockRarity.Rare: return ShopRevealIntensity.Notable;
                 case SkillBlockRarity.Elite: return ShopRevealIntensity.Rare;
                 case SkillBlockRarity.Unique:
-                case SkillBlockRarity.Legendary: return ShopRevealIntensity.Exceptional;
+                case SkillBlockRarity.Legendary:
+                case SkillBlockRarity.Mythic: return ShopRevealIntensity.Exceptional;
                 default: throw new ArgumentOutOfRangeException(nameof(rarity));
             }
         }

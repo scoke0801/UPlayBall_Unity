@@ -168,7 +168,7 @@ namespace Baseball.Game.Shop
             if (!Enum.TryParse(product.SourceId, out SkillGachaPurchaseTier tier))
                 throw new InvalidOperationException("스킬 블록 상품의 SourceId가 올바르지 않습니다.");
             SkillGachaOfferBalance offer = skillGacha.GetOffer(tier);
-            var probabilities = new ShopProbabilityEntry[5];
+            var probabilities = new ShopProbabilityEntry[SkillBlockGradeCatalog.Count];
             for (int rarityIndex = 0; rarityIndex < probabilities.Length; rarityIndex++)
             {
                 var rarity = (SkillBlockRarity)rarityIndex;
@@ -239,18 +239,7 @@ namespace Baseball.Game.Shop
             return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
-        private static string DescribeRarity(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => "일반",
-                SkillBlockRarity.Rare => "희귀",
-                SkillBlockRarity.Elite => "정예",
-                SkillBlockRarity.Unique => "고유",
-                SkillBlockRarity.Legendary => "전설",
-                _ => throw new ArgumentOutOfRangeException(nameof(rarity))
-            };
-        }
+        private static string DescribeRarity(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
         private static string DescribeTacticTier(TacticTier tier)
         {

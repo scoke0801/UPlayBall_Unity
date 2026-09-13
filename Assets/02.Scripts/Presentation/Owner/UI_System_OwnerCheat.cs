@@ -795,18 +795,7 @@ namespace Baseball.Presentation.Owner
             return Baseball.Game.Historical.PlayerCardEditionText.Get(edition);
         }
 
-        private static string DescribeRarity(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => "일반",
-                SkillBlockRarity.Rare => "희귀",
-                SkillBlockRarity.Elite => "정예",
-                SkillBlockRarity.Unique => "고유",
-                SkillBlockRarity.Legendary => "전설",
-                _ => rarity.ToString()
-            };
-        }
+        private static string DescribeRarity(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
         private static string DescribeSkillBlock(SkillBlockDefinition definition)
         {

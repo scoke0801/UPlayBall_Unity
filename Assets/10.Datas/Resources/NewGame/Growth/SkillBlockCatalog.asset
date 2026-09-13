@@ -13,4 +13,928 @@ MonoBehaviour:
   m_Name: SkillBlockCatalog
   m_EditorClassIdentifier: Baseball.Game::Baseball.Game.Data.SkillBlockCatalogAsset
   _replaceBuiltInBlocks: 0
-  _blocks: []
+  _blocks:
+  - _blockId: contact_mythic
+    _rarity: 5
+    _category: 0
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: contact_mythic_v1
+    _rarity: 5
+    _category: 0
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: contact_mythic_v2
+    _rarity: 5
+    _category: 0
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: contact_mythic_v3
+    _rarity: 5
+    _category: 0
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: contact_mythic_v4
+    _rarity: 5
+    _category: 0
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: contact_mythic_v5
+    _rarity: 5
+    _category: 0
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: contact_mythic_v6
+    _rarity: 5
+    _category: 0
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 0
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: two_strike_contact
+    _isUniqueReward: 0
+  - _blockId: power_mythic
+    _rarity: 5
+    _category: 1
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: power_mythic_v1
+    _rarity: 5
+    _category: 1
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: power_mythic_v2
+    _rarity: 5
+    _category: 1
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: power_mythic_v3
+    _rarity: 5
+    _category: 1
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: power_mythic_v4
+    _rarity: 5
+    _category: 1
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: power_mythic_v5
+    _rarity: 5
+    _category: 1
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: power_mythic_v6
+    _rarity: 5
+    _category: 1
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 1
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_power
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic
+    _rarity: 5
+    _category: 2
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic_v1
+    _rarity: 5
+    _category: 2
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic_v2
+    _rarity: 5
+    _category: 2
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic_v3
+    _rarity: 5
+    _category: 2
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic_v4
+    _rarity: 5
+    _category: 2
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic_v5
+    _rarity: 5
+    _category: 2
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: baserunning_mythic_v6
+    _rarity: 5
+    _category: 2
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 2
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: aggressive_baserunning
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic
+    _rarity: 5
+    _category: 10
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic_v1
+    _rarity: 5
+    _category: 10
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic_v2
+    _rarity: 5
+    _category: 10
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic_v3
+    _rarity: 5
+    _category: 10
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic_v4
+    _rarity: 5
+    _category: 10
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic_v5
+    _rarity: 5
+    _category: 10
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: bunt_mythic_v6
+    _rarity: 5
+    _category: 10
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 3
+      _amount: 6
+    _sellValue: 21000000
+    _traitId:
+    _isUniqueReward: 0
+  - _blockId: defense_mythic
+    _rarity: 5
+    _category: 3
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: defense_mythic_v1
+    _rarity: 5
+    _category: 3
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: defense_mythic_v2
+    _rarity: 5
+    _category: 3
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: defense_mythic_v3
+    _rarity: 5
+    _category: 3
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: defense_mythic_v4
+    _rarity: 5
+    _category: 3
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: defense_mythic_v5
+    _rarity: 5
+    _category: 3
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: defense_mythic_v6
+    _rarity: 5
+    _category: 3
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 4
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: defensive_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic
+    _rarity: 5
+    _category: 4
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic_v1
+    _rarity: 5
+    _category: 4
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic_v2
+    _rarity: 5
+    _category: 4
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic_v3
+    _rarity: 5
+    _category: 4
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic_v4
+    _rarity: 5
+    _category: 4
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic_v5
+    _rarity: 5
+    _category: 4
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: batter_mental_mythic_v6
+    _rarity: 5
+    _category: 4
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 5
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: scoring_position_focus
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic
+    _rarity: 5
+    _category: 5
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic_v1
+    _rarity: 5
+    _category: 5
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic_v2
+    _rarity: 5
+    _category: 5
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic_v3
+    _rarity: 5
+    _category: 5
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic_v4
+    _rarity: 5
+    _category: 5
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic_v5
+    _rarity: 5
+    _category: 5
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: velocity_mythic_v6
+    _rarity: 5
+    _category: 5
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 7
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: control_mythic
+    _rarity: 5
+    _category: 6
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: control_mythic_v1
+    _rarity: 5
+    _category: 6
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: control_mythic_v2
+    _rarity: 5
+    _category: 6
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: control_mythic_v3
+    _rarity: 5
+    _category: 6
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: control_mythic_v4
+    _rarity: 5
+    _category: 6
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: control_mythic_v5
+    _rarity: 5
+    _category: 6
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: control_mythic_v6
+    _rarity: 5
+    _category: 6
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 10
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic
+    _rarity: 5
+    _category: 7
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic_v1
+    _rarity: 5
+    _category: 7
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic_v2
+    _rarity: 5
+    _category: 7
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic_v3
+    _rarity: 5
+    _category: 7
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic_v4
+    _rarity: 5
+    _category: 7
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic_v5
+    _rarity: 5
+    _category: 7
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: breaking_mythic_v6
+    _rarity: 5
+    _category: 7
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 9
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic
+    _rarity: 5
+    _category: 8
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic_v1
+    _rarity: 5
+    _category: 8
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic_v2
+    _rarity: 5
+    _category: 8
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic_v3
+    _rarity: 5
+    _category: 8
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic_v4
+    _rarity: 5
+    _category: 8
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic_v5
+    _rarity: 5
+    _category: 8
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: pitcher_physical_mythic_v6
+    _rarity: 5
+    _category: 8
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 6
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: long_outing_adaptation
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic
+    _rarity: 5
+    _category: 11
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic_v1
+    _rarity: 5
+    _category: 11
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic_v2
+    _rarity: 5
+    _category: 11
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic_v3
+    _rarity: 5
+    _category: 11
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic_v4
+    _rarity: 5
+    _category: 11
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic_v5
+    _rarity: 5
+    _category: 11
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: stuff_mythic_v6
+    _rarity: 5
+    _category: 11
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 8
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: late_inning_stuff
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic
+    _rarity: 5
+    _category: 9
+    _shape: 1
+    _canRotate: 0
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic_v1
+    _rarity: 5
+    _category: 9
+    _shape: 4
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic_v2
+    _rarity: 5
+    _category: 9
+    _shape: 2
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic_v3
+    _rarity: 5
+    _category: 9
+    _shape: 5
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic_v4
+    _rarity: 5
+    _category: 9
+    _shape: 3
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic_v5
+    _rarity: 5
+    _category: 9
+    _shape: 6
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0
+  - _blockId: pitcher_mental_mythic_v6
+    _rarity: 5
+    _category: 9
+    _shape: 0
+    _canRotate: 1
+    _abilityBonuses:
+    - _ability: 11
+      _amount: 6
+    _sellValue: 21000000
+    _traitId: crisis_management
+    _isUniqueReward: 0

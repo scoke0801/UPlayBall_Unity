@@ -202,7 +202,8 @@ namespace Baseball.Game.Career
             bool isUnlocked,
             string unavailableReason,
             bool canPurchaseOne,
-            bool canPurchaseFive)
+            bool canPurchaseFive,
+            double mythicProbability = 0d)
         {
             Tier = tier;
             MinimumRarity = minimumRarity;
@@ -214,6 +215,7 @@ namespace Baseball.Game.Career
             EliteProbability = eliteProbability;
             UniqueProbability = uniqueProbability;
             LegendaryProbability = legendaryProbability;
+            MythicProbability = mythicProbability;
             MaxPurchasesPerOffseason = maxPurchasesPerOffseason;
             PurchasesUsed = purchasesUsed;
             IsUnlocked = isUnlocked;
@@ -232,6 +234,7 @@ namespace Baseball.Game.Career
         public double EliteProbability { get; }
         public double UniqueProbability { get; }
         public double LegendaryProbability { get; }
+        public double MythicProbability { get; }
         public int MaxPurchasesPerOffseason { get; }
         public int PurchasesUsed { get; }
         public int RemainingPurchases => MaxPurchasesPerOffseason == 0

@@ -25,7 +25,8 @@ namespace Baseball.Core.Balance
             SkillBlockRarity.Rare,
             SkillBlockRarity.Elite,
             SkillBlockRarity.Unique,
-            SkillBlockRarity.Legendary
+            SkillBlockRarity.Legendary,
+            SkillBlockRarity.Mythic
         };
 
         /// <summary>
@@ -113,6 +114,7 @@ namespace Baseball.Core.Balance
                 SkillBlockRarity.Elite => 3,
                 SkillBlockRarity.Unique => 4,
                 SkillBlockRarity.Legendary => 5,
+                SkillBlockRarity.Mythic => 6,
                 _ => throw new ArgumentOutOfRangeException(nameof(rarity))
             };
             long sellValue = rarity switch
@@ -122,6 +124,7 @@ namespace Baseball.Core.Balance
                 SkillBlockRarity.Elite => MoneyAmount.FromTenThousandWon(520L),
                 SkillBlockRarity.Unique => MoneyAmount.FromTenThousandWon(900L),
                 SkillBlockRarity.Legendary => MoneyAmount.FromTenThousandWon(1_500L),
+                SkillBlockRarity.Mythic => MoneyAmount.FromTenThousandWon(2_100L),
                 _ => throw new ArgumentOutOfRangeException(nameof(rarity))
             };
             string blockId = shapeVariant == 0

@@ -877,7 +877,8 @@ namespace Baseball.Game.Career
                 BuildGachaOffer(balance, SkillGachaPurchaseTier.Rare),
                 BuildGachaOffer(balance, SkillGachaPurchaseTier.Elite),
                 BuildGachaOffer(balance, SkillGachaPurchaseTier.Unique),
-                BuildGachaOffer(balance, SkillGachaPurchaseTier.Legendary)
+                BuildGachaOffer(balance, SkillGachaPurchaseTier.Legendary),
+                BuildGachaOffer(balance, SkillGachaPurchaseTier.Mythic)
             };
         }
 
@@ -910,7 +911,8 @@ namespace Baseball.Game.Career
                 isUnlocked,
                 unavailableReason,
                 isUnlocked && hasRemainingPurchase && CurrentCareer.AvailableMoney >= price,
-                isUnlocked && offer.SupportsFivePull && CurrentCareer.AvailableMoney >= fivePullPrice);
+                isUnlocked && offer.SupportsFivePull && CurrentCareer.AvailableMoney >= fivePullPrice,
+                balance.GetProbability(tier, SkillBlockRarity.Mythic));
         }
 
         private GrowthGachaPoolItemView[] BuildGachaPool(PlayerType playerType)
@@ -1437,19 +1439,19 @@ namespace Baseball.Game.Career
                 string leagueName = WorldGenerationConfiguration
                     .GetDefaultDefinition(requiredLeague)
                     .UiDisplayName;
-                return $"{tier} 전용 뽑기는 현재 {leagueName} 이상 리그에서만 구매할 수 있습니다.";
+                return $"{SkillBlockGradeCatalog.GetLabel((SkillBlockRarity)tier)} 전용 뽑기는 현재 {leagueName} 이상 리그에서만 구매할 수 있습니다.";
             }
             if (balance.HighTierPurchasesRequireOffseason &&
                 tier >= SkillGachaPurchaseTier.Unique &&
                 !IsOffseason())
             {
-                return "Unique 이상 뽑기는 오프시즌에만 구매할 수 있습니다.";
+                return "S 이상 뽑기는 오프시즌에만 구매할 수 있습니다.";
             }
-            if (tier != SkillGachaPurchaseTier.Legendary)
+            if (tier < SkillGachaPurchaseTier.Legendary)
                 return string.Empty;
             int awardCount = CountCareerAwards();
             if (awardCount < balance.LegendaryMinimumCareerAwards)
-                return $"Legendary 해금에는 개인 수상 {balance.LegendaryMinimumCareerAwards}회가 필요합니다.";
+                return $"SS 이상 해금에는 개인 수상 {balance.LegendaryMinimumCareerAwards}회가 필요합니다.";
             return string.Empty;
         }
 

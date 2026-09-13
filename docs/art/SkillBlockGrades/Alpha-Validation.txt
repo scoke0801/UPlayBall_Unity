@@ -1,0 +1,6 @@
+C: transparent=23907, partial=41274, opaque=355
+B: transparent=24011, partial=41225, opaque=300
+A: transparent=24246, partial=40883, opaque=407
+S: transparent=23500, partial=41656, opaque=380
+SS: transparent=24903, partial=40169, opaque=464
+SSS: transparent=29690, partial=35412, opaque=434

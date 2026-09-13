@@ -190,6 +190,7 @@ namespace Baseball.Core.Balance
                 SkillBlockRarity.Elite => 3,
                 SkillBlockRarity.Unique => 4,
                 SkillBlockRarity.Legendary => 5,
+                SkillBlockRarity.Mythic => 6,
                 _ => 0
             };
         }

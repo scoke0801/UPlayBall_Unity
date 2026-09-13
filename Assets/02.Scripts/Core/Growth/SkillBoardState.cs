@@ -115,6 +115,7 @@ namespace Baseball.Core.Growth
         public int LimitedPurchaseSeason { get; private set; }
         public int UniquePurchasesThisOffseason { get; private set; }
         public int LegendaryPurchasesThisOffseason { get; private set; }
+        public int MythicPurchasesThisOffseason { get; private set; }
 
         public SkillBlockInstance AddOwnedBlock(string definitionId)
         {
@@ -146,7 +147,7 @@ namespace Baseball.Core.Growth
             else
                 PityUniqueCount++;
 
-            if (rarity == SkillBlockRarity.Legendary)
+            if (rarity >= SkillBlockRarity.Legendary)
                 PityLegendaryCount = 0;
             else
                 PityLegendaryCount++;
@@ -160,6 +161,7 @@ namespace Baseball.Core.Growth
             {
                 SkillGachaPurchaseTier.Unique => UniquePurchasesThisOffseason,
                 SkillGachaPurchaseTier.Legendary => LegendaryPurchasesThisOffseason,
+                SkillGachaPurchaseTier.Mythic => MythicPurchasesThisOffseason,
                 _ => 0
             };
         }
@@ -173,11 +175,14 @@ namespace Baseball.Core.Growth
                 LimitedPurchaseSeason = seasonYear;
                 UniquePurchasesThisOffseason = 0;
                 LegendaryPurchasesThisOffseason = 0;
+                MythicPurchasesThisOffseason = 0;
             }
             if (tier == SkillGachaPurchaseTier.Unique)
                 UniquePurchasesThisOffseason += count;
             else if (tier == SkillGachaPurchaseTier.Legendary)
                 LegendaryPurchasesThisOffseason += count;
+            else if (tier == SkillGachaPurchaseTier.Mythic)
+                MythicPurchasesThisOffseason += count;
         }
 
         public bool IsBlockLocked(int instanceId)

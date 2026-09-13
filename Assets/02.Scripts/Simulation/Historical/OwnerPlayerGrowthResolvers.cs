@@ -231,13 +231,7 @@ namespace Baseball.Simulation.Historical
             if (inventory.PityLegendaryCount >= _balance.LegendaryPity) return SkillBlockRarity.Legendary;
             if (inventory.PityUniqueCount >= _balance.UniquePity) return SkillBlockRarity.Unique;
             if (inventory.PityEliteCount >= _balance.ElitePity) return SkillBlockRarity.Elite;
-            double roll = random.NextDouble();
-            for (int rarity = 0; rarity <= (int)SkillBlockRarity.Legendary; rarity++)
-            {
-                roll -= _balance.GetProbability(tier, (SkillBlockRarity)rarity);
-                if (roll < 0d) return (SkillBlockRarity)rarity;
-            }
-            return SkillBlockRarity.Legendary;
+            return Baseball.Simulation.Growth.SkillGachaService.SelectRarity(_balance.GetOffer(tier), random.NextDouble());
         }
 
         private SkillBlockDefinition SelectDefinition(SkillBlockCategory category, SkillBlockRarity rarity, IRandomSource random)

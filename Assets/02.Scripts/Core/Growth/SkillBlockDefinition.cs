@@ -22,7 +22,23 @@ namespace Baseball.Core.Growth
         Rare,
         Elite,
         Unique,
-        Legendary
+        Legendary,
+        Mythic
+    }
+
+    /// <summary>블록의 표시 등급과 전체 단계 수를 한곳에서 정의한다.</summary>
+    public static class SkillBlockGradeCatalog
+    {
+        public const int Count = 6;
+        public const SkillBlockRarity Highest = SkillBlockRarity.Mythic;
+        /// <summary>저장된 희귀도를 공통 C·B·A·S·SS·SSS 표기로 변환한다.</summary>
+        public static string GetLabel(SkillBlockRarity rarity) => rarity switch
+        {
+            SkillBlockRarity.Normal => "C", SkillBlockRarity.Rare => "B",
+            SkillBlockRarity.Elite => "A", SkillBlockRarity.Unique => "S",
+            SkillBlockRarity.Legendary => "SS", SkillBlockRarity.Mythic => "SSS",
+            _ => throw new ArgumentOutOfRangeException(nameof(rarity))
+        };
     }
 
     public enum SkillGachaPurchaseTier
@@ -31,7 +47,8 @@ namespace Baseball.Core.Growth
         Rare,
         Elite,
         Unique,
-        Legendary
+        Legendary,
+        Mythic
     }
 
     public enum SkillBlockCategory

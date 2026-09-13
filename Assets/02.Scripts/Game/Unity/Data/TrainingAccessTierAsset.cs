@@ -23,8 +23,8 @@ namespace Baseball.Game.Data
             TrainingAccessTier.Legacy
         };
 
-        [Tooltip("Normal, Rare, Elite, Unique, Legendary 순서의 최소 리그 단계(0=Rookie).")]
-        [SerializeField] private int[] _minimumGachaLeagueLevels = { 0, 1, 2, 5, 7 };
+        [Tooltip("C, B, A, S, SS, SSS 순서의 최소 리그 단계(0=Rookie).")]
+        [SerializeField] private int[] _minimumGachaLeagueLevels = { 0, 1, 2, 5, 7, 7 };
 
         public TrainingAccessTier[] BuildAccessTiers()
         {
@@ -35,8 +35,8 @@ namespace Baseball.Game.Data
 
         public int[] BuildMinimumGachaLevels()
         {
-            if (_minimumGachaLeagueLevels == null || _minimumGachaLeagueLevels.Length != 5)
-                throw new InvalidOperationException("다섯 뽑기 등급의 최소 리그 단계가 필요합니다.");
+            if (_minimumGachaLeagueLevels == null || _minimumGachaLeagueLevels.Length != SkillBlockGradeCatalog.Count)
+                throw new InvalidOperationException("여섯 뽑기 등급의 최소 리그 단계가 필요합니다.");
             return (int[])_minimumGachaLeagueLevels.Clone();
         }
 

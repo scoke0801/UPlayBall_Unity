@@ -159,21 +159,27 @@ namespace Baseball.Simulation.Growth
             if (board.PityEliteCount >= _balance.ElitePity)
                 return SkillBlockRarity.Elite;
 
-            double roll = random.NextDouble();
-            double normal = _balance.GetProbability(tier, SkillBlockRarity.Normal);
-            if (roll < normal) return SkillBlockRarity.Normal;
-            roll -= normal;
-            double rare = _balance.GetProbability(tier, SkillBlockRarity.Rare);
-            if (roll < rare) return SkillBlockRarity.Rare;
-            roll -= rare;
-            double elite = _balance.GetProbability(tier, SkillBlockRarity.Elite);
-            if (roll < elite) return SkillBlockRarity.Elite;
-            roll -= elite;
-            return roll < _balance.GetProbability(tier, SkillBlockRarity.Unique)
-                ? SkillBlockRarity.Unique
-                : SkillBlockRarity.Legendary;
+            return SelectRarity(_balance.GetOffer(tier), random.NextDouble());
         }
 
+        /// <summary>두 모드가 같은 상품 확률표로 등급을 선택한다.</summary>
+        public static SkillBlockRarity SelectRarity(SkillGachaOfferBalance offer, double roll)
+        {
+            if (double.IsNaN(roll) || roll < 0d || roll >= 1d)
+                throw new ArgumentOutOfRangeException(nameof(roll));
+            SkillBlockRarity lastAvailable = offer.MinimumRarity;
+            for (int index = 0; index < SkillBlockGradeCatalog.Count; index++)
+            {
+                var rarity = (SkillBlockRarity)index;
+                double probability = offer.GetProbability(rarity);
+                if (probability <= 0d) continue;
+                lastAvailable = rarity;
+                if (roll < probability) return rarity;
+                roll -= probability;
+            }
+            // 부동소수점 잔여값 때문에 확률이 0인 상위 등급을 지급하지 않는다.
+            return lastAvailable;
+        }
         private SkillBlockDefinition SelectDefinition(
             SkillBlockCategory category,
             SkillBlockRarity rarity,
@@ -251,7 +257,7 @@ namespace Baseball.Simulation.Growth
                 if (!categoryExists)
                     continue;
 
-                for (int rarity = 0; rarity <= (int)SkillBlockRarity.Legendary; rarity++)
+                for (int rarity = 0; rarity < SkillBlockGradeCatalog.Count; rarity++)
                 {
                     bool found = false;
                     for (int index = 0; index < _definitions.Length; index++)
@@ -311,6 +317,7 @@ namespace Baseball.Simulation.Growth
                     SkillGachaPurchaseTier.Elite => "skill_gacha_elite_1",
                     SkillGachaPurchaseTier.Unique => "skill_gacha_unique_1",
                     SkillGachaPurchaseTier.Legendary => "skill_gacha_legendary_1",
+                    SkillGachaPurchaseTier.Mythic => "skill_gacha_mythic_1",
                     _ => throw new ArgumentOutOfRangeException(nameof(tier))
                 };
             }
@@ -321,6 +328,7 @@ namespace Baseball.Simulation.Growth
                 SkillGachaPurchaseTier.Elite => "skill_gacha_elite_5",
                 SkillGachaPurchaseTier.Unique => "skill_gacha_unique_5",
                 SkillGachaPurchaseTier.Legendary => "skill_gacha_legendary_5",
+                SkillGachaPurchaseTier.Mythic => "skill_gacha_mythic_5",
                 _ => throw new ArgumentOutOfRangeException(nameof(tier))
             };
         }

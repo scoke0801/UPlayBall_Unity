@@ -290,7 +290,7 @@ namespace Baseball.Core.Balance
             double rareProbability,
             double eliteProbability,
             double uniqueProbability,
-            double legendaryProbability)
+            double legendaryProbability, double mythicProbability = 0d)
         {
             if (price <= 0L)
                 throw new ArgumentOutOfRangeException(nameof(price));
@@ -299,13 +299,13 @@ namespace Baseball.Core.Balance
             if (maxPurchasesPerOffseason < 0)
                 throw new ArgumentOutOfRangeException(nameof(maxPurchasesPerOffseason));
             if (normalProbability < 0d || rareProbability < 0d || eliteProbability < 0d ||
-                uniqueProbability < 0d || legendaryProbability < 0d)
+                uniqueProbability < 0d || legendaryProbability < 0d || mythicProbability < 0d)
             {
                 throw new ArgumentOutOfRangeException(nameof(normalProbability));
             }
             if (Math.Abs(
                     normalProbability + rareProbability + eliteProbability +
-                    uniqueProbability + legendaryProbability - 1d) > 0.000001d)
+                    uniqueProbability + legendaryProbability + mythicProbability - 1d) > 0.000001d)
             {
                 throw new ArgumentException("등급 확률 합은 1이어야 합니다.");
             }
@@ -313,7 +313,7 @@ namespace Baseball.Core.Balance
             double[] probabilities =
             {
                 normalProbability, rareProbability, eliteProbability,
-                uniqueProbability, legendaryProbability
+                uniqueProbability, legendaryProbability, mythicProbability
             };
             for (int rarity = 0; rarity < (int)minimumRarity; rarity++)
             {
@@ -330,6 +330,7 @@ namespace Baseball.Core.Balance
             EliteProbability = eliteProbability;
             UniqueProbability = uniqueProbability;
             LegendaryProbability = legendaryProbability;
+            MythicProbability = mythicProbability;
         }
 
         public SkillGachaPurchaseTier Tier { get; }
@@ -341,6 +342,7 @@ namespace Baseball.Core.Balance
         public double EliteProbability { get; }
         public double UniqueProbability { get; }
         public double LegendaryProbability { get; }
+        public double MythicProbability { get; }
         public bool SupportsFivePull => MaxPurchasesPerOffseason == 0 || MaxPurchasesPerOffseason >= 5;
         public bool SupportsTenPull => MaxPurchasesPerOffseason == 0 || MaxPurchasesPerOffseason >= 10;
 
@@ -353,6 +355,7 @@ namespace Baseball.Core.Balance
                 SkillBlockRarity.Elite => EliteProbability,
                 SkillBlockRarity.Unique => UniqueProbability,
                 SkillBlockRarity.Legendary => LegendaryProbability,
+                SkillBlockRarity.Mythic => MythicProbability,
                 _ => throw new ArgumentOutOfRangeException(nameof(rarity))
             };
         }
@@ -366,6 +369,7 @@ namespace Baseball.Core.Balance
             SkillGachaOfferBalance elite,
             SkillGachaOfferBalance unique,
             SkillGachaOfferBalance legendary,
+            SkillGachaOfferBalance mythic,
             double fivePullDiscountRate,
             int elitePity,
             int uniquePity,
@@ -377,12 +381,12 @@ namespace Baseball.Core.Balance
                 rare.Tier != SkillGachaPurchaseTier.Rare ||
                 elite.Tier != SkillGachaPurchaseTier.Elite ||
                 unique.Tier != SkillGachaPurchaseTier.Unique ||
-                legendary.Tier != SkillGachaPurchaseTier.Legendary)
+                legendary.Tier != SkillGachaPurchaseTier.Legendary || mythic.Tier != SkillGachaPurchaseTier.Mythic)
             {
                 throw new ArgumentException("구매 등급별 확률표가 올바른 Tier에 연결되어야 합니다.");
             }
             if (normal.Price >= rare.Price || rare.Price >= elite.Price ||
-                elite.Price >= unique.Price || unique.Price >= legendary.Price)
+                elite.Price >= unique.Price || unique.Price >= legendary.Price || legendary.Price >= mythic.Price)
                 throw new ArgumentOutOfRangeException(nameof(legendary));
             if (fivePullDiscountRate < 0d || fivePullDiscountRate >= 1d)
                 throw new ArgumentOutOfRangeException(nameof(fivePullDiscountRate));
@@ -396,6 +400,7 @@ namespace Baseball.Core.Balance
             Elite = elite;
             Unique = unique;
             Legendary = legendary;
+            Mythic = mythic;
             FivePullDiscountRate = fivePullDiscountRate;
             ElitePity = elitePity;
             UniquePity = uniquePity;
@@ -409,6 +414,7 @@ namespace Baseball.Core.Balance
         public SkillGachaOfferBalance Elite { get; }
         public SkillGachaOfferBalance Unique { get; }
         public SkillGachaOfferBalance Legendary { get; }
+        public SkillGachaOfferBalance Mythic { get; }
         public double FivePullDiscountRate { get; }
         public long SinglePrice => Normal.Price;
         public long RarePrice => Rare.Price;
@@ -440,6 +446,7 @@ namespace Baseball.Core.Balance
                 SkillGachaPurchaseTier.Elite => Elite,
                 SkillGachaPurchaseTier.Unique => Unique,
                 SkillGachaPurchaseTier.Legendary => Legendary,
+                SkillGachaPurchaseTier.Mythic => Mythic,
                 _ => throw new ArgumentOutOfRangeException(nameof(tier))
             };
         }
@@ -519,7 +526,7 @@ namespace Baseball.Core.Balance
 
         public int GetMinimumGachaLevel(SkillGachaPurchaseTier tier)
         {
-            if (tier < SkillGachaPurchaseTier.Normal || tier > SkillGachaPurchaseTier.Legendary)
+            if (tier < SkillGachaPurchaseTier.Normal || tier > SkillGachaPurchaseTier.Mythic)
                 throw new ArgumentOutOfRangeException(nameof(tier));
             return _minimumGachaLevels[(int)tier];
         }
@@ -553,7 +560,7 @@ namespace Baseball.Core.Balance
                     TrainingAccessTier.Championship,
                     TrainingAccessTier.Legacy
                 },
-                new[] { 0, 1, 2, 5, 7 },
+                new[] { 0, 1, 2, 5, 7, 7 },
                 additionalCandidateLevel: 4,
                 repetitionWaiverLevel: 6,
                 growthRedirectLevel: 8,
@@ -939,6 +946,11 @@ namespace Baseball.Core.Balance
                         MoneyAmount.FromTenThousandWon(25_000L),
                         1,
                         0.00d, 0.00d, 0.00d, 0.00d, 1.00d),
+                    // 기존 S→SS 가격 간격 2.5배와 최상위 보장 상품의 1회 한도를 따른다.
+                    new SkillGachaOfferBalance(
+                        SkillGachaPurchaseTier.Mythic, SkillBlockRarity.Mythic,
+                        MoneyAmount.FromTenThousandWon(62_500L), 1,
+                        0d, 0d, 0d, 0d, 0d, 1d),
                     fivePullDiscountRate: 0.05d,
                     elitePity: 10,
                     uniquePity: 30,
