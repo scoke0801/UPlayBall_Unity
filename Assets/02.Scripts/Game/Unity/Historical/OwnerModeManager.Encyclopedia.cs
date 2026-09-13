@@ -6,6 +6,18 @@ namespace Baseball.Game.Historical
         private ManagerHistoricalRuntimeState _encyclopediaRuntime;
         private EncyclopediaCatalogService _encyclopediaCatalogService;
 
+        /// <summary>카드 보호 상태를 복사본에 적용하고 저장 성공 이후에만 공개한다.</summary>
+        public void SetPlayerCardLocked(string cardId, bool isLocked)
+        {
+            EnsureRegularSeasonSimulationIsNotRunning();
+            CommitGrowthChange(runtime =>
+            {
+                runtime.SetPlayerCardLocked(cardId, isLocked);
+                return true;
+            });
+            NotifyRuntimeChanged();
+        }
+
         /// <summary>전체 Runtime Archive를 외부에 노출하지 않고 현재 Owner World와 결합한 도감 조회를 제공한다.</summary>
         public EncyclopediaCatalogService CreateEncyclopediaCatalogService()
         {

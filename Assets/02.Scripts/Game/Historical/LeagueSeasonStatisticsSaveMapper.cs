@@ -9,7 +9,7 @@ namespace Baseball.Game.Historical
     /// 구단주 세이브가 현재 시즌 개인 기록을 경기 재시뮬레이션 없이 복원하도록 변환한다.
     /// </summary>
     /// <remarks>
-    /// 저장 대상은 타격·투구·수비 시즌 누적뿐이다. <c>GameContributions</c>와 <c>TeamSplits</c>는
+    /// 저장 대상은 타격·투구·수비 시즌 누적과 최근 출전 5건이다. <c>GameContributions</c>와 <c>TeamSplits</c>는
     /// 선수 커리어 모드의 감독 평가 가중치·수상 가중치·시즌 중 트레이드 분할 전용이고 구단주 모드에
     /// 소비자가 없다. 경기별 기여도는 시즌당 수만 건이라 저장 비용도 정당화되지 않는다.
     /// 따라서 구단주 모드에서 Source of Truth는 여기 저장된 시즌 누적이고, 기여도·구단 분할은
@@ -55,6 +55,9 @@ namespace Baseball.Game.Historical
                 RestoreBatting(player.Batting, saved.batting);
                 RestorePitching(player.Pitching, saved.pitching);
                 RestoreFielding(player, saved.fielding);
+                if (saved.recentGames != null)
+                    for (int recent = Math.Max(0, saved.recentGames.Length - 5); recent < saved.recentGames.Length; recent++)
+                        player.AddRecentGame(saved.recentGames[recent]);
             }
         }
 
@@ -79,7 +82,8 @@ namespace Baseball.Game.Historical
                     teamGames = player.TeamGames,
                     batting = CreateBatting(player.Batting),
                     pitching = CreatePitching(player.Pitching),
-                    fielding = CreateFielding(player)
+                    fielding = CreateFielding(player),
+                    recentGames = new List<PlayerRecentGameRecord>(player.RecentGames).ToArray()
                 };
             }
             return result;

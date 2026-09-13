@@ -170,12 +170,20 @@ namespace Baseball.Game.Historical
             StaffTrainingEfficiencyResult staffEfficiency = StaffTrainingEfficiencyResolver.Resolve(
                 ResolvePlayerStaffEffects(mode),
                 new StaffTrainingEfficiencyContext(discipline, includeDevelopmentCoach: true));
-            return CardTrainingResolver.Train(
+            CardTrainingResult result = CardTrainingResolver.Train(
                 ownedCard,
                 season,
                 program,
                 runtime.Economy,
                 staffEfficiency);
+            if (result.GainedPoints > 0)
+            {
+                var gains = new int[PlayerAbilityCatalog.AbilityCount];
+                gains[(int)result.Ability] = result.GainedPoints;
+                runtime.GuideProgress.PublishGrowth("training:" + cardId, ownedCard.Training.Ledger.Count, cardId,
+                    mode.LiveSeason.SeasonNumber, ResolveReportWeek(runtime), Guide.ManagerNewsKind.Training, string.Empty, gains);
+            }
+            return result;
         }
 
         /// <summary>실제 훈련과 같은 스태프 효율·상한·DP를 사용해 적용 전 결과를 계산한다.</summary>
@@ -488,10 +496,15 @@ namespace Baseball.Game.Historical
                 PlayerCardDefinition card = runtime.WorldCardCatalog.TryGetCard(project.CardId, out PlayerCardDefinition found)
                     ? found
                     : throw new InvalidOperationException("유학 카드 원본이 없습니다.");
-                OwnerCardStudyResolver.Complete(
+                CardStudyCompletion completion = OwnerCardStudyResolver.Complete(
                     owned,
                     runtime.WorldCardCatalog.GetPlayerSeason(card),
                     _balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId), project.ResultBonus);
+                var gains = new int[PlayerAbilityCatalog.AbilityCount];
+                foreach (var change in completion.Changes) gains[(int)change.Ability] += change.Amount;
+                runtime.GuideProgress.PublishGrowth("study:" + project.CardId, project.StartedSeason, project.CardId,
+                    runtime.ManagerMode.LiveSeason.SeasonNumber, ResolveReportWeek(runtime), Guide.ManagerNewsKind.Study,
+                    _balance.OwnerCardGrowth.GetStudyProgram(project.ProgramId).DisplayName, gains);
                 runtime.PlayerGrowth.RemoveStudyAt(index);
             }
         }
@@ -503,6 +516,9 @@ namespace Baseball.Game.Historical
                 throw new InvalidOperationException("플레이어 구단이 소유하지 않은 카드입니다.");
             return card;
         }
+
+        private static int ResolveReportWeek(ManagerHistoricalRuntimeState runtime) =>
+            runtime.ManagerMode.LiveSeason.CurrentWeekIndex + runtime.PlayerGrowth.Offseason.CompletedWeeks;
 
         private static bool ContainsCard(CurrentRosterState roster, string cardId)
         {

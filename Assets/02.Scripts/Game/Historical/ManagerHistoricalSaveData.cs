@@ -245,6 +245,9 @@ namespace Baseball.Game.Historical
     {
         public int nextInstanceId;
         public int researchCount;
+        public int fusionCount;
+        public int fusionPoints;
+        public int[] fusionFailures;
         public int selectionBoxes;
         public OwnerSkillBlockInstanceSaveData[] blocks;
         public int pityEliteCount;
@@ -554,6 +557,7 @@ namespace Baseball.Game.Historical
         public BattingRecordSaveData batting;
         public PitchingRecordSaveData pitching;
         public FieldingRecordSaveData[] fielding;
+        public Baseball.Game.Career.PlayerRecentGameRecord[] recentGames;
     }
 
     [Serializable]

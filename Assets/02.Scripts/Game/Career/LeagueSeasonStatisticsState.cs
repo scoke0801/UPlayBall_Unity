@@ -194,6 +194,15 @@ namespace Baseball.Game.Career
     {
         private readonly Dictionary<PlayerPosition, FieldingStatisticsState> _fieldingByPosition = new();
         private readonly List<PlayerGameContributionState> _gameContributions = new();
+        private readonly List<PlayerRecentGameRecord> _recentGames = new(5);
+        public IReadOnlyList<PlayerRecentGameRecord> RecentGames => _recentGames;
+
+        /// <summary>최근 출전만 보관하며 시즌 누적은 다시 계산하지 않는다.</summary>
+        internal void AddRecentGame(PlayerRecentGameRecord record)
+        {
+            if (_recentGames.Count == 5) _recentGames.RemoveAt(0);
+            _recentGames.Add(record);
+        }
         private readonly Dictionary<int, PlayerTeamStatisticsSplitState> _teamSplits = new();
 
         public PlayerCompetitionStatisticsState(
@@ -252,6 +261,8 @@ namespace Baseball.Game.Career
                 fielding.Add(game.FieldingLine);
             }
             _gameContributions.Add(game.Contribution);
+            if (game.HasBattingLine || game.HasPitchingLine)
+                AddRecentGame(PlayerRecentGameRecord.Create(game));
         }
 
         public FieldingStatisticsState GetFielding(PlayerPosition position)
@@ -382,7 +393,7 @@ namespace Baseball.Game.Career
     /// <summary>현재 시즌 리그 전체 선수 기록을 경쟁 범위별로 분리해 소유한다.</summary>
     public sealed class LeagueSeasonStatisticsState
     {
-        public const int CurrentSchemaVersion = 4;
+        public const int CurrentSchemaVersion = 5;
 
         public LeagueSeasonStatisticsState()
         {
@@ -570,6 +581,28 @@ namespace Baseball.Game.Career
                 ? 100d
                 : (below + Math.Max(0, tied - 1) * 0.5d) * 100d / (eligible - 1d);
         }
+    }
+
+    /// <summary>최근 출전 표시·저장용 값 복사본이다. 이닝은 아웃 수로 보관한다.</summary>
+    [Serializable]
+    public struct PlayerRecentGameRecord
+    {
+        public int gameId, roundIndex, atBats, hits, homeRuns, runsBattedIn, walks, strikeouts;
+        public int outsRecorded, hitsAllowed, earnedRuns, runsAllowed, wins, losses, saves, holds;
+        public bool isPitcher;
+
+        /// <summary>확정된 경기 집계의 표시 항목을 복사한다.</summary>
+        public static PlayerRecentGameRecord Create(PlayerGameStatistics game) => new PlayerRecentGameRecord
+        {
+            gameId = game.Contribution.GameId, roundIndex = game.Contribution.RoundIndex,
+            isPitcher = game.HasPitchingLine, atBats = game.AtBats, hits = game.Hits,
+            homeRuns = game.HomeRuns, runsBattedIn = game.RunsBattedIn,
+            walks = game.HasPitchingLine ? game.WalksAllowed : game.Walks,
+            strikeouts = game.HasPitchingLine ? game.PitchingStrikeouts : game.BattingStrikeouts,
+            outsRecorded = game.OutsRecorded, hitsAllowed = game.HitsAllowed,
+            earnedRuns = game.EarnedRuns, runsAllowed = game.RunsAllowed,
+            wins = game.Wins, losses = game.Losses, saves = game.Saves, holds = game.Holds
+        };
     }
 
     /// <summary>직접 진행과 즉시 시뮬레이션이 함께 사용하는 선수 한 경기 통계 DTO다.</summary>

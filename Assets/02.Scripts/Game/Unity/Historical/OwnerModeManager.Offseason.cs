@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace Baseball.Game.Historical
 {
@@ -30,13 +29,10 @@ namespace Baseball.Game.Historical
                 NotifyRuntimeChanged();
                 return false;
             }
-            var studiesBefore = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var project in runtime.PlayerGrowth.StudyProjects) studiesBefore.Add(project.CardId);
             _saveStore.Save(_saveAdapter.CreateSaveData(candidate));
             Runtime = candidate;
             InvalidatePregame();
             NotifyRuntimeChanged();
-            PublishCompletedStudyFacts(studiesBefore);
             return true;
         }
     }
