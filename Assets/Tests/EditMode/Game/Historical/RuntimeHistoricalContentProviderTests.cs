@@ -68,6 +68,33 @@ namespace Baseball.Tests.EditMode.Game
                 Does.Match("^[a-f0-9]{64}$"));
         }
 
+        [TestCase("birthYearResearchedCount")]
+        [TestCase("handednessResearchedCount")]
+        [TestCase("personCount")]
+        [TestCase("researchVersion")]
+        public void RuntimeContentProvider_RejectsChangedPersonIdentityResearch(string field)
+        {
+            // 조사 메타데이터만 바뀌어도 원본 ContentHash 검증에서 감지해야 한다.
+            string original = _catalog.Manifest.text;
+            var researchPattern = new System.Text.RegularExpressions.Regex(
+                "\"personIdentityResearch\":\\{[^}]*\\}");
+            var fieldPattern = new System.Text.RegularExpressions.Regex(
+                "\"" + field + "\":(?:\"[^\"]*\"|[0-9]+)");
+            string replacement = "\"" + field + "\":" +
+                (field == "researchVersion" ? "\"tampered\"" : "999999");
+            string invalidManifest = researchPattern.Replace(original,
+                match => fieldPattern.Replace(match.Value, replacement));
+            Assert.That(invalidManifest, Is.Not.EqualTo(original), "조사 메타데이터가 있는 원본이 필요합니다.");
+            HistoricalRuntimeContentCatalog catalog = CreateCatalog(
+                CreateTextAsset(invalidManifest), _catalog.PlayerPersons, _catalog.Years);
+
+            HistoricalContentLoadException exception = Assert.Throws<HistoricalContentLoadException>(
+                () => new UnityHistoricalContentProvider(catalog, HistoricalContentVerificationMode.Full).Load());
+
+            Assert.That(exception.Message, Does.Contain("Content Hash"));
+            Assert.That(exception.RelativePath, Is.EqualTo("manifest.json"));
+        }
+
         [TestCase(3)]
         [TestCase(4)]
         [TestCase(5)]

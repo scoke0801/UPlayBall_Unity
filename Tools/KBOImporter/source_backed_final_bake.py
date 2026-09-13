@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 import replacement_generation as replacement
 import source_backed_runtime_bake as source_plan
 import pitch_arsenal_generation as pitch_generation
+import player_handedness as handedness_research
 
 
 GENERATOR_VERSION = "source-backed-runtime-bake-v2"
@@ -18,6 +19,10 @@ REPLACEMENT_POPULATION_POLICY_VERSION = "quota-fallback-aggregate-percentile-v2"
 SOURCE_BACKED = "SourceBacked"
 REPLACEMENT_GENERATED = "ReplacementGenerated"
 ROSTER_SHORTAGE = "RosterShortage"
+# 투타 폴백 추첨을 인물 메타데이터 추첨 스트림과 분리하기 위한 고정 Salt.
+HANDEDNESS_FALLBACK_SEED_SALT = 0x48414E44
+# 마지막 _materialize_persons 실행의 조사 적용 요약. 베이크 리포트가 읽는다.
+_LAST_IDENTITY_RESEARCH_SUMMARY: dict[str, Any] = {}
 
 DEFENSIVE_POSITIONS = ("C", "1B", "2B", "3B", "SS", "LF", "CF", "RF")
 PITCHER_ROLE_QUOTAS = (
@@ -266,6 +271,7 @@ def build_runtime_content(
         "contentHash": "",
         "pitchBalanceVersion": pitch_balance["version"],
         "pitchGenerationSeed": pitch_balance["generation"]["seed"],
+        "personIdentityResearch": dict(_LAST_IDENTITY_RESEARCH_SUMMARY),
     }
     content = {
         "schemaVersion": derivation.CONTENT_SCHEMA_VERSION,
@@ -577,6 +583,7 @@ def _materialize_persons(
     source_persons: Sequence[Mapping[str, Any]],
     replacements_by_year: Mapping[int, Sequence[Mapping[str, Any]]],
     derivation: Any,
+    research: Any | None = None,
 ) -> list[dict[str, Any]]:
     persons = [copy.deepcopy(dict(row)) for row in source_persons]
     for year, seasons in replacements_by_year.items():
@@ -589,7 +596,11 @@ def _materialize_persons(
                     "careerEndYear": year,
                 }
             )
+    if research is None:
+        research = handedness_research.cached_research()
     result: list[dict[str, Any]] = []
+    researched_count = 0
+    researched_birth_count = 0
     for person in persons:
         person_id = str(person["playerPersonId"])
         career_start = int(person["careerStartYear"])
@@ -601,21 +612,44 @@ def _materialize_persons(
             person_id,
         )
         rng = random.Random(identity_seed)
+        drawn_birth_year = career_start - rng.randint(18, 32)
+        # 실존 인물의 투타는 조사값으로 대체하지만, 과거 추첨 스트림은 그대로 소진한다.
+        # 여기서 호출 수가 달라지면 이어지는 personPotentialTrait가 전부 재추첨된다.
+        rng.randrange(3)
+        rng.randrange(2)
+        potential_trait = [rng.randint(35, 65) for _ in range(len(derivation.ABILITY_NAMES))]
+
+        fallback_rng = random.Random(identity_seed ^ HANDEDNESS_FALLBACK_SEED_SALT)
+        bats, bats_is_researched = research.resolve_bats(person_id, fallback_rng)
+        throws, throws_is_researched = research.resolve_throws(person_id, fallback_rng)
+        birth_year, birth_is_researched = research.resolve_birth_year(person_id, drawn_birth_year)
+        researched_count += int(bats_is_researched and throws_is_researched)
+        researched_birth_count += int(birth_is_researched)
+
         materialized = {
             "playerPersonId": person_id,
-            "birthYear": career_start - rng.randint(18, 32),
-            "bats": ("Right", "Left", "Switch")[rng.randrange(3)],
-            "throws": ("Right", "Left")[rng.randrange(2)],
+            "birthYear": birth_year,
+            "bats": bats,
+            "throws": throws,
             "primaryPosition": person["primaryPosition"],
             "registrationType": "Domestic",
             "careerStartYear": career_start,
             "careerEndYear": int(person["careerEndYear"]),
-            "personPotentialTrait": [rng.randint(35, 65) for _ in range(len(derivation.ABILITY_NAMES))],
+            "personPotentialTrait": potential_trait,
         }
         result.append(materialized)
     result.sort(key=lambda row: row["playerPersonId"])
     if len(result) != len({row["playerPersonId"] for row in result}):
         raise ValueError("Runtime PlayerPersonId가 중복되었습니다.")
+    _LAST_IDENTITY_RESEARCH_SUMMARY.clear()
+    _LAST_IDENTITY_RESEARCH_SUMMARY.update(
+        {
+            "researchVersion": getattr(research, "research_version", "missing"),
+            "personCount": len(result),
+            "handednessResearchedCount": researched_count,
+            "birthYearResearchedCount": researched_birth_count,
+        }
+    )
     return result
 
 

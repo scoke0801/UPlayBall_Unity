@@ -145,6 +145,7 @@ namespace Baseball.Game.Historical
         [SerializeField] private int normalizedSchemaVersion;
         [SerializeField] private string normalizedImporterVersion;
         [SerializeField] private string normalizedContentHash;
+        [SerializeField] private HistoricalRuntimePersonIdentityResearchDto personIdentityResearch;
         [SerializeField] private string abilityFormulaVersion;
         [SerializeField] private int annualReferenceOverrideCardCount;
         [SerializeField] private string annualReferenceOverrideHash;
@@ -181,6 +182,7 @@ namespace Baseball.Game.Historical
         public int NormalizedSchemaVersion => normalizedSchemaVersion;
         public string NormalizedImporterVersion => normalizedImporterVersion ?? string.Empty;
         public string NormalizedContentHash => normalizedContentHash ?? string.Empty;
+        public HistoricalRuntimePersonIdentityResearchDto PersonIdentityResearch => personIdentityResearch;
         public string AbilityFormulaVersion => abilityFormulaVersion ?? string.Empty;
         public int AnnualReferenceOverrideCardCount => annualReferenceOverrideCardCount;
         public string AnnualReferenceOverrideHash => annualReferenceOverrideHash ?? string.Empty;
@@ -211,6 +213,20 @@ namespace Baseball.Game.Historical
         public string PitchBalanceVersion => pitchBalanceVersion ?? string.Empty;
         public long PitchGenerationSeed => pitchGenerationSeed;
         public string ContentHash => contentHash ?? string.Empty;
+    }
+
+    [Serializable]
+    internal sealed class HistoricalRuntimePersonIdentityResearchDto
+    {
+        [SerializeField] private int birthYearResearchedCount;
+        [SerializeField] private int handednessResearchedCount;
+        [SerializeField] private int personCount;
+        [SerializeField] private string researchVersion;
+
+        public int BirthYearResearchedCount => birthYearResearchedCount;
+        public int HandednessResearchedCount => handednessResearchedCount;
+        public int PersonCount => personCount;
+        public string ResearchVersion => researchVersion ?? string.Empty;
     }
 
     [Serializable]

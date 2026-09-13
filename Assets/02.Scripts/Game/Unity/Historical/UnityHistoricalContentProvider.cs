@@ -1547,6 +1547,20 @@ namespace Baseball.Game.Historical
                 AppendJsonEscaped(builder, source.NormalizedImporterVersion);
                 builder.Append("\",\"normalizedSchemaVersion\":")
                     .Append(source.NormalizedSchemaVersion.ToString(CultureInfo.InvariantCulture));
+                // 생성기의 sort_keys 정규 JSON과 같은 순서로 조사 메타데이터까지 해시에 포함한다.
+                if (source.PersonIdentityResearch != null)
+                {
+                    HistoricalRuntimePersonIdentityResearchDto research = source.PersonIdentityResearch;
+                    builder.Append(",\"personIdentityResearch\":{\"birthYearResearchedCount\":")
+                        .Append(research.BirthYearResearchedCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"handednessResearchedCount\":")
+                        .Append(research.HandednessResearchedCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"personCount\":")
+                        .Append(research.PersonCount.ToString(CultureInfo.InvariantCulture))
+                        .Append(",\"researchVersion\":\"");
+                    AppendJsonEscaped(builder, research.ResearchVersion);
+                    builder.Append("\"}");
+                }
                 if (!string.IsNullOrEmpty(source.PitchBalanceVersion))
                 {
                     builder.Append(",\"pitchBalanceVersion\":\"");
