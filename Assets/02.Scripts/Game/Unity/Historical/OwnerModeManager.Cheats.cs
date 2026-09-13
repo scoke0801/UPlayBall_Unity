@@ -8,6 +8,14 @@ namespace Baseball.Game.Historical
     {
         private readonly OwnerCheatService _cheatService = new OwnerCheatService();
 
+        /// <summary>선택한 특수 카드의 영입 재료 8장을 지급하고 화면을 갱신한다.</summary>
+        public OwnerCheatGrantResult CheatAcquireSpecialRecruitMaterials(string targetCardId)
+        {
+            OwnerCheatGrantResult result = _cheatService.AcquireSpecialRecruitMaterials(RequireRuntime(), targetCardId);
+            NotifyRuntimeChanged();
+            return result;
+        }
+
         /// <summary>개발 치트로 구단 자원을 증가시키고 열린 화면을 즉시 갱신한다.</summary>
         public void CheatIncreaseResources(long money, int scoutingPoints, int developmentPoints)
         {

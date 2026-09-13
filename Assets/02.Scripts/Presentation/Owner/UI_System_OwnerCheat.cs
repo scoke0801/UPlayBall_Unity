@@ -8,6 +8,7 @@ using Baseball.Core.Historical;
 using Baseball.Game.Historical;
 using Baseball.Game.Input;
 using Baseball.Presentation.SharedUI;
+using Baseball.Presentation.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -22,6 +23,8 @@ namespace Baseball.Presentation.Owner
         private const int MaximumVisibleSearchResults = 8;
         private const int MaximumUiBatchCount = 1_000;
         private const float WindowWidth = 1_040f;
+        private const string CardSearchControlName = "OwnerCheatCardSearch";
+        private const string SkillSearchControlName = "OwnerCheatSkillSearch";
 
         /// <summary>타입별 일괄 지급 대상. 테스트 수요가 큰 특수 카드를 앞에 두고 일반 계열은 뒤에 둔다.</summary>
         private static readonly PlayerCardEdition[] GrantableEditions =
@@ -106,6 +109,12 @@ namespace Baseball.Presentation.Owner
                 _instance = null;
         }
 
+        private void OnDisable()
+        {
+            _isVisible = false;
+            ReleaseInput();
+        }
+
         private void Update()
         {
             Keyboard keyboard = Keyboard.current;
@@ -134,6 +143,10 @@ namespace Baseball.Presentation.Owner
             GUI.DrawTexture(new Rect(0f, 0f, Screen.width, Screen.height), Texture2D.whiteTexture);
             GUI.color = previousColor;
             _windowRect = GUI.ModalWindow(WindowId, _windowRect, DrawWindow, "구단주 개발 치트  ·  Editor / Development Build");
+            string focusedControl = GUI.GetNameOfFocusedControl();
+            UITextInputImeGate.SetImmediateModeTextInputFocused(this, _isVisible &&
+                HasActiveOwnerRuntime(OwnerModeManager.Instance) &&
+                (focusedControl == CardSearchControlName || focusedControl == SkillSearchControlName));
         }
 
         private void DrawWindow(int windowId)
@@ -192,6 +205,7 @@ namespace Baseball.Presentation.Owner
         {
             GUILayout.Label("선수 카드 획득", _sectionStyle);
             GUILayout.Label("선수명·구단·연도·Edition·CardId로 검색한 뒤 한 장을 선택합니다.", _mutedStyle);
+            GUI.SetNextControlName(CardSearchControlName);
             _cardSearch = GUILayout.TextField(_cardSearch ?? string.Empty, GUILayout.Height(26f));
             DrawCardSearchResults();
 
@@ -204,6 +218,18 @@ namespace Baseball.Presentation.Owner
                 ExecuteGrant(() => manager.CheatAcquireCard(_cardOptions[_selectedCardIndex].Definition.CardId), "선수 카드");
             GUI.enabled = true;
             GUILayout.EndHorizontal();
+
+            bool canGrantMaterials = _cardOptions.Count > 0 &&
+                _cardOptions[_selectedCardIndex].Definition.IsUniqueOwnedCard &&
+                manager.Runtime.WorldCardCatalog.SpecialCards != null;
+            GUI.enabled = canGrantMaterials;
+            if (GUILayout.Button("선택 카드의 영입 재료 8장 지급", GUILayout.Height(30f)))
+                ExecuteGrant(() => manager.CheatAcquireSpecialRecruitMaterials(
+                    _cardOptions[_selectedCardIndex].Definition.CardId), "특수 영입 재료 카드");
+            GUI.enabled = true;
+            GUILayout.Label(canGrantMaterials
+                ? "레시피에 맞는 재료 8장을 추가 지급합니다. 커리어 하이는 서로 다른 8개 연도이며, 보호 중인 재료는 다른 후보를 찾습니다."
+                : "레전드 또는 커리어 하이 카드를 검색·선택하면 영입 재료를 지급할 수 있습니다.", _mutedStyle);
 
             GUILayout.Space(8f);
             GUILayout.BeginHorizontal();
@@ -244,6 +270,7 @@ namespace Baseball.Presentation.Owner
         {
             GUILayout.Label("스킬 블록 획득", _sectionStyle);
             GUILayout.Label("계통·등급·DefinitionId로 검색한 뒤 하나를 선택합니다. 치트 지급은 Gacha 보장 카운트를 바꾸지 않습니다.", _mutedStyle);
+            GUI.SetNextControlName(SkillSearchControlName);
             _skillSearch = GUILayout.TextField(_skillSearch ?? string.Empty, GUILayout.Height(26f));
             DrawSkillSearchResults();
 
@@ -644,6 +671,7 @@ namespace Baseball.Presentation.Owner
             if (_suspendedEventSystem != null)
                 _suspendedEventSystem.enabled = _wasEventSystemEnabled;
             _suspendedEventSystem = null;
+            UITextInputImeGate.SetImmediateModeTextInputFocused(this, false);
         }
 
         private bool TryParseBatchCount(string value, out int count)

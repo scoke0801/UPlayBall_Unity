@@ -16,6 +16,51 @@ namespace Baseball.Tests.EditMode.Game.Historical
     {
         [TestCase(false)]
         [TestCase(true)]
+        public void AcquireSpecialRecruitMaterials_GrantsEightAndAllowsRecruit(bool isLegend)
+        {
+            var runtime = CreateSpecialRuntime(isLegend, out string target, out string[] materials);
+            var before = CaptureOwnedCounts(runtime);
+            var service = new OwnerCheatService();
+            for (int repeat = 1; repeat <= 2; repeat++)
+            {
+                var result = service.AcquireSpecialRecruitMaterials(runtime, " " + target + " ");
+                Assert.That(result.ItemCount, Is.EqualTo(8));
+                foreach (var card in runtime.WorldCardCatalog.Cards)
+                    AssertOwnedDelta(runtime, card.CardId, before[card.CardId],
+                        Array.IndexOf(materials, card.CardId) >= 0 ? repeat : 0);
+            }
+            Assert.That(runtime.TryGetOwnedCard(target, out _), Is.False);
+            runtime.ReserveSpecialRecruit("cheat-materials", target, materials);
+            Assert.That(runtime.CommitSpecialRecruit("cheat-materials"), Is.EqualTo(target));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void AcquireSpecialRecruitMaterials_ProtectedSlotFailsWithoutPartialGrant(bool isLegend)
+        {
+            var runtime = CreateSpecialRuntime(isLegend, out string target, out string[] materials);
+            runtime.SetPlayerCardLocked(materials[7], true);
+            var before = CaptureOwnedCounts(runtime);
+            Assert.Throws<InvalidOperationException>(() =>
+                new OwnerCheatService().AcquireSpecialRecruitMaterials(runtime, target));
+            foreach (var card in runtime.WorldCardCatalog.Cards)
+                AssertOwnedDelta(runtime, card.CardId, before[card.CardId], 0);
+            Assert.That(runtime.TryGetOwnedCard(materials[7], out var owned) && owned.IsLocked, Is.True);
+        }
+
+        [Test]
+        public void AcquireSpecialRecruitMaterials_RejectsNormalAndPreservesPendingRecruit()
+        {
+            var runtime = CreateSpecialRuntime(false, out string target, out string[] materials);
+            var service = new OwnerCheatService();
+            Assert.Throws<ArgumentException>(() => service.AcquireSpecialRecruitMaterials(runtime, materials[0]));
+            runtime.ReserveSpecialRecruit("pending", target, materials);
+            Assert.Throws<InvalidOperationException>(() => service.AcquireSpecialRecruitMaterials(runtime, target));
+            Assert.That(runtime.CommitSpecialRecruit("pending"), Is.EqualTo(target));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
         public void AcquireCards_WithExAndUniqueEdition_CompletesBatchAndRepeatedGrants(bool isLegend)
         {
             ManagerHistoricalRuntimeState runtime = CreateSpecialRuntime(isLegend, out string target, out string[] materials);

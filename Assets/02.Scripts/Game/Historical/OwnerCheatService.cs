@@ -29,6 +29,54 @@ namespace Baseball.Game.Historical
     /// <summary>구단주 개발 치트를 실제 저장 Aggregate의 공개 변경 경로로 적용한다.</summary>
     public sealed class OwnerCheatService
     {
+        /// <summary>실제 영입 레시피의 슬롯마다 재료 한 장을 골라 총 8장을 추가 지급한다.</summary>
+        public OwnerCheatGrantResult AcquireSpecialRecruitMaterials(
+            ManagerHistoricalRuntimeState runtime, string targetCardId)
+        {
+            RequireRuntime(runtime);
+            WorldCardCatalog catalog = runtime.WorldCardCatalog;
+            if (string.IsNullOrWhiteSpace(targetCardId) ||
+                !catalog.TryGetCard(targetCardId.Trim(), out var target) || !target.IsUniqueOwnedCard ||
+                catalog.SpecialCards == null)
+                throw new ArgumentException("레전드 또는 커리어 하이 카드를 선택하세요.", nameof(targetCardId));
+
+            SpecialRecruitRecipe recipe = catalog.SpecialCards.GetRequiredRecipe(target.CardId);
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var selectedIds = new List<string>();
+            var years = new HashSet<int>();
+            foreach (SpecialRecruitMaterialGroup group in recipe.MaterialGroups)
+            {
+                string selected = null;
+                foreach (string id in group.CandidateCardIds)
+                {
+                    catalog.TryGetCard(id, out var card);
+                    int year = catalog.GetPlayerSeason(card).OriginYear;
+                    if (target.Edition == PlayerCardEdition.CareerHigh && years.Contains(year)) continue;
+                    // 중복 수량을 늘려도 보호 상태는 카드 정의 전체에 적용되므로 다른 후보를 찾는다.
+                    if (runtime.Wishlist.Contains(id) ||
+                        (runtime.TryGetOwnedCard(id, out _) && !runtime.CanUseSpecialRecruitMaterial(id))) continue;
+                    selected = id;
+                    years.Add(year);
+                    break;
+                }
+                if (selected == null)
+                    throw new InvalidOperationException("사용 가능한 재료 후보가 없습니다. 재료 카드의 잠금·위시·기용·영입 예약을 해제한 뒤 다시 시도하세요.");
+                if (!counts.ContainsKey(selected)) selectedIds.Add(selected);
+                counts.TryGetValue(selected, out int count);
+                counts[selected] = count + 1;
+            }
+
+            // 모든 슬롯과 합산 수량을 먼저 검증하여 실패 시 일부 카드만 지급되지 않게 한다.
+            foreach (string id in selectedIds)
+                if (runtime.TryGetOwnedCard(id, out var owned) && counts[id] > int.MaxValue - owned.DuplicateCount)
+                    throw new OverflowException("카드 중복 수가 저장 가능한 최대값을 넘습니다.");
+            int newCardCount = 0;
+            foreach (string id in selectedIds)
+                for (int index = 0; index < counts[id]; index++)
+                    if (runtime.AcquireCardForDevelopment(id)) newCardCount++;
+            return new OwnerCheatGrantResult(selectedIds.Count, SpecialRecruitRecipe.RequiredMaterialCount, newCardCount);
+        }
+
         /// <summary>지급 가능한 카드에서 선택 연도의 구단별 원본 시즌을 하나씩 반환한다.</summary>
         public static IReadOnlyList<PlayerSeasonDefinition> GetCardOrigins(WorldCardCatalog catalog, int originYear)
         {
