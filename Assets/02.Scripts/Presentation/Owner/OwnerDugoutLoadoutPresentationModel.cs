@@ -351,7 +351,7 @@ namespace Baseball.Presentation.Owner
                         isInteractable: true,
                         frameEdition: card.Edition,
                         cost: season.Cost,
-                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, card.CardId, manager.Balance.Growth, manager.TraitBalance));
+                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(runtime, card.CardId, manager.Balance.Growth, manager.TraitBalance, manager.Balance.OwnerCardGrowth));
                     eligiblePlayers.Add(new OwnerTeamColorEligiblePlayerSnapshot(
                         miniCard,
                         season.PlayerPersonId,
@@ -724,22 +724,7 @@ namespace Baseball.Presentation.Owner
             _ => "지속 시간"
         };
 
-        internal static string GetAbilityName(PlayerAbility value) => value switch
-        {
-            PlayerAbility.Contact => "컨택",
-            PlayerAbility.Power => "장타",
-            PlayerAbility.Speed => "주루",
-            PlayerAbility.Bunt => "번트",
-            PlayerAbility.Defense => "수비",
-            PlayerAbility.BatterMental => "타자 정신력",
-            PlayerAbility.Stamina => "체력",
-            PlayerAbility.Velocity => "구속",
-            PlayerAbility.Stuff => "구위",
-            PlayerAbility.Breaking => "변화구",
-            PlayerAbility.Control => "제구",
-            PlayerAbility.PitcherMental => "투수 정신력",
-            _ => "능력치 정보 없음"
-        };
+        internal static string GetAbilityName(PlayerAbility value) => PlayerAbilityCatalog.GetDisplayName(value);
     }
 
     /// <summary>TeamColor 내부 판정 키를 화면 문자열로 사용하지 않고 효과 강도를 등급화한다.</summary>

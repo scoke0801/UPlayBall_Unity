@@ -12,32 +12,35 @@ namespace Baseball.Presentation.SharedUI
         IPointerExitHandler, ISelectHandler, IDeselectHandler
     {
         private static readonly Sprite[] TraitSprites = new Sprite[5];
+        private static readonly Sprite[] BoardSprites = new Sprite[System.Enum.GetValues(typeof(PlayerBoardBadgeRank)).Length];
         private static Sprite _studySprite;
         private PlayerCardGrowthBadgeModel _model = PlayerCardGrowthBadgeModel.Empty;
         private Image _trait;
         private Image _study;
         private Image _support;
         private Image _board;
+        private Image _enhancement;
         private Text _supportCount;
-        private Text _boardRank;
         private RectTransform _tooltip;
         private float _cardTop = 1;
         private bool _isDetail;
         private bool _isHovered;
         private bool _isFocused;
         private Coroutine _transition;
+        private float _badgeScale = 1f;
 
         /// <summary>카드 재사용 시 이전 선수의 배지와 열려 있는 설명을 함께 교체한다.</summary>
         public static void Bind(RectTransform card, PlayerCardGrowthBadgeModel model,
-            bool isDetail = false, float cardTop = 1)
+            bool isDetail = false, float cardTop = 1, Image enhancement = null)
         {
             var view = card.GetComponent<PlayerCardGrowthBadgesView>();
-            if (view == null && (model == null || (!model.HasStudy && !model.HasTrait && !model.HasSupport && !model.HasBoard))) return;
+            if (view == null && enhancement == null && (model == null || (!model.HasStudy && !model.HasTrait && !model.HasSupport && !model.HasBoard))) return;
             if (view == null) view = card.gameObject.AddComponent<PlayerCardGrowthBadgesView>();
             view.HideTooltip();
             view._model = model ?? PlayerCardGrowthBadgeModel.Empty;
             view._cardTop = cardTop;
             view._isDetail = isDetail;
+            view._enhancement = enhancement;
             if (isDetail && card.parent != null)
             {
                 Selectable button = card.parent.GetComponentInParent<Selectable>();
@@ -57,11 +60,10 @@ namespace Baseball.Presentation.SharedUI
             view.SetIcon(ref view._support, "SupportBadge", view._model.HasSupport,
                 view._model.HasSupport ? Resources.Load<Sprite>("UI/PlayerGrowthBadges/Support_v1") : null);
             view.SetIcon(ref view._board, "SkillBoardRankBadge", view._model.HasBoard,
-                view._model.HasBoard ? Resources.Load<Sprite>("UI/OwnerPowerUp/skill_stud_tile_v1") : null);
-            view.RefreshBoardRank();
+                view._model.HasBoard ? GetBoardSprite(view._model.BoardRank) : null);
             if (view._model.HasSupport)
             {
-                if (view._supportCount == null)
+                if (view._supportCount == null || view._supportCount.transform.parent != view._support.transform)
                 {
                     view._supportCount = Baseball.Presentation.Owner.OwnerWorkspaceUiFactory.CreateText(view._support.transform,
                         "RemainingGames", "", 13, FontStyle.Bold, TextAnchor.LowerRight, Color.white);
@@ -84,27 +86,14 @@ namespace Baseball.Presentation.SharedUI
             return TraitSprites[index];
         }
 
-        private void RefreshBoardRank()
+        /// <summary>성장판 등급별 원화 Sprite를 재사용하며 별도 문자를 겹치지 않는다.</summary>
+        public static Sprite GetBoardSprite(PlayerBoardBadgeRank rank)
         {
-            if (!_model.HasBoard) return;
-            // 특성 방패는 확정 특성에만 쓴다. 성장판은 기존 블록 타일과 문자로 구분한다.
-            if (_boardRank == null)
-            {
-                _boardRank = Baseball.Presentation.Owner.OwnerWorkspaceUiFactory.CreateText(_board.transform,
-                    "BoardRank", "", 16, FontStyle.Normal, TextAnchor.MiddleCenter,
-                    Baseball.Presentation.Owner.OwnerDashboardStyle.Ivory);
-                Baseball.Presentation.Owner.OwnerWorkspaceUiFactory.Stretch(_boardRank.rectTransform);
-                Baseball.Presentation.Owner.OwnerDashboardStyle.SetDataText(_boardRank, true);
-                // 미니 카드의 배지는 16보다 작아질 수 있어 고정 글꼴이면 한 줄 전체가 잘린다.
-                // 공용 데이터 서체 적용 후 자동 맞춤을 켜야 상세·미니 카드 모두 같은 등급이 보인다.
-                _boardRank.resizeTextForBestFit = true;
-                _boardRank.resizeTextMinSize = 1;
-                _boardRank.resizeTextMaxSize = 16;
-                var shadow = _boardRank.gameObject.AddComponent<Shadow>();
-                shadow.effectColor = Baseball.Presentation.Owner.OwnerDashboardStyle.Ink;
-                shadow.effectDistance = new Vector2(1, -1);
-            }
-            _boardRank.text = _model.BoardRank.ToString();
+            int index = (int)rank;
+            if (index < 1 || index >= BoardSprites.Length) return null;
+            if (BoardSprites[index] == null)
+                BoardSprites[index] = Resources.Load<Sprite>("UI/PlayerGrowthBadges/BoardRank_" + rank);
+            return BoardSprites[index];
         }
 
         public static Sprite GetStudySprite()
@@ -115,6 +104,8 @@ namespace Baseball.Presentation.SharedUI
 
         private void SetIcon(ref Image icon, string name, bool visible, Sprite sprite)
         {
+            // 앞면 재구성 시 분리된 아이콘은 프레임 끝에 파괴된다. 아직 살아 있는 참조도 재사용하면 안 된다.
+            if (icon != null && icon.transform.parent != transform) icon = null;
             if (icon == null && !visible) return;
             if (icon == null)
             {
@@ -122,16 +113,18 @@ namespace Baseball.Presentation.SharedUI
                 item.transform.SetParent(transform, false);
                 icon = item.GetComponent<Image>();
                 icon.preserveAspect = true;
-                // 아이콘 위에서도 기존 카드의 선택·우클릭·뒤집기 입력을 그대로 사용한다.
-                icon.raycastTarget = false;
             }
+            // 상세 앞면은 뒤집기 버튼의 자식이므로 배지가 포인터를 받아야 앞면까지 Enter/Exit가 전달된다.
+            // 클릭 핸들러는 추가하지 않아 선택·우클릭·뒤집기는 기존 부모 카드가 계속 처리한다.
+            icon.raycastTarget = _isDetail;
             icon.sprite = sprite;
             icon.color = Color.white;
+            icon.transform.localScale = Vector3.one * _badgeScale;
             icon.gameObject.SetActive(visible);
             icon.transform.SetAsLastSibling();
             if (visible && sprite == null)
             {
-                icon.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+                // 누락된 자산은 Image의 기본 단색 면으로 표시해 내장 리소스 로딩 오류가 겹치지 않게 한다.
                 icon.color = name == "StudyBadge" ? CareerUiTheme.ConditionNormal :
                     _model.TraitRank >= PlayerTraitBadgeRank.A ? CareerUiTheme.ConditionExcellent :
                     _model.TraitRank == PlayerTraitBadgeRank.B ? CareerUiTheme.ConditionGood : Color.gray;
@@ -153,34 +146,33 @@ namespace Baseball.Presentation.SharedUI
             float screenScale = canvas == null ? 1f : Mathf.Max(.001f, Vector2.Distance(
                 RectTransformUtility.WorldToScreenPoint(camera, transform.TransformPoint(Vector3.zero)),
                 RectTransformUtility.WorldToScreenPoint(camera, transform.TransformPoint(Vector3.right))));
-            float size = Mathf.Clamp(Mathf.Min(card.rect.width, card.rect.height) * .13f,
-                24f / screenScale, (_isDetail ? 48f : 32f) / screenScale);
-            float gap = 2f / screenScale;
-            float inset = 4f / screenScale;
-            // 확대 카드에서도 배지가 프레임에 붙지 않도록 카드 폭에 비례한 안전 여백을 둔다.
-            float rightInset = Mathf.Max(inset, card.rect.width * (_isDetail ? .10f : .05f));
-            // 명찰 위에서 위쪽으로 공간을 확보해 타순 헤더와 COST를 모두 피한다.
-            // 성장판도 같은 열에 넣어 별도 하단 배지가 비용 숫자를 덮지 않게 한다.
-            int count = (_model.HasTrait ? 1 : 0) + (_model.HasStudy ? 1 : 0) +
-                (_model.HasSupport ? 1 : 0) + (_model.HasBoard ? 1 : 0);
-            if (count == 0) return;
+            float size = Mathf.Min(card.rect.width * (_isDetail ? .105f : .15f),
+                (_isDetail ? 72f : 32f) / screenScale);
+            float inset = card.rect.width * .045f;
             float height = card.rect.height * _cardTop;
-            float bottom = height * (_isDetail ? .52f : .40f);
-            float ceiling = height * (_isDetail ? .80f : .82f);
-            size = Mathf.Min(size, card.rect.width * .18f,
-                (ceiling - bottom - gap * (count - 1)) / count);
-            float top = bottom + count * size + (count - 1) * gap;
-            PlaceNext(_trait, size, rightInset, gap, ref top);
-            PlaceNext(_study, size, rightInset, gap, ref top);
-            PlaceNext(_support, size, rightInset, gap, ref top);
-            PlaceNext(_board, size, rightInset, gap, ref top);
-        }
-
-        private static void PlaceNext(Image icon, float size, float inset, float gap, ref float top)
-        {
-            if (icon == null || !icon.gameObject.activeSelf) return;
-            Place(icon, size, inset, top);
-            top -= size + gap;
+            if (_isDetail)
+            {
+                // 강화까지 같은 열에서 정렬하고 미보유 항목은 건너뛰어 초상 옆의 과도한 공백을 없앤다.
+                float detailTop = height * .94f;
+                float detailInset = card.rect.width * .09f - size * .5f;
+                PlaceDetail(_enhancement, size, detailInset, ref detailTop);
+                PlaceDetail(_study, size, detailInset, ref detailTop);
+                PlaceDetail(_trait, size, detailInset, ref detailTop);
+                PlaceDetail(_board, size, detailInset, ref detailTop);
+                PlaceDetail(_support, size, detailInset, ref detailTop);
+                return;
+            }
+            // 초상 오른쪽의 한 열을 공유한다. 이름·능력치와 상단 강화 표시는 이 영역 밖에 둔다.
+            float top = height * (_isDetail ? .83f : .79f);
+            float bottom = height * (_isDetail ? .55f : .40f);
+            int slotCount = _model.HasSupport ? 4 : 3;
+            size = Mathf.Min(size, (top - bottom) / (slotCount + .2f * (slotCount - 1)));
+            float step = (top - bottom - size) / (slotCount - 1);
+            Place(_enhancement, size, inset, height * .96f);
+            Place(_study, size, inset, top);
+            Place(_trait, size, inset, top - step);
+            Place(_board, size, inset, top - step * 2);
+            Place(_support, size, inset, top - step * 3);
         }
 
         private static void Place(Image icon, float size, float inset, float top)
@@ -191,6 +183,13 @@ namespace Baseball.Presentation.SharedUI
             rect.pivot = new Vector2(1, 1);
             rect.sizeDelta = new Vector2(size, size);
             rect.anchoredPosition = new Vector2(-inset, top);
+        }
+
+        private static void PlaceDetail(Image icon, float size, float inset, ref float top)
+        {
+            if (icon == null || !icon.gameObject.activeSelf) return;
+            Place(icon, size, inset, top);
+            top -= size * 1.3f;
         }
 
         public void OnPointerEnter(PointerEventData eventData) { _isHovered = true; RefreshFocus(); }
@@ -209,19 +208,27 @@ namespace Baseball.Presentation.SharedUI
 
         private IEnumerator AnimateScale(float target)
         {
-            float start = _trait != null ? _trait.transform.localScale.x :
-                _study != null ? _study.transform.localScale.x : 1;
+            float start = _badgeScale;
             float elapsed = 0;
             while (elapsed < .12f)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float ratio = Mathf.Clamp01(elapsed / .12f);
                 float scale = Mathf.Lerp(start, target, 1 - (1 - ratio) * (1 - ratio));
-                if (_trait != null) _trait.transform.localScale = Vector3.one * scale;
-                if (_study != null) _study.transform.localScale = Vector3.one * scale;
+                SetBadgeScale(scale);
                 yield return null;
             }
             _transition = null;
+        }
+
+        private void SetBadgeScale(float scale)
+        {
+            _badgeScale = scale;
+            Vector3 localScale = Vector3.one * scale;
+            if (_trait != null) _trait.transform.localScale = localScale;
+            if (_study != null) _study.transform.localScale = localScale;
+            if (_board != null) _board.transform.localScale = localScale;
+            if (_support != null) _support.transform.localScale = localScale;
         }
 
         private void ShowTooltip()
@@ -238,36 +245,69 @@ namespace Baseball.Presentation.SharedUI
             layer.sortingOrder = 250;
             item.GetComponent<CanvasGroup>().blocksRaycasts = false;
             var background = item.GetComponent<Image>();
-            background.color = CareerUiTheme.RosterSurface;
+            background.color = new Color32(13, 23, 36, 255);
             background.raycastTarget = false;
-            item.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
-            CareerUiSkin.ApplyVisualElement(background);
+            // 반투명 FlatSurface 스킨 대신 불투명 설명 면과 공용 프레임을 보존한다.
+            item.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            Baseball.Presentation.Owner.UIOwnerPanelFrame.Attach(_tooltip);
             var textObject = new GameObject("Description", typeof(RectTransform), typeof(CanvasRenderer), typeof(UIProjectText));
             textObject.transform.SetParent(_tooltip, false);
             Text label = textObject.GetComponent<Text>();
             label.font = UIProjectFonts.Default;
-            label.fontSize = 16;
-            label.color = CareerUiTheme.RosterText;
-            label.text = _model.Description;
-            label.alignment = TextAnchor.MiddleLeft;
+            label.fontSize = 14;
+            label.lineSpacing = 1.2f;
+            label.supportRichText = true;
+            label.color = new Color32(232, 237, 243, 255);
+            label.gameObject.AddComponent<CareerUiPreserveTextColor>();
+            label.text = BuildTooltipDescription();
+            label.alignment = TextAnchor.UpperLeft;
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             var textRect = label.rectTransform;
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(12, 8);
-            textRect.offsetMax = new Vector2(-12, -8);
+            textRect.offsetMin = new Vector2(16, 16);
+            textRect.offsetMax = new Vector2(-16, -16);
             Rect canvasRect = ((RectTransform)canvas.transform).rect;
-            float width = Mathf.Min(340, canvasRect.width - 24);
-            _tooltip.sizeDelta = new Vector2(width, 48 + ((_model.HasStudy ? 1 : 0) + (_model.HasTrait ? 1 : 0) + (_model.HasSupport ? 1 : 0) + (_model.HasBoard ? 1 : 0)) * 24);
+            float width = Mathf.Min(320, canvasRect.width - 32);
+            _tooltip.sizeDelta = new Vector2(width, 48);
+            // 특성 효과와 유학 설명은 여러 줄일 수 있으므로 배지 개수가 아닌 실제 줄바꿈 높이를 쓴다.
+            textRect.ForceUpdateRectTransforms();
+            _tooltip.sizeDelta = new Vector2(width, Mathf.Max(48, label.preferredHeight + 32));
             _tooltip.pivot = new Vector2(0, 1);
             var corners = new Vector3[4];
             ((RectTransform)transform).GetWorldCorners(corners);
             Vector3 local = canvas.transform.InverseTransformPoint(corners[2]);
-            local.x = Mathf.Clamp(local.x + 8, canvasRect.xMin + 8, canvasRect.xMax - width - 8);
+            float x = local.x + 12;
+            if (x + width > canvasRect.xMax - 8)
+                x = canvas.transform.InverseTransformPoint(corners[0]).x - width - 12;
+            local.x = Mathf.Clamp(x, canvasRect.xMin + 8, canvasRect.xMax - width - 8);
             local.y = Mathf.Clamp(local.y, canvasRect.yMin + _tooltip.sizeDelta.y + 8, canvasRect.yMax - 8);
             local.z = 0;
             _tooltip.localPosition = local;
+        }
+
+        private string BuildTooltipDescription()
+        {
+            var text = new System.Text.StringBuilder();
+            if (_model.HasTrait)
+            {
+                string description = _model.TraitDescription;
+                int separator = description.IndexOf(" · ", System.StringComparison.Ordinal);
+                if (separator >= 0)
+                    description = description.Substring(0, separator) + "\n" + description.Substring(separator + 3);
+                AppendTooltipSection(text, "특성", description);
+            }
+            if (_model.HasStudy) AppendTooltipSection(text, "유학", _model.StudyDescription);
+            if (_model.HasBoard) AppendTooltipSection(text, "스킬블록", _model.BoardDescription);
+            if (_model.HasSupport) AppendTooltipSection(text, "서포트", _model.SupportDescription);
+            return text.ToString();
+        }
+
+        private static void AppendTooltipSection(System.Text.StringBuilder text, string title, string description)
+        {
+            if (text.Length > 0) text.Append("\n\n");
+            text.Append("<color=#D6BE88>").Append(title).Append("</color>\n").Append(description);
         }
 
         private void HideTooltip()
@@ -285,8 +325,7 @@ namespace Baseball.Presentation.SharedUI
             _isHovered = _isFocused = false;
             if (_transition != null) StopCoroutine(_transition);
             _transition = null;
-            if (_trait != null) _trait.transform.localScale = Vector3.one;
-            if (_study != null) _study.transform.localScale = Vector3.one;
+            SetBadgeScale(1f);
         }
 
         private void OnDestroy() => HideTooltip();

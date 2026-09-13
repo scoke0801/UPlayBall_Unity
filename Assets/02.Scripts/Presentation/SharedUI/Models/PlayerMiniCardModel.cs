@@ -57,7 +57,9 @@ namespace Baseball.Presentation.SharedUI
             PlayerCardEdition? frameEdition = null,
             int? cost = null,
             int? conditionLevel = null,
-            PlayerCardGrowthBadgeModel growthBadges = null)
+            PlayerCardGrowthBadgeModel growthBadges = null,
+            string nameBandPositionLabel = null,
+            int enhancementLevel = 0)
         {
             if (string.IsNullOrWhiteSpace(playerId))
                 throw new ArgumentException("선수 식별자는 비어 있을 수 없습니다.", nameof(playerId));
@@ -67,6 +69,7 @@ namespace Baseball.Presentation.SharedUI
             PlayerId = playerId;
             DisplayName = displayName;
             PositionLabel = positionLabel ?? string.Empty;
+            NameBandPositionLabel = nameBandPositionLabel ?? PositionLabel;
             YearLabel = yearLabel ?? string.Empty;
             CostLabel = costLabel ?? string.Empty;
             EditionLabel = editionLabel ?? string.Empty;
@@ -78,6 +81,7 @@ namespace Baseball.Presentation.SharedUI
             Stats = CopyStats(stats);
             FrameEdition = frameEdition;
             Cost = cost;
+            EnhancementLevel = Math.Max(0, enhancementLevel);
             ConditionLevel = conditionLevel;
             GrowthBadges = growthBadges ?? PlayerCardGrowthBadgeModel.Empty;
         }
@@ -96,6 +100,9 @@ namespace Baseball.Presentation.SharedUI
         /// 야구 표준 Position 코드 표시다.
         /// </summary>
         public string PositionLabel { get; }
+
+        /// <summary>상단 편성 슬롯명과 독립적으로 이름 띠에 표시할 선수 포지션이다.</summary>
+        public string NameBandPositionLabel { get; }
 
         /// <summary>
         /// Origin Year 또는 카드 연도 표시다.
@@ -117,6 +124,9 @@ namespace Baseball.Presentation.SharedUI
 
         /// <summary>별 개수를 결정하는 실제 비용이다. 표시 문자열에서 역산하지 않는다.</summary>
         public int? Cost { get; }
+
+        /// <summary>실제 카드 강화 단계이며 0은 배지를 숨긴다.</summary>
+        public int EnhancementLevel { get; }
 
         /// <summary>정본 컨디션 테이블의 1~10 단계다. 비공개·미확인은 null이다.</summary>
         public int? ConditionLevel { get; }

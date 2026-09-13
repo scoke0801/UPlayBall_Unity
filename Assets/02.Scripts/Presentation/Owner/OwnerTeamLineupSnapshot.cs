@@ -282,9 +282,10 @@ namespace Baseball.Presentation.Owner
             return new PlayerMiniCardModel(cardId, runtime.IdentityRegistry.GetPresentationPlayerName(entry.PlayerPersonId),
                 order, (season.OriginYear % 100).ToString("00"), "C " + season.Cost,
                 development == null ? string.Empty : "+" + development.EnhancementLevel, role, portraitAssetKey: season.PlayerSeasonId, teamAccentHex: "#B1A858", isInteractable: false, frameEdition: definition.Edition, cost: season.Cost,
-                growthBadges: development != null ? OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance)
+                growthBadges: development != null ? OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance, manager.Balance.OwnerCardGrowth)
                     : showOwnedGrowth && roster.TeamSeasonKey == runtime.PlayerTeamSeasonKey
-                    ? OwnerCardGrowthBadgeBuilder.Build(runtime, cardId, manager.Balance.Growth, manager.TraitBalance) : PlayerCardGrowthBadgeModel.Empty);
+                    ? OwnerCardGrowthBadgeBuilder.Build(runtime, cardId, manager.Balance.Growth, manager.TraitBalance, manager.Balance.OwnerCardGrowth) : PlayerCardGrowthBadgeModel.Empty,
+                enhancementLevel: development?.EnhancementLevel ?? 0);
         }
 
         private static OwnerCollectionCardSnapshot CreateLineupDetail(
@@ -349,7 +350,7 @@ namespace Baseball.Presentation.Owner
                 placedSkillBlockCount: development?.SkillBoard.Placements.Count ?? 0,
                 skillBlockPlacements: development == null ? null : CreateSkillBlockPlacements(manager.Balance.Growth.SkillBlocks, development.SkillBoard.Placements),
                 studyStatus: development == null ? "" : "유학 완료",
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance),
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, manager.Balance.Growth, manager.TraitBalance, manager.Balance.OwnerCardGrowth),
                 growthHistory: development == null ? "" : OwnerGrowthHistoryFormatter.Format(development, manager.Balance.Growth),
                 abilityBreakdowns: abilityBreakdowns,
                 abilityGraphMaximum: manager.Balance.MatchRatingCurve.Caps.HardCap,

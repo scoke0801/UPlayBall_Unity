@@ -631,7 +631,7 @@ namespace Baseball.Presentation.Owner
             _confirmPreviewButton.interactable = canConfirm;
             _cancelPreviewButton.interactable = hasPreview;
             if (!hasPreview && string.IsNullOrEmpty(_validationText.text))
-                _validationText.text = "저장된 편성입니다 · 변경 후 배치 저장으로 확정하세요.";
+                _validationText.text = "편성 저장됨";
         }
 
         private static void SetUpperPanel(RectTransform panel, float left, float right)
@@ -929,7 +929,10 @@ namespace Baseball.Presentation.Owner
                 visualState: PlayerMiniCardVisualState.Normal,
                 frameEdition: player?.Edition,
                 cost: player?.Cost, conditionLevel: player?.ConditionLevel,
-                growthBadges: FindOwnedCard(player?.CardId)?.GrowthBadges);
+                growthBadges: FindOwnedCard(player?.CardId)?.GrowthBadges,
+                nameBandPositionLabel: player == null ? string.Empty :
+                    OwnerCollectionPresentationBuilder.FormatPosition(player.NaturalPosition),
+                enhancementLevel: FindOwnedCard(player?.CardId)?.EnhancementLevel ?? 0);
             card.Bind(model, player == null ? null : PlayerPortraitSprites.GetDefault(player.NaturalPosition));
             card.SetTeamIdentity(FindOwnedCard(player?.CardId)?.TeamDisplayName);
         }
@@ -989,7 +992,10 @@ namespace Baseball.Presentation.Owner
                     : OwnerRosterLineupPresentationBuilder.FormatEdition(player.Edition),
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(player.Position, player.PitcherRole, player.IsPositionEvidenceMissing),
                 frameEdition: player.Edition,
-                cost: player.Cost, conditionLevel: player.ConditionLevel, growthBadges: player.GrowthBadges);
+                cost: player.Cost, conditionLevel: player.ConditionLevel, growthBadges: player.GrowthBadges,
+                nameBandPositionLabel: OwnerCollectionPresentationBuilder.FormatPlayerRole(
+                    player.Position, player.PitcherRole, player.IsPositionEvidenceMissing),
+                enhancementLevel: player.EnhancementLevel);
             card.Bind(model, PlayerPortraitSprites.GetDefault(player.Position));
             card.SetTeamIdentity(player.TeamDisplayName);
             card.SetAssignmentBadge(assignment, assignment == null && IsOtherCardAssigned(player));
@@ -1298,8 +1304,8 @@ namespace Baseball.Presentation.Owner
         private string CreateDefaultInstruction()
         {
             return _isPlacementEditMode
-                ? "① 교체할 자리 선택  →  ② 보유 선수 선택  →  ③ 배치 저장 · 포지션 버튼으로 수비 위치 변경"
-                : "카드 선택으로 선수 상세 확인 · 선수 교체는 배치 편집 · 수비 변경은 카드 아래 포지션 선택";
+                ? "교체할 자리를 선택하세요"
+                : string.Empty;
         }
 
         private void SetSelectionVisual(Button button, bool isSelected)

@@ -382,7 +382,7 @@ namespace Baseball.Presentation.Owner
                 status,
                 string.IsNullOrEmpty(card.PlayerSeasonId) ? card.PlayerPersonId : card.PlayerSeasonId,
                 visualState: state, frameEdition: card.Edition, cost: card.Cost, conditionLevel: card.ConditionLevel,
-                growthBadges: card.GrowthBadges);
+                growthBadges: card.GrowthBadges, enhancementLevel: card.EnhancementLevel);
         }
 
         public static string FormatPosition(PlayerPosition position, bool isPositionEvidenceMissing = false)

@@ -1,0 +1,47 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\BoardRank_N.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  27684,
+        "Partial":  37322,
+        "Opaque":  530,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\BoardRank_R.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  27703,
+        "Partial":  37190,
+        "Opaque":  643,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\BoardRank_E.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  27692,
+        "Partial":  37259,
+        "Opaque":  585,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\BoardRank_U.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  27570,
+        "Partial":  37442,
+        "Opaque":  524,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\BoardRank_L.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  27678,
+        "Partial":  37209,
+        "Opaque":  649,
+        "TransparentCorners":  true
+    }
+]

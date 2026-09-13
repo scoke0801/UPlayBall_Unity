@@ -7,7 +7,8 @@ namespace Baseball.Presentation.SharedUI
 
     /// <summary>카드에 남는 유학 이력과 현재 진행 상태를 구분한다.</summary>
     public enum PlayerStudyBadgeState { None, InProgress, Completed }
-    public enum PlayerBoardBadgeRank { None, C, B, A, S }
+    /// <summary>장착 블록의 Normal부터 Legendary까지 희귀도를 일대일로 표시한다.</summary>
+    public enum PlayerBoardBadgeRank { None, N, R, E, U, L }
 
     /// <summary>카드 표시만 담당하는 불변 성장 배지 모델이다. 경험치로 등급을 추정하지 않는다.</summary>
     public sealed class PlayerCardGrowthBadgeModel
@@ -16,7 +17,7 @@ namespace Baseball.Presentation.SharedUI
 
         public PlayerCardGrowthBadgeModel(PlayerStudyBadgeState studyState = PlayerStudyBadgeState.None,
             string studyDescription = null, PlayerTraitBadgeRank traitRank = PlayerTraitBadgeRank.None,
-            string traitDescription = null, int supportGames = 0, string supportDescription = "", PlayerBoardBadgeRank boardRank = PlayerBoardBadgeRank.None)
+            string traitDescription = null, int supportGames = 0, string supportDescription = "", PlayerBoardBadgeRank boardRank = PlayerBoardBadgeRank.None, string boardDescription = "")
         {
             if (!Enum.IsDefined(typeof(PlayerStudyBadgeState), studyState))
                 throw new ArgumentOutOfRangeException(nameof(studyState));
@@ -26,6 +27,9 @@ namespace Baseball.Presentation.SharedUI
                 throw new ArgumentException("특성명과 핵심 효과 설명이 필요합니다.", nameof(traitDescription));
             StudyState = studyState;
             BoardRank = boardRank;
+            if (!Enum.IsDefined(typeof(PlayerBoardBadgeRank), boardRank))
+                throw new ArgumentOutOfRangeException(nameof(boardRank));
+            BoardDescription = boardDescription ?? "";
             TraitRank = traitRank;
             if (supportGames < 0 || supportGames > 2) throw new ArgumentOutOfRangeException(nameof(supportGames));
             SupportGames = supportGames;
@@ -35,7 +39,14 @@ namespace Baseball.Presentation.SharedUI
                     ? studyState == PlayerStudyBadgeState.InProgress ? "유학 중" : "유학 완료"
                     : studyDescription.Trim();
             TraitDescription = traitRank == PlayerTraitBadgeRank.None ? string.Empty :
-                traitDescription.Trim() + " · " + traitRank + "등급";
+                FormatTraitDescription(traitDescription.Trim(), traitRank);
+        }
+
+        private static string FormatTraitDescription(string description, PlayerTraitBadgeRank rank)
+        {
+            int separator = description.IndexOf(" · ", StringComparison.Ordinal);
+            int nameEnd = separator >= 0 ? separator : description.Length;
+            return description.Insert(nameEnd, "(" + rank + "등급)");
         }
 
         public PlayerStudyBadgeState StudyState { get; }
@@ -48,9 +59,10 @@ namespace Baseball.Presentation.SharedUI
         public string SupportDescription { get; }
         public bool HasSupport => SupportGames > 0;
         public PlayerBoardBadgeRank BoardRank { get; }
+        public string BoardDescription { get; }
         public bool HasBoard => BoardRank != PlayerBoardBadgeRank.None;
         public string Description => (HasStudy && HasTrait ? TraitDescription + "\n" + StudyDescription :
             HasTrait ? TraitDescription : StudyDescription) + (HasSupport ? (HasStudy || HasTrait ? "\n" : "") + SupportDescription : "")
-            + (HasBoard ? (HasStudy || HasTrait || HasSupport ? "\n" : "") + "성장판 " + BoardRank + "등급 · 최고 장착 등급" : "");
+            + (HasBoard ? (HasStudy || HasTrait || HasSupport ? "\n" : "") + "스킬블록 " + BoardRank + " 등급 · " + BoardDescription : "");
     }
 }

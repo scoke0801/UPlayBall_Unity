@@ -313,7 +313,8 @@ namespace Baseball.Presentation.Encyclopedia
             return new PlayerMiniCardModel(entry.StableId, entry.DisplayName, source?.PositionLabel ?? entry.Position,
                 entry.OriginYear.ToString(), "COST " + entry.Cost, source?.EditionLabel ?? entry.EditionDisplayName, status,
                 source?.PortraitAssetKey, source?.TeamAccentHex, selected ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal,
-                true, source?.Stats, frameEdition, entry.Cost, growthBadges: source?.GrowthBadges);
+                true, source?.Stats, frameEdition, entry.Cost, growthBadges: source?.GrowthBadges,
+                enhancementLevel: source?.EnhancementLevel ?? 0);
         }
 
         private void HandleSelected(PlayerMiniCardModel model)

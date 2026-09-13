@@ -54,6 +54,7 @@ namespace Baseball.Presentation.SharedUI
         private CanvasGroup _canvasGroup;
         private Text _nameText;
         private Text _positionText;
+        private Text _nameBandPositionText;
         private Text _yearText;
         private Text _costText;
         private Text _editionText;
@@ -61,6 +62,7 @@ namespace Baseball.Presentation.SharedUI
         private Image _assignmentBadge;
         private Text _assignmentText;
         private Image _teamEmblem;
+        private Image _enhancement;
         private PlayerMiniCardModel _model;
         private bool _usesLineupSlotLayout;
         private bool _usesPlayerPickerLayout;
@@ -143,6 +145,7 @@ namespace Baseball.Presentation.SharedUI
             SetAssignmentBadge(null);
             _nameText.text = model.DisplayName;
             _positionText.text = model.PositionLabel;
+            _nameBandPositionText.text = model.NameBandPositionLabel;
             _yearText.text = model.YearLabel;
             _costText.text = model.CostLabel;
             _editionText.text = model.EditionLabel;
@@ -159,7 +162,9 @@ namespace Baseball.Presentation.SharedUI
             float conditionTop = _usesLineupSlotLayout ? .89f : 1f;
             PlayerCardConditionSprites.Bind(transform, model.ConditionLevel,
                 new Vector2(.035f, .38f * conditionTop), new Vector2(.24f, .53f * conditionTop));
-            PlayerCardGrowthBadgesView.Bind((RectTransform)transform, model.GrowthBadges, cardTop: conditionTop);
+            BindEnhancement(model.EnhancementLevel);
+            PlayerCardGrowthBadgesView.Bind((RectTransform)transform, model.GrowthBadges,
+                cardTop: conditionTop, enhancement: _enhancement);
         }
 
         /// <summary>
@@ -182,6 +187,7 @@ namespace Baseball.Presentation.SharedUI
         {
             EnsureHierarchy();
             _usesLineupSlotLayout = true;
+            _positionText.gameObject.SetActive(true);
             CareerUiVisualElement visual = GetComponent<CareerUiVisualElement>();
             if (visual == null) visual = gameObject.AddComponent<CareerUiVisualElement>();
             visual.Initialize(CareerUiVisualRole.FlatSurface);
@@ -326,6 +332,8 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(8f, 5f), new Vector2(-8f, -10f));
 
             _yearText = CreateText("Year", root, 11, FontStyle.Normal, TextAnchor.MiddleCenter, TextPrimary);
+            _nameBandPositionText = CreateText("NameBandPosition", root, 8, FontStyle.Normal, TextAnchor.MiddleCenter, TextPrimary);
+            _nameBandPositionText.gameObject.SetActive(false);
             SetAnchors(_yearText.rectTransform, new Vector2(.76f, .23f), new Vector2(.97f, .39f), Vector2.zero, Vector2.zero);
             _costText = CreateText("Cost", root, 12, FontStyle.Bold, TextAnchor.MiddleLeft, TextPrimary);
             SetAnchors(_costText.rectTransform, new Vector2(.03f, .11f), new Vector2(.49f, .23f),
@@ -336,6 +344,7 @@ namespace Baseball.Presentation.SharedUI
             SetAnchors(_nameText.rectTransform, new Vector2(.03f, .23f), new Vector2(.75f, .39f),
                 new Vector2(3f, 0f), Vector2.zero);
             _positionText = CreateText("Position", root, 14, FontStyle.Bold, TextAnchor.MiddleLeft, TextSecondary);
+            _positionText.gameObject.SetActive(false);
             SetAnchors(_positionText.rectTransform, new Vector2(.03f, .85f), new Vector2(.74f, .97f),
                 new Vector2(5f, 0f), Vector2.zero);
             _editionText = CreateText("Edition", root, 12, FontStyle.Normal, TextAnchor.MiddleRight, TextMuted);
@@ -415,13 +424,17 @@ namespace Baseball.Presentation.SharedUI
                 true, top, _portrait.transform.GetSiblingIndex() + 1);
             SetAnchors(_nameText.rectTransform, new Vector2(name.xMin, top * name.yMin), new Vector2(name.xMax, top * name.yMax), Vector2.zero, Vector2.zero);
             SetAnchors(_yearText.rectTransform, new Vector2(.77f, top * name.yMin), new Vector2(.91f, top * name.yMax), Vector2.zero, Vector2.zero);
+            _nameBandPositionText.gameObject.SetActive(!_usesPlayerPickerLayout);
+            SetAnchors(_nameBandPositionText.rectTransform, new Vector2(.04f, top * name.yMin), new Vector2(.24f, top * name.yMax), Vector2.zero, Vector2.zero);
+            _nameBandPositionText.color = OwnerPlayerCardFrames.GetNameColor(_model.FrameEdition.Value);
+            SetBestFitRange(_nameBandPositionText, 5, _usesLineupSlotLayout ? 7 : 9);
             SetAnchors(_costText.rectTransform, new Vector2(.06f, top * .085f), new Vector2(.94f, top * .165f), Vector2.zero, Vector2.zero);
             SetAnchors(_statusText.rectTransform, new Vector2(.04f, .01f), new Vector2(.96f, top * .085f), Vector2.zero, Vector2.zero);
             _nameText.color = _yearText.color = OwnerPlayerCardFrames.GetNameColor(_model.FrameEdition.Value);
             _costText.alignment = _statusText.alignment = TextAnchor.MiddleCenter;
             // 80px 슬롯의 실제 텍스트 영역 높이에 맞춰 수치와 한국어 이름의 잘림을 막는다.
             SetBestFitRange(_nameText, 6, _usesLineupSlotLayout ? 12 : 18);
-            SetBestFitRange(_yearText, 5, _usesLineupSlotLayout ? 9 : 12);
+            SetBestFitRange(_yearText, 5, _usesLineupSlotLayout ? 7 : 9);
             SetBestFitRange(_costText, 6, _usesLineupSlotLayout ? 10 : 14);
             SetBestFitRange(_statusText, 5, _usesLineupSlotLayout ? 8 : 11);
             if (_model.Cost.HasValue)
@@ -442,7 +455,8 @@ namespace Baseball.Presentation.SharedUI
             {
                 // 장식이 침범하지 않는 등급별 GetNameRect를 유지하며 별도 명찰을 덧씌우지 않는다.
                 SetBestFitRange(_nameText, 6, 16);
-                SetBestFitRange(_yearText, 5, 12);
+                SetBestFitRange(_yearText, 5, 9);
+                SetBestFitRange(_nameBandPositionText, 5, 9);
             }
         }
 
@@ -537,7 +551,7 @@ namespace Baseball.Presentation.SharedUI
         public void SetAssignmentBadge(string assignmentLabel, bool hasOtherCardAssignment = false)
         {
             bool isAssigned = !string.IsNullOrWhiteSpace(assignmentLabel) || hasOtherCardAssignment;
-            if (_positionText != null) _positionText.gameObject.SetActive(!isAssigned || !_usesLineupSlotLayout);
+            if (_positionText != null) _positionText.gameObject.SetActive(_usesLineupSlotLayout && (!isAssigned || _usesPlayerPickerLayout));
             if (_assignmentBadge == null && !isAssigned) return;
             if (_assignmentBadge == null)
             {
@@ -583,6 +597,21 @@ namespace Baseball.Presentation.SharedUI
             bool shown = !string.IsNullOrWhiteSpace(teamDisplayName) &&
                 TeamEmblemSprites.TryApply(_teamEmblem, 0, teamDisplayName);
             _teamEmblem.gameObject.SetActive(shown);
+        }
+
+        private void BindEnhancement(int level)
+        {
+            if (_enhancement == null && level <= 0) return;
+            if (_enhancement == null)
+            {
+                _enhancement = CreateImage("EnhancementBadge", transform, Color.white);
+                _enhancement.preserveAspect = true;
+                _enhancement.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            }
+            _enhancement.sprite = level > 0
+                ? Resources.Load<Sprite>("UI/PlayerCardStatus/Enhancement_" + level) : null;
+            _enhancement.gameObject.SetActive(level > 0);
+            _enhancement.transform.SetAsLastSibling();
         }
 
         private void HandleSelected()

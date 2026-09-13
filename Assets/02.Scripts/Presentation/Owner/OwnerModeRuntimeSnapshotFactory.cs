@@ -378,7 +378,7 @@ namespace Baseball.Presentation.Owner
                   pitcherRole: season.PlayerType == PlayerType.Pitcher ? season.PitcherRole : null,
                   isActiveRoster: IsActiveRoster(runtime, owned.CardId),
                   studyStatus: GetStudyStatus(runtime, owned.CardId),
-                  growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth, manager.TraitBalance),
+                  growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth, manager.TraitBalance, manager.Balance.OwnerCardGrowth),
                   teamDisplayName: teamDisplayName, preferredBattingOrder: card.PreferredBattingOrder,
                   isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                   originFranchiseId: season.OriginFranchiseId,
@@ -475,7 +475,7 @@ namespace Baseball.Presentation.Owner
                 abilityBreakdowns,
                 manager.Balance.MatchRatingCurve.Caps.HardCap, preferredBattingOrder: card.PreferredBattingOrder, isPositionEvidenceMissing: season.IsPositionEvidenceMissing,
                 conditionLevel: condition.HasValue ? manager.Balance.ConditionChemistry.Presentation.GetLevel(condition.Value) : (int?)null,
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth, manager.TraitBalance),
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(owned, runtime.PlayerGrowth, manager.Balance.Growth, manager.TraitBalance, manager.Balance.OwnerCardGrowth),
                 originFranchiseId: season.OriginFranchiseId,
                 franchiseHistoryDisplayName: runtime.IdentityRegistry.GetPresentationFranchiseHistoryName(
                     season.OriginFranchiseId), growthHistory: OwnerGrowthHistoryFormatter.Format(owned, manager.Balance.Growth));
@@ -1140,7 +1140,7 @@ namespace Baseball.Presentation.Owner
                 ClubUpgradeStatus.InsufficientMoney => "자금 부족",
                 ClubUpgradeStatus.LeagueGradeLocked => "리그 등급 조건 미달",
                 ClubUpgradeStatus.FanBaseLocked => "팬 기반 조건 미달",
-                ClubUpgradeStatus.SeasonAttendanceLocked => "누적 관중 조건 미달",
+                ClubUpgradeStatus.SeasonAttendanceLocked => "시즌 관중 목표 달성 후 증축 가능",
                 ClubUpgradeStatus.AlreadyApplied => "이미 반영됨",
                 _ => "현재 상태에서 업그레이드 불가"
             };
