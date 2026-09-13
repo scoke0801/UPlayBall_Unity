@@ -232,8 +232,8 @@
       { "philosophy": 5, "effectBonusByRole": [0.002, 0.002, 0.005, 0.005, 0] }
     ],
     "market": {
-      "offseasonOfferCount": 10,
-      "midseasonOfferCount": 5,
+      "offseasonOfferCount": 20,
+      "midseasonOfferCount": 15,
       "minimumContractYears": 1,
       "maximumContractYears": 3,
       "preferredContractYears": [1, 2, 3],
@@ -243,7 +243,7 @@
       "maximumSalaryVariance": 1.08,
       "signingCostRate": 0.10,
       "replacementPenaltyRate": 0.25,
-      "leagueQualityBiasPerGrade": 0.025,
+      "leagueQualityBiasPerGrade": 0.18,
       "salaryRoundingUnit": 1000000
     },
     "ai": {
