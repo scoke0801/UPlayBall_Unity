@@ -16,11 +16,10 @@ namespace Baseball.Presentation.Owner
     {
         private readonly Button[] _rows = new Button[10];
         private readonly Text[] _ranks = new Text[10], _rowStates = new Text[10];
-        private readonly Image[] _selectionBars = new Image[10];
         private readonly Image[,] _winMarks = new Image[10, 3];
         private readonly List<LegendaryPracticeTeam> _filtered = new List<LegendaryPracticeTeam>();
         private Text _teamTitle, _record, _rotation, _progress, _reward, _hint, _pageLabel, _completed, _detail;
-        private Button _start, _claimAll, _previous, _next, _lineup, _retry;
+        private Button _start, _claimAll, _previous, _next, _lineup, _retry, _restart;
         private Dropdown _filter;
         private int _featuredCount;
         private CanvasGroup _interaction;
@@ -37,7 +36,7 @@ namespace Baseball.Presentation.Owner
         private UI_Scene_OwnerTeamLineup _lineupBoard;
         private RectTransform[] _panels;
         private readonly PlayerMiniCardView[] _cards = new PlayerMiniCardView[3];
-        public event Action<string> SelectionRequested, StartRequested;
+        public event Action<string> SelectionRequested, StartRequested, RestartRequested;
         public event Action ClaimAllRequested, LineupRequested, RetryRequested;
         public string SelectedTeamId => _selected;
 
@@ -48,17 +47,31 @@ namespace Baseball.Presentation.Owner
             var view = root.gameObject.AddComponent<UI_Scene_LegendaryPractice>(); view.Build(); return view;
         }
 
+        /// <summary>메뉴를 나갈 때 탐색 상태를 지워 다음 진입을 기본 도전 목록으로 시작한다.</summary>
+        public void ResetNavigation()
+        {
+            _filter.Hide();
+            _filter.SetValueWithoutNotify(0);
+            _selected = null;
+            _page = 0;
+            _decade = 0;
+            _showLineup = false;
+            _lineupBoard?.SetVisible(false);
+            foreach (var panel in _panels) panel.gameObject.SetActive(true);
+            RenderLineup();
+        }
+
         /// <summary>10개 행을 재사용하며 현재 도전 구간과 선택을 유지한다.</summary>
         public void Bind(LegendaryPracticeCatalog catalog, LegendaryPracticeState state, Func<LegendaryPracticeTeam, string> name)
         {
             _catalog = catalog; _state = state; _name = name;
             _interaction.interactable = true; _retry.gameObject.SetActive(false); _filter.interactable = true;
-            Place(_hint.rectTransform, .03f, .18f, .97f, .32f);
+            Place(_hint.rectTransform, .03f, .25f, .97f, .36f);
             if (_selected == null)
             {
                 _selected = catalog.teams[catalog.teams.Length - 1].challengeTeamId;
                 for (int i = catalog.teams.Length - 1; i >= 0; i--)
-                    if (state.CanPlay(catalog, catalog.teams[i]) && state.Get(catalog.teams[i].challengeTeamId).wins < 3)
+                    if (state.CanPlay(catalog, catalog.teams[i]) && !state.Get(catalog.teams[i].challengeTeamId).HasCleared)
                     { _selected = catalog.teams[i].challengeTeamId; break; }
                 _page = (catalog.teams.Length - catalog.Find(_selected).rank) / 10;
             }
@@ -103,8 +116,8 @@ namespace Baseball.Presentation.Owner
 
         public void ShowError(string message)
         {
-            _hint.text = message; _start.interactable = false; _retry.gameObject.SetActive(true);
-            Place(_hint.rectTransform, .03f, .245f, .97f, .32f);
+            _hint.text = message; _start.interactable = false; _restart.gameObject.SetActive(false); _retry.gameObject.SetActive(true);
+            Place(_hint.rectTransform, .03f, .25f, .97f, .36f);
             if (_catalog == null)
             {
                 _filter.interactable = _previous.interactable = _next.interactable = _claimAll.interactable = false;
@@ -167,7 +180,7 @@ namespace Baseball.Presentation.Owner
                 var team = _filtered[index]; var progress = _state.Get(team.challengeTeamId);
                 bool selected = team.challengeTeamId == _selected;
                 bool available = _state.CanPlay(_catalog, team);
-                string status = progress.wins >= 3 ? progress.rewardClaimed ? "격파 완료" : "보상 수령 가능"
+                string status = progress.HasCleared ? !progress.rewardClaimed ? "보상 수령 가능" : "격파 완료 · " + progress.wins + " / 3승"
                     : available ? "도전 가능 · " + progress.wins + " / 3승" : "잠김 · " + (team.rank + 1) + "위 격파 시 해금";
                 _rows[i].transform.Find("Label").GetComponent<Text>().text = _name(team);
                 OwnerDashboardStyle.SetDataRow(_rows[i], selected,
@@ -176,7 +189,6 @@ namespace Baseball.Presentation.Owner
                 _ranks[i].color = selected ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Ivory;
                 _rowStates[i].text = (selected ? "선택 · " : "") + status;
                 _rowStates[i].color = available ? OwnerDashboardStyle.Ivory : OwnerDashboardStyle.Muted;
-                _selectionBars[i].gameObject.SetActive(selected);
                 for (int win = 0; win < 3; win++)
                     _winMarks[i, win].color = progress.wins > win ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Line;
             }
@@ -197,21 +209,24 @@ namespace Baseball.Presentation.Owner
             var team = _catalog.Find(_selected); var progress = _state.Get(_selected);
             int complete = 0, ready = 0;
             foreach (var t in _catalog.teams)
-            { var p = _state.Get(t.challengeTeamId); if (p.wins == 3) { complete++; if (!p.rewardClaimed) ready++; } }
+            { var p = _state.Get(t.challengeTeamId); if (p.HasCleared) { complete++; if (!p.rewardClaimed) ready++; } }
             _completed.text = "역사의 벽을 넘어\n" + complete + " / " + _catalog.teams.Length + "팀 격파";
-            _progress.text = "누적 승리\n" + (progress.wins >= 1 ? "●" : "○") + "   " +
+            _progress.text = "이번 도전\n" + (progress.wins >= 1 ? "●" : "○") + "   " +
                 (progress.wins >= 2 ? "●" : "○") + "   " + (progress.wins >= 3 ? "●" : "○") + "\n" + progress.wins + " / 3승";
             _reward.text = (progress.rewardClaimed ? "최초 보상 수령 완료" : "3승 최초 보상") +
                 "\n\n골드  " + team.rewardMoney.ToString("N0") + "\n육성 포인트  " + team.rewardDevelopment.ToString("N0") +
                 "\nSP  " + team.rewardScouting.ToString("N0");
             bool available = _state.CanPlay(_catalog, team);
-            bool canClaim = progress.wins == 3 && !progress.rewardClaimed;
+            bool canClaim = progress.HasCleared && !progress.rewardClaimed;
+            _restart.gameObject.SetActive(!_retry.gameObject.activeSelf);
+            _restart.interactable = available && progress.attempts > 0;
             _start.interactable = available && (_canStart || canClaim);
-            _start.GetComponentInChildren<Text>().text = progress.wins == 3 && !progress.rewardClaimed ? "보상 받기" :
-                progress.wins == 3 ? "다시 도전" : "경기 시작";
+            _start.GetComponentInChildren<Text>().text = canClaim ? "보상 받기" : "경기 시작";
             _hint.text = !available ? "먼저 " + (team.rank + 1) + "위 팀에 3승을 달성해 주세요." :
                 !_canStart && !canClaim ? "우리 선수 오더에서 출전 편성을 확인해 주세요." :
-                progress.rewardClaimed ? "재도전에서는 추가 보상이 지급되지 않습니다." : "9이닝 · 연장 없음\n패배해도 승수 유지 · 체력 소모 없음";
+                progress.attempts == 0 ? "한 경기 도전 후 재도전할 수 있습니다.\n9이닝 · 연장 없음 · 체력 소모 없음" :
+                "재도전: 0승 · 1선발부터 다시 시작\n" + (progress.rewardClaimed ? "최초 보상 수령 완료 · 추가 보상 없음" :
+                    canClaim ? "최초 보상은 재도전 후에도 수령 가능" : "최초 3승 보상은 구단별 한 번만 지급");
             _claimAll.interactable = ready > 0;
             _claimAll.GetComponentInChildren<Text>().text = ready > 0 ? "미수령 보상 모두 받기 · " + ready : "미수령 보상 없음";
         }
@@ -291,12 +306,14 @@ namespace Baseball.Presentation.Owner
             var edit = Button(center.Content, "EditOrder", "우리 선수 오더", () => LineupRequested?.Invoke());
             Place((RectTransform)edit.transform, .70f, 0, 1, .07f);
             SectionSurface(reward.Content, "ProgressSurface", .01f, .615f, .99f, 1);
-            SectionSurface(reward.Content, "RewardSurface", .01f, .325f, .99f, .605f);
+            SectionSurface(reward.Content, "RewardSurface", .01f, .365f, .99f, .605f);
             _completed = Text(reward.Content, "Completion", 23); Place(_completed.rectTransform, .05f, .84f, .95f, 1);
             _progress = Text(reward.Content, "Wins", 28); Place(_progress.rectTransform, .03f, .61f, .97f, .84f);
             _progress.color = OwnerDashboardStyle.Gold;
-            _reward = Text(reward.Content, "Rewards", 20); Place(_reward.rectTransform, .03f, .32f, .97f, .61f);
-            _hint = Text(reward.Content, "Hint", 15); Place(_hint.rectTransform, .03f, .18f, .97f, .32f);
+            _reward = Text(reward.Content, "Rewards", 20); Place(_reward.rectTransform, .03f, .37f, .97f, .60f);
+            _hint = Text(reward.Content, "Hint", 15); Place(_hint.rectTransform, .03f, .25f, .97f, .36f);
+            _restart = Button(reward.Content, "Restart", "재도전", () => RestartRequested?.Invoke(_selected));
+            Place((RectTransform)_restart.transform, 0, .18f, 1, .24f);
             _retry = Button(reward.Content, "Retry", "다시 불러오기", () => RetryRequested?.Invoke());
             Place((RectTransform)_retry.transform, 0, .18f, 1, .24f); _retry.gameObject.SetActive(false);
             _start = Button(reward.Content, "Start", "경기 시작", () => StartRequested?.Invoke(_selected));
@@ -317,9 +334,6 @@ namespace Baseball.Presentation.Owner
             OwnerDashboardStyle.SetTypography(_ranks[index], true);
             _rowStates[index] = Text(row, "ChallengeState", 13);
             Place(_rowStates[index].rectTransform, .17f, .04f, .97f, .42f);
-            _selectionBars[index] = OwnerRuntimeUiFactory.CreateImage("SelectionBar", row, OwnerDashboardStyle.Gold);
-            Place(_selectionBars[index].rectTransform, 0, .12f, .008f, .88f);
-            _selectionBars[index].raycastTarget = false;
             for (int win = 0; win < 3; win++)
             {
                 var mark = OwnerRuntimeUiFactory.CreateImage("Win" + win, row, OwnerDashboardStyle.Line);
@@ -377,10 +391,10 @@ namespace Baseball.Presentation.Owner
             var opponent = _opponent[_state.Get(_selected).NextStarterIndex];
             string Row(string label, double player, double away) => label + "   " + player.ToString("0") + "  /  " + away.ToString("0") +
                 (Math.Abs(player - away) < 1 ? "  대등" : player > away ? "  우리 우세" : "  상대 우세") + "\n";
-            _detail.text = "우리 구단 / 상대 구단\n\n" + Row("교타", Mean(_playerRoster, a => a.Contact), Mean(opponent, a => a.Contact)) +
-                Row("장타", Mean(_playerRoster, a => a.Power), Mean(opponent, a => a.Power)) +
+            _detail.text = "우리 구단 / 상대 구단\n\n" + Row("교타력", Mean(_playerRoster, a => a.Contact), Mean(opponent, a => a.Contact)) +
+                Row("장타력", Mean(_playerRoster, a => a.Power), Mean(opponent, a => a.Power)) +
                 Row("주력", Mean(_playerRoster, a => a.Speed), Mean(opponent, a => a.Speed)) +
-                Row("수비", Mean(_playerRoster, a => a.Defense), Mean(opponent, a => a.Defense)) +
+                Row("수비력", Mean(_playerRoster, a => a.Defense), Mean(opponent, a => a.Defense)) +
                 Row("선발 제구", _playerRoster.StartingPitcher.Player.PitcherAttributes.Control, opponent.StartingPitcher.Player.PitcherAttributes.Control);
         }
     }

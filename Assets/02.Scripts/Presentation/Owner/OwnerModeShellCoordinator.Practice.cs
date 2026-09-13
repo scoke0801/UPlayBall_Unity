@@ -22,7 +22,7 @@ namespace Baseball.Presentation.Owner
         private bool TryShowPractice(string route)
         {
             if (route != OwnerNavigationRoutes.LegendaryPractice)
-            { _practiceView?.gameObject.SetActive(false); return false; }
+            { HidePracticeMenu(); return false; }
             _homeView?.SetVisible(false); _expansionWorkspace.HideAll(); _sharedInformationWorkspace.HideAll();
             _shell.SetInspectorVisible(false); _shell.SetActionBarVisible(false);
             _presenter.ShowContext(new ShellContextModel(route, "역대 강팀", "3승으로 다음 역사에 도전하세요", "연습경기", true, "홈으로"));
@@ -32,6 +32,7 @@ namespace Baseball.Presentation.Owner
                 _practiceView = UI_Scene_LegendaryPractice.CreateRuntime(_shell.MainWorkspaceHost);
                 _practiceView.SelectionRequested += SelectPracticeOpponent;
                 _practiceView.StartRequested += BeginPractice;
+                _practiceView.RestartRequested += RestartPractice;
                 _practiceView.ClaimAllRequested += ClaimAllPractice;
                 _practiceView.RetryRequested += Refresh;
                 _practiceView.LineupRequested += () => HandleNavigationRequested(OwnerNavigationRoutes.RosterLineup);
@@ -44,6 +45,14 @@ namespace Baseball.Presentation.Owner
             }
             catch (Exception error) { ReportPracticeError(error, "역대 강팀 정보를 불러오지 못했습니다."); }
             return true;
+        }
+
+        private void HidePracticeMenu()
+        {
+            if (_practiceView == null || !_practiceView.gameObject.activeSelf) return;
+            // 경기 관전 중의 임시 숨김과 메뉴 이탈을 구분해 경기 후 상대 선택은 유지한다.
+            _practiceView.ResetNavigation();
+            _practiceView.gameObject.SetActive(false);
         }
 
         private string PracticeTeamName(LegendaryPracticeTeam team)
@@ -77,8 +86,8 @@ namespace Baseball.Presentation.Owner
                     var ratings = new Baseball.Simulation.Historical.OwnerCardAbilityResolver(_manager.Balance.Growth)
                         .ResolvePermanent(season, card, development);
                     bool pitcher = season.PlayerType == PlayerType.Pitcher;
-                    string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화", "제구", "정신" }
-                        : new[] { "교타", "장타", "주력", "번트", "수비", "정신" };
+                    string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" }
+                        : new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
                     var stats = new PlayerMiniCardStatModel[6];
                     for (int a = 0; a < 6; a++)
                     {
@@ -89,7 +98,8 @@ namespace Baseball.Presentation.Owner
                         OwnerCollectionPresentationBuilder.FormatPlayerRole(season.Position, pitcher ? season.PitcherRole : null, false),
                         season.OriginYear.ToString(), "", PlayerCardEditionText.Get(card.Edition) + " +" + development.EnhancementLevel,
                         portraitAssetKey: season.PlayerSeasonId, stats: stats, frameEdition: card.Edition, cost: season.Cost,
-                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, _manager.Balance.Growth, _manager.TraitBalance));
+                        growthBadges: OwnerCardGrowthBadgeBuilder.Build(development, null, _manager.Balance.Growth, _manager.TraitBalance, _manager.Balance.OwnerCardGrowth),
+                        enhancementLevel: development.EnhancementLevel);
                 }
                 _practiceView.BindFeaturedCards(cards);
                 try { _practiceView.BindPlayerRoster(_manager.GetPracticePlayerRoster()); }
@@ -98,11 +108,19 @@ namespace Baseball.Presentation.Owner
             catch (Exception error) { ReportPracticeError(error, "선수 편성을 확인해 주세요. 선수 오더에서 변경할 수 있습니다."); }
         }
 
+        private void RestartPractice(string id)
+        {
+            if (_isPreparingPractice || _isPracticeMatchActive || _manager.IsPracticeSaving) return;
+            try { _manager.RestartPractice(id); Refresh(); _practiceView.FocusAction(); }
+            catch (Exception error)
+            { Refresh(); ReportPracticeError(error, "재도전을 저장하지 못했습니다. 다시 시도해 주세요."); }
+        }
+
         private void BeginPractice(string id)
         {
             if (_isPreparingPractice || _isPracticeMatchActive) return;
             var progress = _manager.Runtime.LegendaryPractice.Get(id);
-            if (progress.wins == 3 && !progress.rewardClaimed)
+            if (progress.HasCleared && !progress.rewardClaimed)
             {
                 try { _manager.ClaimPracticeRewards(id); Refresh(); }
                 catch (Exception error) { Refresh(); ReportPracticeError(error, "보상을 저장하지 못했습니다. 다시 시도해 주세요."); }
@@ -167,7 +185,7 @@ namespace Baseball.Presentation.Owner
             var progress = _manager.Runtime.LegendaryPractice.Get(_activePracticeTeamId);
             // 3승 직후에는 목록의 최초 보상 행동으로 안내하고, 보상 수령 후 재도전은 계속 허용한다.
             return _manager.Runtime.LegendaryPractice.CanPlay(catalog, catalog.Find(_activePracticeTeamId))
-                && (progress.wins < 3 || progress.rewardClaimed);
+                && (!progress.HasCleared || progress.rewardClaimed);
         }
 
         private void ContinuePractice()

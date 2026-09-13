@@ -122,6 +122,24 @@ namespace Baseball.Game.Historical
             finally { _isPracticeSaving = false; }
         }
 
+        /// <summary>재도전 시작점을 저장하고 저장 실패 시 기존 진행을 복구한다.</summary>
+        public bool RestartPractice(string teamId)
+        {
+            EnsureRegularSeasonSimulationIsNotRunning();
+            if (_isPracticeSaving) throw new InvalidOperationException("연습경기 진행을 저장하고 있습니다.");
+            var runtime = RequireRuntime();
+            var before = runtime.LegendaryPractice.Capture();
+            _isPracticeSaving = true;
+            try
+            {
+                if (!runtime.LegendaryPractice.Restart(GetPracticeCatalog(), teamId)) return false;
+                _saveStore.Save(_saveAdapter.CreateSaveData(runtime));
+                return true;
+            }
+            catch { runtime.RestoreLegendaryPractice(before); throw; }
+            finally { _isPracticeSaving = false; }
+        }
+
         /// <summary>지갑과 수령 원장을 같은 파일에 원자 저장하며 실패 시 둘 다 복구한다.</summary>
         public int ClaimPracticeRewards(string teamId = null)
         {
