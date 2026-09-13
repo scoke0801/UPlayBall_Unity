@@ -33,7 +33,10 @@ namespace Baseball.Game.Historical
     /// <summary>구단명·구단주 닉네임과 프런트 매니저 외형을 Save 범위로 보관한다.</summary>
     public sealed class OwnerProfileState
     {
-        public OwnerProfileState(string nickname, string frontManagerId, string clubName = null)
+        public const int MottoMaxLength = 40;
+        public const string DefaultMotto = "우리 구단의 다음 승리를 준비하자.";
+
+        public OwnerProfileState(string nickname, string frontManagerId, string clubName = null, string motto = null)
         {
             if (string.IsNullOrWhiteSpace(nickname))
                 throw new ArgumentException("구단주 닉네임이 필요합니다.", nameof(nickname));
@@ -51,9 +54,23 @@ namespace Baseball.Game.Historical
             }
             Nickname = trimmed;
             FrontManagerId = frontManagerId.Trim();
+            ChangeMotto(motto ?? DefaultMotto);
         }
 
         public string Nickname { get; }
+        public string Motto { get; private set; }
+
+        /// <summary>구단주의 한마디를 한 줄의 일반 텍스트로 검증하고 보관한다.</summary>
+        public void ChangeMotto(string motto)
+        {
+            string value = motto?.Trim() ?? string.Empty;
+            if (value.Length == 0 || value.Length > MottoMaxLength)
+                throw new ArgumentException($"한마디는 1~{MottoMaxLength}자로 입력해 주세요.", nameof(motto));
+            foreach (char character in value)
+                if (char.IsControl(character) || character == '\u2028' || character == '\u2029')
+                    throw new ArgumentException("줄바꿈 없이 한 줄로 입력해 주세요.", nameof(motto));
+            Motto = value;
+        }
         public string FrontManagerId { get; private set; }
 
         /// <summary>지원하는 프런트 매니저로 교체하며 구단주와 구단 정보는 유지한다.</summary>

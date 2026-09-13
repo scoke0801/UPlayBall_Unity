@@ -6,6 +6,17 @@ namespace Baseball.Game.Historical
     public sealed partial class OwnerModeManager
     {
         private ManagerReportPolicy _managerReportPolicy;
+        /// <summary>한마디를 저장하고, 저장 실패 시 이전 내용을 복원한다.</summary>
+        public void ChangeOwnerMotto(string motto)
+        {
+            var runtime = RequireRuntime();
+            string previous = runtime.OwnerProfile.Motto;
+            runtime.OwnerProfile.ChangeMotto(motto);
+            if (string.Equals(previous, runtime.OwnerProfile.Motto, StringComparison.Ordinal)) return;
+            try { _saveStore.Save(_saveAdapter.CreateSaveData(runtime)); }
+            catch { runtime.OwnerProfile.ChangeMotto(previous); throw; }
+            NotifyRuntimeChanged();
+        }
         /// <summary>매니저 선택을 저장하고, 저장 실패 시 이전 선택을 복원한다.</summary>
         public void ChangeFrontManager(string managerId)
         {

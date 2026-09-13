@@ -23,6 +23,10 @@ namespace Baseball.Presentation.Owner
 
         private SharedGameShellView _shell;
         public event Action ChangeFrontManagerRequested;
+        public event Action EditMottoRequested;
+
+        /// <summary>한마디 편집을 시작한 버튼으로 포커스를 복원한다.</summary>
+        public void FocusMottoButton() => _clubInformationView?.FocusMottoButton();
 
         /// <summary>구단주 매니저 교체를 시작한 버튼으로 돌아간다.</summary>
         public void FocusFrontManagerButton() => _clubInformationView?.FocusFrontManagerButton();
@@ -182,6 +186,7 @@ namespace Baseball.Presentation.Owner
             {
                 _clubInformationView = UI_Scene_OwnerClubInformation.CreateRuntime(_shell.MainWorkspaceHost);
                 _clubInformationView.ChangeFrontManagerRequested += () => ChangeFrontManagerRequested?.Invoke();
+                _clubInformationView.EditMottoRequested += () => EditMottoRequested?.Invoke();
                 _clubInformationView.gameObject.SetActive(false);
             }
             _clubInformationView.Bind(model);
@@ -195,9 +200,10 @@ namespace Baseball.Presentation.Owner
                  string.Equals(routeId, OwnerNavigationRoutes.ClubInformation, StringComparison.Ordinal)) &&
                 _clubInformationView != null && _clubInformationModel != null)
             {
+                bool isEntering = !string.Equals(ActiveRouteId, routeId, StringComparison.Ordinal);
                 HideAll();
                 bool showOwner = string.Equals(routeId, OwnerNavigationRoutes.ClubOwner, StringComparison.Ordinal);
-                _clubInformationView.ShowTab(showOwner);
+                _clubInformationView.ShowTab(showOwner, isEntering);
                 ShowContext(routeId, showOwner ? "구단주 정보" : "구단 정보",
                     "현재 시즌 구단 구성과 성적을 확인합니다.");
                 ActiveRouteId = routeId;

@@ -57,6 +57,7 @@ namespace Baseball.Game.Historical
         public string clubName;
         public string nickname;
         public string frontManagerId;
+        public string motto;
     }
 
     [Serializable]

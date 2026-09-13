@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Baseball.Core.Historical;
 using Baseball.Presentation.SharedScreens;
 
@@ -16,7 +17,8 @@ namespace Baseball.Presentation.Owner
             string frontManagerId = "FRONT_MANAGER_DEFAULT_01",
             string sourceTeamName = null,
             string region = null,
-            OwnerClubHistoryPresentationModel history = null)
+            OwnerClubHistoryPresentationModel history = null,
+            string motto = null)
         {
             if (home == null) throw new ArgumentNullException(nameof(home));
             if (collection == null) throw new ArgumentNullException(nameof(collection));
@@ -30,6 +32,7 @@ namespace Baseball.Presentation.Owner
             LocationLabel = string.IsNullOrWhiteSpace(region) ? "—" : region.Trim();
             OwnerName = string.IsNullOrWhiteSpace(ownerName) ? "구단주" : ownerName.Trim();
             FrontManagerId = frontManagerId ?? string.Empty;
+            Motto = motto ?? Baseball.Game.Historical.OwnerProfileState.DefaultMotto;
             OwnedPlayerCount = collection.Cards.Count;
             ActiveRosterText = string.Concat(home.ActiveRosterCount, "/", home.ActiveRosterCapacity);
             FanBaseText = Math.Round(operation.FanBase).ToString("N0");
@@ -37,6 +40,7 @@ namespace Baseball.Presentation.Owner
             Popularity = (float)operation.Popularity;
             FanBase = (float)operation.FanBase;
             HasHistory = history != null;
+            PreviousSeasons = BuildPreviousSeasons(history);
             Championships = history?.CountHonors(null, 1) ?? 0;
             RunnerUps = history?.CountHonors(null, 2) ?? 0;
             if (history != null)
@@ -93,11 +97,13 @@ namespace Baseball.Presentation.Owner
         public string LocationLabel { get; }
         public string OwnerName { get; }
         public string FrontManagerId { get; }
+        public string Motto { get; }
         public string FanBaseText { get; }
         public string PopularityText { get; }
         public float Popularity { get; }
         public float FanBase { get; }
         public bool HasHistory { get; }
+        public RecordTableModel PreviousSeasons { get; }
         public int Championships { get; }
         public int RunnerUps { get; }
         public int Promotions { get; }
@@ -117,5 +123,28 @@ namespace Baseball.Presentation.Owner
         public int RunsAllowed { get; }
         public int Games => Wins + Losses + Ties;
         public string WinningPercentage => Wins + Losses == 0 ? "—" : ((double)Wins / (Wins + Losses)).ToString("0.000");
+
+        /// <summary>현재 시즌을 제외한 완료 시즌을 기록실과 같은 원본 값과 최신순으로 표시한다.</summary>
+        private static RecordTableModel BuildPreviousSeasons(OwnerClubHistoryPresentationModel history)
+        {
+            var columns = new[]
+            {
+                new RecordTableColumnModel("Season", "시즌", RecordSortValueKind.Number, false, widthWeight: 1.5f),
+                new RecordTableColumnModel("League", "리그", RecordSortValueKind.Text, false, widthWeight: 1.3f),
+                new RecordTableColumnModel("Rank", "순위", RecordSortValueKind.Number, false),
+                new RecordTableColumnModel("Wins", "승", RecordSortValueKind.Number, false),
+                new RecordTableColumnModel("Losses", "패", RecordSortValueKind.Number, false),
+                new RecordTableColumnModel("Ties", "무", RecordSortValueKind.Number, false)
+            };
+            var rows = new List<RecordTableRowModel>();
+            if (history != null)
+                foreach (var season in history.Seasons)
+                {
+                    // 현재 시즌은 정규 일정이 끝나도 위쪽 현재 리그 성적에서 표시한다.
+                    if (!season.IsCompleted || season.Row.IsHighlighted) continue;
+                    rows.Add(season.Row);
+                }
+            return new RecordTableModel(columns, rows);
+        }
     }
 }

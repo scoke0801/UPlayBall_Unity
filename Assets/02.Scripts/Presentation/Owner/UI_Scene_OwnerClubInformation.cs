@@ -1,4 +1,5 @@
 using System;
+using Baseball.Presentation.SharedScreens;
 using Baseball.Presentation.SharedUI;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -21,6 +22,13 @@ namespace Baseball.Presentation.Owner
         private OwnerClubInformationPresentationModel _model;
         private bool _showOwner = true;
         private Button _changeManagerButton;
+        private Button _editMottoButton;
+        private OwnerClubGuideCatalog _guideCatalog;
+        private OwnerClubGuideCatalog.Entry _guide;
+        public event Action EditMottoRequested;
+
+        /// <summary>편집 종료 후 갱신된 한마디 수정 버튼으로 돌아간다.</summary>
+        public void FocusMottoButton() => _editMottoButton?.Select();
         public event Action ChangeFrontManagerRequested;
 
         /// <summary>팝업 종료 후 다시 생성된 교체 버튼으로 포커스를 복원한다.</summary>
@@ -38,13 +46,19 @@ namespace Baseball.Presentation.Owner
         public void Bind(OwnerClubInformationPresentationModel model)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
+            if (_guide != null && !_guide.IsEligible(_model)) _guide = null;
             if (gameObject.activeSelf) Render();
         }
 
         /// <summary>구단주 또는 구단 탭을 선택해 해당 레퍼런스 구성을 표시한다.</summary>
-        public void ShowTab(bool showOwner)
+        public void ShowTab(bool showOwner, bool isEntering = true)
         {
             _showOwner = showOwner;
+            if (showOwner && _model != null && (isEntering || _guide == null))
+            {
+                if (_guideCatalog == null) _guideCatalog = OwnerClubGuideCatalog.Load();
+                _guide = _guideCatalog.Select(_model);
+            }
             gameObject.SetActive(true);
             Render();
         }
@@ -100,22 +114,28 @@ namespace Baseball.Presentation.Owner
             office.type = Image.Type.Simple;
             office.preserveAspect = false;
             office.gameObject.AddComponent<RectMask2D>();
-            Place(office.rectTransform, .02f, .23f, .98f, .87f);
+            Place(office.rectTransform, .02f, .28f, .98f, .87f);
             Image shade = OwnerRuntimeUiFactory.CreateImage("Shade", office.transform, new Color(0f, 0f, 0f, .38f));
             OwnerRuntimeUiFactory.Stretch(shade.rectTransform);
             Image portrait = OwnerRuntimeUiFactory.CreateImage("Portrait", office.transform, Color.white);
-            portrait.sprite = FrontManagerPortraitSprites.LoadForManager(_model.FrontManagerId, "FM_WELCOME");
+            if (_guideCatalog == null) _guideCatalog = OwnerClubGuideCatalog.Load();
+            if (_guide == null) _guide = _guideCatalog.Select(_model);
+            portrait.sprite = FrontManagerPortraitSprites.LoadForManager(_model.FrontManagerId, _guide.expression);
             portrait.preserveAspect = true;
             Place(portrait.rectTransform, .45f, .02f, 1f, .98f);
             RectTransform speech = Surface(office.rectTransform, "Speech", OwnerDashboardStyle.TableHeader, .04f, .50f, .59f, .91f);
             UIOwnerFrontOfficePanel.Apply(speech, "Speech");
-            Label(speech, "Message", "다음 승리를 준비해요.\n구단의 현재 상태를\n함께 확인하세요.",
+            Label(speech, "Message", _guide.text,
                 .10f, .18f, .83f, .82f, 15, Ink, TextAnchor.MiddleLeft);
             _changeManagerButton = OwnerWorkspaceUiFactory.CreateButton(manager, "ChangeFrontManager", "매니저 교체",
                 () => ChangeFrontManagerRequested?.Invoke());
-            Place((RectTransform)_changeManagerButton.transform, .65f, .12f, .96f, .215f);
-            Label(manager, "Motto", "구단주의 한마디", .03f, .02f, .27f, .10f, 13, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Label(manager, "MottoText", "우리 구단의 다음 승리를 준비하자.", .28f, .02f, .97f, .10f, 15, Ink, TextAnchor.MiddleLeft);
+            Place((RectTransform)_changeManagerButton.transform, .65f, .17f, .96f, .265f);
+            Label(manager, "Motto", "구단주의 한마디", .03f, .17f, .40f, .265f, 13, Blue, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var motto = Label(manager, "MottoText", _model.Motto, .03f, .015f, .79f, .155f, 15, Ink, TextAnchor.MiddleLeft);
+            motto.supportRichText = false;
+            _editMottoButton = OwnerWorkspaceUiFactory.CreateButton(manager, "EditMotto", "수정",
+                () => EditMottoRequested?.Invoke());
+            Place((RectTransform)_editMottoButton.transform, .82f, .025f, .96f, .145f);
         }
 
         private void BuildClubInformation(RectTransform root)
@@ -144,8 +164,19 @@ namespace Baseball.Presentation.Owner
             });
 
             RectTransform previous = Panel(root, "Previous", "이전 리그 성적", .51f, .08f, .975f, .445f);
-            Label(previous, "HistoryEmptyTitle", "이전 시즌 기록 안내", .06f, .44f, .94f, .70f, 22, Ink);
-            Label(previous, "HistoryEmptyDetail", "완료된 시즌의 상세 성적은 구단 기록실에서 확인하세요.", .06f, .20f, .94f, .43f, 14, Muted);
+            var table = RecordTableView.CreateRuntime(previous, "PreviousSeasonsTable");
+            Place((RectTransform)table.transform, .03f, .06f, .97f, .85f);
+            table.AllowRowActivation = false;
+            table.FitColumnsToViewport = true;
+            table.SetVisualStyle(RecordTableVisualStyle.OwnerFrontOffice);
+            table.Bind(_model.PreviousSeasons);
+            if (_model.PreviousSeasons.Rows.Count == 0)
+            {
+                Label(previous, "HistoryEmptyTitle", _model.HasHistory ? "아직 이전 시즌 기록이 없습니다" : "시즌 기록을 불러오지 못했습니다",
+                    .06f, .35f, .94f, .53f, 18, Ink);
+                Label(previous, "HistoryEmptyDetail", _model.HasHistory ? "다음 시즌으로 넘어가면 이곳에 성적이 누적됩니다." : "구단 메뉴를 다시 열어 주세요.",
+                    .06f, .18f, .94f, .34f, 14, Muted);
+            }
         }
 
         private void Metric(RectTransform host, string title, string value, string note, float amount, float minX, float maxX)

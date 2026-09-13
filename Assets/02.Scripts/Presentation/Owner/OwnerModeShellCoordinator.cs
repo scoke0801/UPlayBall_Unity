@@ -348,12 +348,18 @@ namespace Baseball.Presentation.Owner
             {
                 _sharedInformationWorkspace.NextMatchAnalysisRequested -= HandleOpponentAnalysisRequested;
                 _sharedInformationWorkspace.ChangeFrontManagerRequested -= HandleChangeFrontManagerRequested;
+                _sharedInformationWorkspace.EditMottoRequested -= HandleEditMottoRequested;
                 _sharedInformationWorkspace.HistorySeasonPlayersRequested -= HandleHistorySeasonPlayersRequested;
             }
             if (_frontManagerPopup != null)
             {
                 _frontManagerPopup.SelectionRequested -= HandleFrontManagerSelected;
                 _frontManagerPopup.CloseRequested -= CloseFrontManagerPopup;
+            }
+            if (_mottoPopup != null)
+            {
+                _mottoPopup.SaveRequested -= HandleMottoSaveRequested;
+                _mottoPopup.CloseRequested -= CloseMottoPopup;
             }
             if (_matchSpectatorView != null)
             {
@@ -414,6 +420,7 @@ namespace Baseball.Presentation.Owner
                 CancelPracticePreparation();
             }
             if (mode != UiGameMode.OwnerCareer) _frontManagerPopup?.Hide();
+            if (mode != UiGameMode.OwnerCareer) _mottoPopup?.Hide();
             if (mode != UiGameMode.OwnerCareer && _isNextOwnerMatchPending)
                 _isNextOwnerMatchPending = _isTransitioningToOwnerMatch = false;
             if (mode != UiGameMode.OwnerCareer) ResetPostseasonPresentation();
@@ -438,6 +445,7 @@ namespace Baseball.Presentation.Owner
 
         private void HandleNavigationRequested(string routeId)
         {
+            if (_mottoPopup != null && _mottoPopup.gameObject.activeInHierarchy) return;
             if (_isPracticeMatchActive || _isPreparingPractice) return;
             if (_isOwnerMatchVisible || _isTransitioningToOwnerMatch || _isSeasonSimulationVisible)
                 return;
@@ -947,7 +955,8 @@ namespace Baseball.Presentation.Owner
         {
             EnsureSeasonReviewPopup();
             var snapshot = _manager.CreateSeasonReview();
-            _seasonReviewPopup.Bind(snapshot, _manager.GetTeamDisplayName, initialPage);
+            _seasonReviewPopup.Bind(snapshot, _manager.GetTeamDisplayName, initialPage,
+                _manager.Runtime.OwnerProfile.Nickname);
             _seasonReviewPopup.Show();
             ShowSeasonReviewCelebration(snapshot, initialPage);
         }
@@ -1274,6 +1283,7 @@ namespace Baseball.Presentation.Owner
             _sharedInformationWorkspace.SetTeamLineupResolver(teamKey => _snapshotFactory.CreateTeamLineup(_manager, teamKey));
             _sharedInformationWorkspace.NextMatchAnalysisRequested += HandleOpponentAnalysisRequested;
             _sharedInformationWorkspace.ChangeFrontManagerRequested += HandleChangeFrontManagerRequested;
+            _sharedInformationWorkspace.EditMottoRequested += HandleEditMottoRequested;
             _sharedInformationWorkspace.HistorySeasonPlayersRequested += HandleHistorySeasonPlayersRequested;
         }
 
@@ -1302,6 +1312,7 @@ namespace Baseball.Presentation.Owner
 
         private bool TryCloseFrontManagerPopup()
         {
+            if (TryCloseMottoPopup()) return true;
             if (_frontManagerPopup == null || !_frontManagerPopup.gameObject.activeInHierarchy) return false;
             CloseFrontManagerPopup();
             return true;

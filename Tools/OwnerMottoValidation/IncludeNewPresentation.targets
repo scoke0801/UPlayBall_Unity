@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'Baseball.Presentation'">
+    <Compile Remove="$(MSBuildProjectDirectory)/Assets/02.Scripts/Presentation/**/*.cs" />
+    <Compile Include="$(MSBuildProjectDirectory)/Assets/02.Scripts/Presentation/**/*.cs" />
+  </ItemGroup>
+</Project>
