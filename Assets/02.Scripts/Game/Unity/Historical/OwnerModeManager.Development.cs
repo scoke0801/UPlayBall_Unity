@@ -36,7 +36,17 @@ namespace Baseball.Game.Historical
             throw new InvalidOperationException("스킬 블록을 선택하세요.");
         }
         public void OpenSkillSelectionBox(string id) => CommitDevelopment(runtime => OwnerSkillResearchService.OpenSelectionBox(runtime, GetDevelopmentBlock(id)));
-        public void FuseSkillBlocks(string id) => CommitDevelopment(runtime => OwnerSkillResearchService.Fuse(runtime, _balance.Growth.SkillBlocks, GetDevelopmentBlock(id)));
+        /// <summary>저장 성공 후 실제 추첨 결과를 반환한다.</summary>
+        public SkillBlockDefinition FuseSkillBlocks(int firstId, int secondId, SkillFusionFocus focus)
+        {
+            SkillBlockDefinition result = null;
+            CommitDevelopment(runtime => result = OwnerSkillResearchService.Fuse(runtime, _balance.Growth.SkillBlocks,
+                firstId, secondId, GetDevelopmentBalance().fusion, focus,
+                new Pcg32Random(runtime.WorldHistory.WorldHistorySeed, (ulong)runtime.PlayerGrowth.Inventory.FusionCount + 2701UL)));
+            return result;
+        }
+        public void CraftSkillBlock(string id) => CommitDevelopment(runtime =>
+            OwnerSkillResearchService.Craft(runtime, GetDevelopmentBlock(id), GetDevelopmentBalance().fusion));
         public void SelectSlogan(string id)
         {
             OwnerSloganDefinition selected = null;
