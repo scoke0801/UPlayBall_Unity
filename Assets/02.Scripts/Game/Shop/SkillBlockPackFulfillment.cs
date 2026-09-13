@@ -255,7 +255,7 @@ namespace Baseball.Game.Shop
                 SkillBlockCategory.Control => "제구력",
                 SkillBlockCategory.Breaking => "변화구",
                 SkillBlockCategory.PitcherPhysical => "체력",
-                SkillBlockCategory.PitcherMental => "위기관리",
+                SkillBlockCategory.PitcherMental => "정신력",
                 SkillBlockCategory.Bunt => "번트",
                 SkillBlockCategory.Stuff => "구위",
                 _ => throw new ArgumentOutOfRangeException(nameof(category))
@@ -264,22 +264,7 @@ namespace Baseball.Game.Shop
 
         private static string DescribeAbility(PlayerAbility ability)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "교타력",
-                PlayerAbility.Power => "장타력",
-                PlayerAbility.Speed => "주력",
-                PlayerAbility.Bunt => "번트",
-                PlayerAbility.Defense => "수비력",
-                PlayerAbility.BatterMental => "정신력",
-                PlayerAbility.Stamina => "체력",
-                PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위",
-                PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구력",
-                PlayerAbility.PitcherMental => "위기관리",
-                _ => throw new ArgumentOutOfRangeException(nameof(ability))
-            };
+            return PlayerAbilityCatalog.GetDisplayName(ability);
         }
     }
 }

@@ -111,22 +111,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetAbilityLabel(PlayerAbility ability)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "교타력",
-                PlayerAbility.Power => "장타력",
-                PlayerAbility.Speed => "주력",
-                PlayerAbility.Bunt => "번트",
-                PlayerAbility.Defense => "수비력",
-                PlayerAbility.BatterMental => "정신력",
-                PlayerAbility.Stamina => "체력",
-                PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위",
-                PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구력",
-                PlayerAbility.PitcherMental => "위기관리",
-                _ => "능력치 미정"
-            };
+            return PlayerAbilityCatalog.GetDisplayName(ability);
         }
 
         private static string GetGrowthSourceLabel(GrowthResultRecord record)
@@ -282,16 +267,16 @@ namespace Baseball.Presentation.Career
         {
             return category switch
             {
-                SkillBlockCategory.Contact => "교타",
-                SkillBlockCategory.Power => "장타",
-                SkillBlockCategory.Baserunning => "주루",
-                SkillBlockCategory.Defense => "수비",
-                SkillBlockCategory.BatterMental => "타격 정신",
+                SkillBlockCategory.Contact => "교타력",
+                SkillBlockCategory.Power => "장타력",
+                SkillBlockCategory.Baserunning => "주력",
+                SkillBlockCategory.Defense => "수비력",
+                SkillBlockCategory.BatterMental => "정신력",
                 SkillBlockCategory.Velocity => "구속",
-                SkillBlockCategory.Control => "제구",
+                SkillBlockCategory.Control => "제구력",
                 SkillBlockCategory.Breaking => "변화구",
-                SkillBlockCategory.PitcherPhysical => "투수 체력",
-                SkillBlockCategory.PitcherMental => "투수 정신",
+                SkillBlockCategory.PitcherPhysical => "체력",
+                SkillBlockCategory.PitcherMental => "정신력",
                 SkillBlockCategory.Bunt => "번트",
                 SkillBlockCategory.Stuff => "구위",
                 _ => "분류 없음"
@@ -302,11 +287,11 @@ namespace Baseball.Presentation.Career
         {
             return category switch
             {
-                SkillBlockCategory.BatterMental => "정신",
-                SkillBlockCategory.PitcherMental => "정신",
+                SkillBlockCategory.BatterMental => "정신력",
+                SkillBlockCategory.PitcherMental => "정신력",
                 SkillBlockCategory.PitcherPhysical => "체력",
-                SkillBlockCategory.Baserunning => "주루",
-                SkillBlockCategory.Breaking => "변화",
+                SkillBlockCategory.Baserunning => "주력",
+                SkillBlockCategory.Breaking => "변화구",
                 _ => GetCategoryLabel(category)
             };
         }
@@ -322,10 +307,10 @@ namespace Baseball.Presentation.Career
                 SkillBlockCategory.Velocity => "구속 보너스",
                 SkillBlockCategory.Control => "제구력 보너스",
                 SkillBlockCategory.Breaking => "변화구 보너스",
-                SkillBlockCategory.PitcherMental => "위기관리 보너스",
-                SkillBlockCategory.Baserunning => "주루 보너스",
+                SkillBlockCategory.PitcherMental => "정신력 보너스",
+                SkillBlockCategory.Baserunning => "주력 보너스",
                 SkillBlockCategory.Bunt => "번트 보너스",
-                SkillBlockCategory.PitcherPhysical => "투수 체력 보너스",
+                SkillBlockCategory.PitcherPhysical => "체력 보너스",
                 SkillBlockCategory.Stuff => "구위 보너스",
                 _ => "능력치 보너스"
             };

@@ -33,18 +33,18 @@ namespace Baseball.Presentation.Career
         {
             return category switch
             {
-                SkillBlockCategory.Contact => "컨택",
-                SkillBlockCategory.Power => "장타",
-                SkillBlockCategory.Baserunning => "주루",
-                SkillBlockCategory.Defense => "수비",
-                SkillBlockCategory.BatterMental => "타자 정신력",
+                SkillBlockCategory.Contact => "교타력",
+                SkillBlockCategory.Power => "장타력",
+                SkillBlockCategory.Baserunning => "주력",
+                SkillBlockCategory.Defense => "수비력",
+                SkillBlockCategory.BatterMental => "정신력",
                 SkillBlockCategory.Velocity => "구속",
-                SkillBlockCategory.Control => "제구",
+                SkillBlockCategory.Control => "제구력",
                 SkillBlockCategory.Breaking => "변화구",
-                SkillBlockCategory.PitcherPhysical => "투수 체력",
+                SkillBlockCategory.PitcherPhysical => "체력",
                 SkillBlockCategory.Bunt => "번트",
                 SkillBlockCategory.Stuff => "구위",
-                _ => "투수 정신력"
+                _ => "정신력"
             };
         }
 
