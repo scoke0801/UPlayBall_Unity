@@ -45,7 +45,7 @@ namespace Baseball.Presentation.Owner
 
         private void Build()
         {
-            var panel = OwnerWorkspaceUiFactory.CreatePanel(transform, "AutoLineupPanel", "자동 배치 · 연도 구단 덱");
+            var panel = OwnerWorkspaceUiFactory.CreatePanel(transform, "AutoLineupPanel", "자동 배치");
             _frame = panel.Root;
             _frame.anchorMin = _frame.anchorMax = _frame.pivot = new Vector2(.5f, .5f);
             _frame.anchoredPosition = Vector2.zero;
@@ -54,7 +54,7 @@ namespace Baseball.Presentation.Owner
             header.color = CareerUiTheme.RosterText;
             header.gameObject.AddComponent<CareerUiPreserveTextColor>();
             RectTransform body = panel.Content;
-            Label(body, "Intro", "원하는 시즌의 구단으로 25인 오더를 구성하세요.", .02f, .86f, .98f, .98f, 18);
+            Label(body, "Intro", "어느 시즌의 구단을 중심으로 구성할까요?", .02f, .86f, .98f, .98f, 18);
             Label(body, "YearLabel", "연도", .02f, .77f, .33f, .85f, 13);
             Label(body, "TeamLabel", "구단", .37f, .77f, .98f, .85f, 13);
             foreach (var card in _cards)
@@ -69,9 +69,9 @@ namespace Baseball.Presentation.Owner
             Place(_team.transform, .37f, .64f, .98f, .77f);
             _summary = Label(body, "DeckSummary", "", .02f, .49f, .98f, .62f, 18);
             _summary.color = CareerUiTheme.RosterAccent;
-            Label(body, "Rules", "선택 덱 우선 · 같은 계보의 특수 카드 포함\n빈 포지션은 고 코스트로 보완 · 동일 선수 중복 제외\n선발/구원 구분 · 백업 포수 확보\n커리어하이 + 레전드: 합계 " + OwnerSpecialCardRosterRule.MaxTotalCount +
-                "명 / 타자·투수 각각 " + OwnerSpecialCardRosterRule.MaxHitterCount + "명까지", .02f, .25f, .98f, .48f, 14);
-            _feedback = Label(body, "Feedback", "변경안으로 배치한 뒤 선수 오더에서 확인하고 저장하세요.", .02f, .12f, .98f, .24f, 14);
+            Label(body, "Rules", "선택 구단과 해당 구단의 특수 카드를 우선 기용합니다.\n부족한 자리는 보유 선수 중 코스트가 높은 선수로 채웁니다.\n레전드·커리어하이 최대 " + OwnerSpecialCardRosterRule.MaxTotalCount +
+                "명 · 타자·투수 각각 " + OwnerSpecialCardRosterRule.MaxHitterCount + "명", .02f, .25f, .98f, .48f, 14);
+            _feedback = Label(body, "Feedback", "저장 전까지 자유롭게 수정할 수 있습니다.", .02f, .12f, .98f, .24f, 14);
             _cancel = OwnerWorkspaceUiFactory.CreateButton(body, "CancelAutoLineup", "취소", Close);
             Place(_cancel.transform, .50f, .01f, .68f, .115f);
             _confirm = OwnerWorkspaceUiFactory.CreateButton(body, "ConfirmAutoLineup", "자동 배치", Apply);
@@ -128,8 +128,8 @@ namespace Baseball.Presentation.Owner
                 if (card.OriginYear == _years[_year.value] && card.OriginFranchiseId == _teams[_team.value].Key)
                     (card.Position == PlayerPosition.StartingPitcher || card.Position == PlayerPosition.ReliefPitcher ? pitchers : hitters)
                         .Add(string.IsNullOrWhiteSpace(card.PlayerPersonId) ? card.CardId : card.PlayerPersonId);
-            _summary.text = "해당 시즌 보유 · 타자 " + hitters.Count + "명 / 투수 " + pitchers.Count + "명";
-            _feedback.text = "기존 변경안을 새 자동 배치로 교체합니다. 배치 저장 전까지 되돌릴 수 있습니다.";
+            _summary.text = "보유 선수  타자 " + hitters.Count + "명 · 투수 " + pitchers.Count + "명";
+            _feedback.text = "현재 편성을 다시 구성합니다. 저장 전까지 되돌릴 수 있습니다.";
         }
 
         private async void Apply()
@@ -138,7 +138,7 @@ namespace Baseball.Presentation.Owner
             var cancellation = new CancellationTokenSource();
             _cancellation = cancellation;
             _year.interactable = _team.interactable = _confirm.interactable = false;
-            _feedback.text = "포지션과 특수 카드 제한에 맞는 조합을 찾고 있습니다…";
+            _feedback.text = "선수단을 구성하고 있습니다…";
             _cancel.Select();
             try
             {

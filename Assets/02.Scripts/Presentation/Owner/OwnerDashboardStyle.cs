@@ -56,8 +56,6 @@ namespace Baseball.Presentation.Owner
             heading.rectTransform.offsetMax = Vector2.zero;
             Rule(heading.transform, "Baseline", Vector2.zero, Vector2.right,
                 Vector2.zero, new Vector2(0, 1), Line);
-            Rule(heading.transform, "Accent", Vector2.zero, Vector2.up,
-                Vector2.zero, new Vector2(3, 0), Gold);
         }
 
         /// <summary>목록·상세 본문의 안쪽 면에 네이비 음영과 얇은 반사선을 한 번만 구성한다.</summary>
@@ -123,6 +121,9 @@ namespace Baseball.Presentation.Owner
         /// <summary>검색의 글자·캐럿·선택·비활성·포커스를 같은 작업면으로 구성한다.</summary>
         public static void SetDataInput(InputField input)
         {
+            // InputField의 캐럿·선택 영역은 기본 pixelsPerUnit을 쓰므로 글자 생성 밀도도 일치시킨다.
+            if (input.textComponent is UIProjectText value) value.UsePanelRasterDensity = false;
+            if (input.placeholder is UIProjectText hint) hint.UsePanelRasterDensity = false;
             ApplyInset(input.GetComponent<Image>(), true);
             SetDataText(input.textComponent);
             input.textComponent.color = Ivory;
@@ -180,15 +181,6 @@ namespace Baseball.Presentation.Owner
             SetDataSurface(button.GetComponent<Image>(), selected ? TableSelected : normal, true);
             button.targetGraphic = button.GetComponent<Image>();
             ConfigureDataControl(button);
-            var mark = button.transform.Find("DataSelection");
-            if (mark == null)
-            {
-                Rule(button.transform, "DataSelection", Vector2.zero, Vector2.up,
-                    Vector2.zero, new Vector2(2, 0), Gold);
-                mark = button.transform.Find("DataSelection");
-                mark.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
-            }
-            mark.gameObject.SetActive(selected);
         }
 
         /// <summary>화면 배율에 따라 선명하게 그려지는 장식선이다.</summary>

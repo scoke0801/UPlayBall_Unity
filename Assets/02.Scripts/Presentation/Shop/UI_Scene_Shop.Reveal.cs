@@ -183,7 +183,7 @@ namespace Baseball.Presentation.Shop
                 item.HighestIntensity >= ShopRevealIntensity.Rare
                     ? PlayerMiniCardVisualState.Highlighted : PlayerMiniCardVisualState.Normal,
                 isInteractable: true, stats: model.Stats, frameEdition: model.FrameEdition, cost: model.Cost,
-                growthBadges: model.GrowthBadges);
+                growthBadges: model.GrowthBadges, enhancementLevel: model.EnhancementLevel);
             PlayerMiniCardView face = PlayerMiniCardView.CreateRuntime(slot, "PlayerCard");
             OwnerRuntimeUiFactory.Stretch((RectTransform)face.transform);
             Enum.TryParse(model.PortraitAssetKey, out PlayerPosition position);

@@ -26,7 +26,6 @@ namespace Baseball.Presentation.Owner
             stadium.type = Image.Type.Simple;
             stadium.preserveAspect = false;
             FinanceSurface(stadium.transform, "Caption", new Color32(20, 34, 47, 235), 0f, 0f, 1f, .26f);
-            FinanceLabel(stadium.transform, "ArtworkCaption", "구장 이미지", 11, false, .73f, .80f, .98f, .98f, Color.white);
             FinanceSurface(content, "ExpansionSurface", OwnerDashboardStyle.TableSurface, .01f, .52f, .38f, .69f);
             FinanceLabel(content, "ExpansionTitle", "구장 증축", 14, true, .025f, .53f, .21f, .59f);
 
@@ -84,7 +83,9 @@ namespace Baseball.Presentation.Owner
             _popularityFill.rectTransform.anchorMax = new Vector2((float)model.Snapshot.Popularity / 100f, 1f);
             _weeklyStatement.Bind(model.WeeklyFinance, model.Snapshot.WeeklyFinance);
             _seasonStatement.Bind(model.SeasonFinance, model.Snapshot.SeasonFinance);
-            _feedbackText.text = $"미지급 급여·계약금 {OwnerMoneyFormatter.Format(model.Snapshot.ContractArrears)} · 수입에서 우선 상환";
+            _feedbackText.text = model.Snapshot.ContractArrears > 0
+                ? $"미지급금 {OwnerMoneyFormatter.Format(model.Snapshot.ContractArrears)} · 다음 수입에서 우선 지급"
+                : string.Empty;
         }
 
         private static void PlaceFinanceAction(Transform parent, string name, float x, float right, bool primary)

@@ -68,19 +68,6 @@ namespace Baseball.Presentation.Owner
                 new Vector2(8f, 8f),
                 new Vector2(-8f, -2f));
 
-            Image titleBar = OwnerRuntimeUiFactory.CreateImage(
-                "TitleBar", scene.transform, new Color32(20, 24, 29, 238));
-            OwnerRuntimeUiFactory.SetAnchors(
-                titleBar.rectTransform,
-                new Vector2(0f, 0.88f),
-                new Vector2(0.46f, 0.98f),
-                Vector2.zero,
-                Vector2.zero);
-            Text title = OwnerRuntimeUiFactory.CreateText(
-                "Title", titleBar.transform, "구장 관리", 22, FontStyle.Bold,
-                TextAnchor.MiddleLeft, Color.white);
-            OwnerRuntimeUiFactory.Stretch(title.rectTransform, new Vector2(22f, 0f), new Vector2(-10f, 0f));
-
             Image informationBar = OwnerRuntimeUiFactory.CreateImage(
                 "InformationBar", scene.transform, new Color32(13, 17, 21, 242));
             informationBar.raycastTarget = true;
@@ -157,7 +144,7 @@ namespace Baseball.Presentation.Owner
                 Vector2.one,
                 new Vector2(8f, 2f),
                 new Vector2(-8f, -6f));
-            OwnerDashboardStyle.SetDataSurface(navigation, OwnerDashboardStyle.TableHeader);
+            UIOwnerFrontOfficePanel.Apply(_facilityNavigationRoot, "CompactStrip");
 
             Text category = OwnerRuntimeUiFactory.CreateText(
                 "Category", navigation.transform, "시설", 14, FontStyle.Bold,
@@ -437,9 +424,9 @@ namespace Baseball.Presentation.Owner
             {
                 float alpha = _isStadiumSectionSelected ? 0f : 1f;
                 _readabilityCanvas.color = new Color(
-                    CareerUiTheme.ReferenceCanvas.r,
-                    CareerUiTheme.ReferenceCanvas.g,
-                    CareerUiTheme.ReferenceCanvas.b,
+                    OwnerDashboardStyle.TableSurface.r,
+                    OwnerDashboardStyle.TableSurface.g,
+                    OwnerDashboardStyle.TableSurface.b,
                     alpha);
             }
             StyleFacilityTab(_stadiumTabButton, _isStadiumSectionSelected);

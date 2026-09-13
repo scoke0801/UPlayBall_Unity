@@ -41,15 +41,19 @@ namespace Baseball.Presentation.Owner
             Vector2 center = rectTransform.rect.center;
             float radius = Mathf.Min(rectTransform.rect.width, rectTransform.rect.height) * .46f;
             Color grid = _gridColor;
+            // 축소된 Canvas에서도 수직·수평 변이 픽셀 사이로 사라지지 않도록 화면 기준 두께를 보장한다.
+            float scale = canvas != null ? Mathf.Max(canvas.scaleFactor, .01f) : 1f;
+            float gridWidth = Mathf.Max(.6f, 1.25f / scale);
+            float outlineWidth = Mathf.Max(1.1f, 1.75f / scale);
             for (int ring = 1; ring <= 4; ring++)
                 for (int axis = 0; axis < _axisCount; axis++)
-                    Line(vh, Point(center, radius * ring / 4, axis), Point(center, radius * ring / 4, axis + 1), grid, .6f);
-            for (int axis = 0; axis < _axisCount; axis++) Line(vh, center, Point(center, radius, axis), grid, .6f);
-            Polygon(vh, center, radius, _own, _ownColor);
-            Polygon(vh, center, radius, _opponent, _opponentColor);
+                    Line(vh, Point(center, radius * ring / 4, axis), Point(center, radius * ring / 4, axis + 1), grid, gridWidth);
+            for (int axis = 0; axis < _axisCount; axis++) Line(vh, center, Point(center, radius, axis), grid, gridWidth);
+            Polygon(vh, center, radius, _own, _ownColor, outlineWidth);
+            Polygon(vh, center, radius, _opponent, _opponentColor, outlineWidth);
         }
 
-        private void Polygon(VertexHelper vh, Vector2 center, float radius, float[] values, Color color)
+        private void Polygon(VertexHelper vh, Vector2 center, float radius, float[] values, Color color, float outlineWidth)
         {
             if (values == null || values.Length != _axisCount) return;
             for (int index = 0; index < _axisCount; index++)
@@ -65,20 +69,24 @@ namespace Baseball.Presentation.Owner
                 vh.AddVert(a, fill, Vector2.zero);
                 vh.AddVert(b, fill, Vector2.zero);
                 vh.AddTriangle(start, start + 1, start + 2);
-                Line(vh, a, b, color, 1.1f);
+                Line(vh, a, b, color, outlineWidth);
             }
         }
 
         private Vector2 Point(Vector2 center, float radius, int axis)
         {
-            float angle = (90 - axis * (360f / _axisCount)) * Mathf.Deg2Rad;
+            float angle = (90 - (axis % _axisCount) * (360f / _axisCount)) * Mathf.Deg2Rad;
             return center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
         }
 
         private static void Line(VertexHelper vh, Vector2 a, Vector2 b, Color color, float width)
         {
             Vector2 delta = b - a;
-            Vector2 normal = new Vector2(-delta.y, delta.x).normalized * width * .5f;
+            Vector2 direction = delta.normalized;
+            Vector2 normal = new Vector2(-direction.y, direction.x) * width * .5f;
+            // 선분 끝을 반 두께만큼 겹쳐 다각형 꼭짓점의 틈을 막는다.
+            a -= direction * width * .5f;
+            b += direction * width * .5f;
             int start = vh.currentVertCount;
             vh.AddVert(a - normal, color, Vector2.zero);
             vh.AddVert(a + normal, color, Vector2.zero);

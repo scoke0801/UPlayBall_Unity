@@ -9,6 +9,7 @@ namespace Baseball.Presentation.Owner
     public sealed class UIOwnerFrontOfficePanel : MonoBehaviour
     {
         [SerializeField] private string frameName = "ManagerReport";
+        [SerializeField] private bool hasOpaqueCornerFrame;
         private Image _image;
 
         /// <summary>가장 가까운 표면을 확인해 흰 기록표 내부의 글자색은 유지한다.</summary>
@@ -55,6 +56,16 @@ namespace Baseball.Presentation.Owner
             skin.Refresh();
         }
 
+        /// <summary>독립 작업면과 팝업에 불투명 본문 및 골드 코너 프레임을 적용한다.</summary>
+        public static void ApplyFramedSurface(RectTransform root)
+        {
+            if (root == null || root.GetComponent<Image>() == null) return;
+            var skin = root.GetComponent<UIOwnerFrontOfficePanel>() ?? root.gameObject.AddComponent<UIOwnerFrontOfficePanel>();
+            skin.frameName = "ManagerReport";
+            skin.hasOpaqueCornerFrame = true;
+            skin.Refresh();
+        }
+
         private void OnEnable() => Refresh();
 
         /// <summary>자신의 장식만 교체한다. 하위 초상·마스크·표는 건드리지 않는다.</summary>
@@ -75,12 +86,68 @@ namespace Baseball.Presentation.Owner
             if (isWorkSurface && transform.parent != null &&
                 transform.parent.GetComponentInParent<UIOwnerFrontOfficePanel>() != null)
                 _image.color = new Color(1, 1, 1, .35f);
+            bool isMatchPanel = frameName == "MainDashboard";
+            if (hasOpaqueCornerFrame) RefreshOpaqueCornerFrame();
+            else
+            {
+                // 역할 전환 시 이전 프레임의 자식 면이 새 스킨 위에 남지 않게 한다.
+                var decoration = transform.Find("CornerFrameDecoration");
+                if (decoration != null) decoration.gameObject.SetActive(false);
+                var backing = transform.Find("OpaqueFrameBacking");
+                if (backing != null) backing.gameObject.SetActive(false);
+            }
+            if (isMatchPanel)
+            {
+                // PNG에 그려진 상단 띠와 본문 경계 대신 하나의 불투명 면을 사용한다.
+                _image.sprite = null;
+                _image.color = OwnerDashboardStyle.TableSurface;
+                UIOwnerPanelFrame.Attach((RectTransform)transform, true);
+            }
             var outline = GetComponent<Outline>();
             if (outline != null) outline.enabled = false;
             var gradient = GetComponent<UIOwnerSurfaceGradient>();
             if (gradient != null) gradient.enabled = false;
             var frame = transform.Find("OwnerPanelFrame")?.GetComponent<UIOwnerPanelFrame>();
-            if (frame != null) frame.enabled = false;
+            if (frame != null) frame.enabled = isMatchPanel;
+        }
+
+        private void RefreshOpaqueCornerFrame()
+        {
+            // PNG 본문의 알파도 남아 있으므로 틴트만 복원하지 않고 별도의 불투명 면을 받친다.
+            _image.sprite = null;
+            _image.color = Color.clear;
+            Image decoration = GetFrameLayer("CornerFrameDecoration");
+            decoration.gameObject.SetActive(true);
+            decoration.sprite = UIOwnerFrontOfficeSkin.Load("Frames/UI_Frame_" + frameName);
+            decoration.type = Image.Type.Sliced;
+            decoration.pixelsPerUnitMultiplier = 2f;
+            decoration.color = Color.white;
+            decoration.transform.SetAsFirstSibling();
+
+            Image backing = GetFrameLayer("OpaqueFrameBacking");
+            backing.gameObject.SetActive(true);
+            Color surface = OwnerDashboardStyle.Surface;
+            surface.a = 1f;
+            backing.color = surface;
+            // 둥근 외곽 밖으로 사각 배경이 나오지 않게 금속 테두리 안쪽까지만 채운다.
+            backing.rectTransform.offsetMin = Vector2.one * 8f;
+            backing.rectTransform.offsetMax = Vector2.one * -8f;
+            backing.transform.SetAsFirstSibling();
+        }
+
+        private Image GetFrameLayer(string name)
+        {
+            Transform existing = transform.Find(name);
+            if (existing != null) return existing.GetComponent<Image>();
+            var layer = new GameObject(name, typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            layer.transform.SetParent(transform, false);
+            layer.raycastTarget = false;
+            layer.rectTransform.anchorMin = Vector2.zero;
+            layer.rectTransform.anchorMax = Vector2.one;
+            layer.rectTransform.offsetMin = layer.rectTransform.offsetMax = Vector2.zero;
+            layer.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            layer.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            return layer;
         }
     }
 }

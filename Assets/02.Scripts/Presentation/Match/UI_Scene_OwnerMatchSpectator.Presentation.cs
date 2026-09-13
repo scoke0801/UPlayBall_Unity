@@ -28,8 +28,10 @@ namespace Baseball.Presentation.Match
         private void RenderHud(MatchHudPresentationModel model)
         {
             if (_awayLabel == null) return;
-            _awayLabel.text = model.AwayTeam.Name + "   " + model.AwayTeam.Score;
-            _homeLabel.text = model.HomeTeam.Score + "   " + model.HomeTeam.Name;
+            _awayLabel.text = model.AwayTeam.Name;
+            _homeLabel.text = model.HomeTeam.Name;
+            _awayScore.text = model.AwayTeam.Score.ToString();
+            _homeScore.text = model.HomeTeam.Score.ToString();
             _inningLabel.text = model.Inning + "회 " + (model.Half == MatchHudHalf.Top ? "초" : "말");
             SetLamps(_balls, model.Count.Balls, new Color32(76, 177, 57, 255));
             SetLamps(_strikes, model.Count.Strikes, new Color32(224, 169, 17, 255));

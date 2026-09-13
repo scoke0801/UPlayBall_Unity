@@ -52,9 +52,36 @@ namespace Baseball.Presentation.Owner
         {
             if (_comparisonContent == null) return;
             OwnerRuntimeUiFactory.ClearChildren(_comparisonContent);
-            AddComparisonText(_comparisonContent, "ComparisonInstruction",
-                "배치 편집에서 교체할 자리와 보유 선수를 선택하세요.\n교체 전·후 선수를 비교한 뒤 배치 저장으로 확정합니다.", 80f);
+            AddComparisonText(_comparisonContent, "ComparisonEmptyTitle",
+                "교체할 자리와 후보 선수를 선택하세요", 44f);
+            RectTransform slots = OwnerRuntimeUiFactory.CreateRect("ComparisonEmptySlots", _comparisonContent);
+            slots.gameObject.AddComponent<LayoutElement>().minHeight = 144f;
+            var layout = slots.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = CareerUiTheme.Space2;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = layout.childForceExpandHeight = true;
+            CreateComparisonEmptySlot(slots, "OutgoingSlot", "교체 전", "현재 배치된 선수", "교체할 자리를 선택하세요");
+            CreateComparisonEmptySlot(slots, "IncomingSlot", "교체 후", "새로 기용할 선수", "보유 선수에서 선택하세요");
+            _comparisonScroll.GetComponent<ScrollRect>().verticalNormalizedPosition = 1f;
             SelectAnalysisTab(_isComparisonTab);
+        }
+
+        private static void CreateComparisonEmptySlot(Transform parent, string name, string role,
+            string title, string instruction)
+        {
+            Image surface = OwnerRuntimeUiFactory.CreateImage(name, parent, OwnerDashboardStyle.InsetSurface);
+            OwnerDashboardStyle.ApplyInset(surface);
+            var sizing = surface.gameObject.AddComponent<LayoutElement>();
+            sizing.minWidth = 0f;
+            sizing.flexibleWidth = 1f;
+            var layout = surface.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(12, 12, 12, 12);
+            layout.spacing = CareerUiTheme.Space2;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandHeight = false;
+            AddComparisonText(surface.transform, name + "Role", role, 24f);
+            AddComparisonText(surface.transform, name + "Title", title, 32f);
+            AddComparisonText(surface.transform, name + "Instruction", instruction, 40f);
         }
 
         private void ShowComparison(OwnerCollectionCardSnapshot outgoing, OwnerCollectionCardSnapshot incoming)
@@ -66,8 +93,8 @@ namespace Baseball.Presentation.Owner
             PlayerAbility[] abilities = pitcher
                 ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff, PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental }
                 : new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
-            string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화", "제구", "정신력" }
-                : new[] { "교타", "장타", "주력", "번트", "수비", "정신력" };
+            string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" }
+                : new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
             RectTransform visual = OwnerRuntimeUiFactory.CreateRect("ComparisonVisual", _comparisonContent);
             visual.gameObject.AddComponent<LayoutElement>().minHeight = 192f;
             CreateComparisonCard(visual, cards[0], false);
@@ -86,7 +113,8 @@ namespace Baseball.Presentation.Owner
                 if (!float.IsNaN(after[i])) maximum = Mathf.Max(maximum, after[i]);
                 float angle = (90f - i * 60f) * Mathf.Deg2Rad;
                 Vector2 anchor = new Vector2(.5f + Mathf.Cos(angle) * .5f, .5f + Mathf.Sin(angle) * .5f);
-                Text label = CreateConditionChartText(chart, "Axis" + i, labels[i], 12, CareerUiTheme.TextOnLight);
+                Text label = CreateConditionChartText(chart, "Axis" + i, labels[i], 12, OwnerDashboardStyle.Ivory);
+                label.gameObject.AddComponent<CareerUiPreserveTextColor>();
                 OwnerRuntimeUiFactory.SetAnchors(label.rectTransform, anchor, anchor,
                     new Vector2(-24f, -10f), new Vector2(24f, 10f));
             }
@@ -115,7 +143,7 @@ namespace Baseball.Presentation.Owner
                 }
             }
             AddComparisonText(_comparisonContent, "ComparisonSaveHint",
-                "변경안 · 배치 저장으로 확정 / 변경 취소로 되돌리기", 40f);
+                "저장 전 미리보기", 40f);
             SelectAnalysisTab(true);
         }
 
@@ -150,7 +178,10 @@ namespace Baseball.Presentation.Owner
 
         private static void AddComparisonText(Transform parent, string name, string value, float height)
         {
-            Text text = CreateConditionChartText(parent, name, value, 13, CareerUiTheme.TextOnLight);
+            Text text = CreateConditionChartText(parent, name, value, 13, OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.SetTypography(text);
+            if (text.GetComponent<CareerUiPreserveTextColor>() == null)
+                text.gameObject.AddComponent<CareerUiPreserveTextColor>();
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.gameObject.AddComponent<LayoutElement>().minHeight = height;
         }

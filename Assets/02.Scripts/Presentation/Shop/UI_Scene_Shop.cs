@@ -16,8 +16,11 @@ namespace Baseball.Presentation.Shop
     [DisallowMultipleComponent]
     public sealed partial class UI_Scene_Shop : MonoBehaviour
     {
-        private const float TileHeight = 132f;
+        private const float TileHeight = 156f;
         private const float ArtworkSize = 92f;
+        private const float TileBadgeHeight = 28f;
+        private const int TileBadgeFontSize = 14;
+        private const float TileMinWidth = 360f;
         private const int TileColumnCount = 2;
 
         private readonly List<Button> _tabButtons = new List<Button>();
@@ -315,9 +318,11 @@ namespace Baseball.Presentation.Shop
         {
             Image surface = OwnerRuntimeUiFactory.CreateImage(
                 "EmptyState", _gridContent, CareerUiTheme.ReferencePanel);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.ApplyInset(surface);
             Text label = OwnerRuntimeUiFactory.CreateText(
                 "Label", surface.rectTransform, message, 14, FontStyle.Bold,
                 TextAnchor.MiddleCenter, CareerUiTheme.ReferenceTextSecondary);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.SetDataText(label);
             OwnerRuntimeUiFactory.Stretch(label.rectTransform, new Vector2(16f, 16f), new Vector2(-16f, -16f));
         }
 
@@ -371,9 +376,13 @@ namespace Baseball.Presentation.Shop
             if (width <= 1f && _scroll != null)
                 width = ((RectTransform)_scroll.transform).rect.width;
             if (width <= 1f) return;
+            // 한글 재화명과 상품 설명을 축소하지 않고 좁은 목록에서는 한 열로 전환한다.
+            int columns = width - _gridLayout.padding.horizontal >=
+                TileMinWidth * TileColumnCount + _gridLayout.spacing.x ? TileColumnCount : 1;
+            _gridLayout.constraintCount = columns;
             float usable = width - _gridLayout.padding.horizontal -
-                _gridLayout.spacing.x * (TileColumnCount - 1);
-            var size = new Vector2(Mathf.Max(1f, usable / TileColumnCount), TileHeight);
+                _gridLayout.spacing.x * (columns - 1);
+            var size = new Vector2(Mathf.Max(1f, usable / columns), TileHeight);
             if (_gridLayout.cellSize != size) _gridLayout.cellSize = size;
         }
 

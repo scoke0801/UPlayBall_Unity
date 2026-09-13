@@ -45,6 +45,7 @@ namespace Baseball.Presentation.Owner
         private RectTransform _confirmRoot;
         private Text _confirmTitle;
         private Text _confirmBody;
+        private Text _confirmActionLabel;
         private Action _confirmedAction;
         private RectTransform _revealRoot;
         private Text _revealBody;
@@ -255,16 +256,25 @@ namespace Baseball.Presentation.Owner
             Image dim = OwnerRuntimeUiFactory.CreateImage("PowerUpConfirmation", _root, CareerUiTheme.InputBlocker);
             _confirmRoot = dim.rectTransform;
             OwnerRuntimeUiFactory.Stretch(_confirmRoot);
-            RectTransform card = CreateCenteredCard(_confirmRoot, "ConfirmationCard", new Vector2(470f, 270f));
-            OwnerWorkspaceUiFactory.AddVerticalLayout(card, CareerUiTheme.Space3).padding = new RectOffset(24, 24, 20, 20);
+            RectTransform card = CreateCenteredCard(_confirmRoot, "ConfirmationCard", new Vector2(520f, 320f));
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(card);
+            OwnerWorkspaceUiFactory.AddVerticalLayout(card, CareerUiTheme.Space3).padding = new RectOffset(28, 28, 24, 24);
             _confirmTitle = CreateFixedText(card, "ConfirmationTitle", 38f, 20, FontStyle.Bold, TextAnchor.MiddleCenter);
-            _confirmBody = CreateFlexibleText(card, "ConfirmationBody", TextAnchor.MiddleCenter);
+            _confirmBody = CreateFlexibleText(card, "ConfirmationBody", TextAnchor.MiddleLeft);
+            OwnerDashboardStyle.SetDataText(_confirmTitle, true);
+            OwnerDashboardStyle.SetDataText(_confirmBody);
+            _confirmBody.horizontalOverflow = HorizontalWrapMode.Wrap;
             RectTransform actions = OwnerRuntimeUiFactory.CreateRect("ConfirmationActions", card);
             HorizontalLayoutGroup layout = OwnerWorkspaceUiFactory.AddHorizontalLayout(actions, CareerUiTheme.Space3);
             layout.childAlignment = TextAnchor.MiddleCenter;
             SetPreferred(actions, 42f);
-            OwnerWorkspaceUiFactory.CreateButton(actions, "Cancel", "취소", CloseConfirmation);
-            OwnerWorkspaceUiFactory.CreateButton(actions, "Confirm", "확정", ConfirmAction);
+            Button cancel = OwnerWorkspaceUiFactory.CreateButton(actions, "Cancel", "취소", CloseConfirmation);
+            Button confirm = OwnerWorkspaceUiFactory.CreateButton(actions, "Confirm", "확정", ConfirmAction);
+            _confirmActionLabel = confirm.GetComponentInChildren<Text>();
+            OwnerUiButtonSkin.Apply(cancel, OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.Apply(confirm, OwnerButtonRole.Primary);
+            cancel.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnRight = confirm, selectOnDown = confirm };
+            confirm.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnLeft = cancel, selectOnUp = cancel };
             _confirmRoot.gameObject.SetActive(false);
         }
 
@@ -305,6 +315,13 @@ namespace Baseball.Presentation.Owner
             }
             if (FindScoutProduct(_selectedScoutProductId) == null)
                 _selectedScoutProductId = scout.Products[0].ProductId;
+            OwnerScoutProductSnapshot selectedStaffProduct = FindScoutProduct(_selectedScoutProductId);
+            if (!MatchesScoutStaff(selectedStaffProduct))
+            {
+                int portraitIndex = Array.IndexOf(ScoutStaffIds, selectedStaffProduct.Staff.Id);
+                if (portraitIndex >= 0) _scoutPortraitIndex = portraitIndex;
+                RefreshScoutPortrait();
+            }
             BindScoutScopes(scout);
             RefreshScoutDetails();
         }
@@ -444,9 +461,12 @@ namespace Baseball.Presentation.Owner
             OwnerScoutProductSnapshot product = FindScoutProduct(_selectedScoutProductId);
             if (product == null || !product.CanPurchase) return;
             OpenConfirmation("스카우트 파견",
-                product.Scope + "에 전담 스카우터를 파견합니다.\n" + product.Title + "\n" +
-                product.DrawCount + "명 탐색 · 비용 " + product.PriceText,
-                () => ScoutPurchaseRequested?.Invoke(product.ProductId));
+                "탐색 지역   " + product.Scope + "\n" +
+                  "탐색 방침   " + product.Title + "\n" +
+                  DescribeScoutStaffEffect(product) + "\n" +
+                "탐색 인원   " + product.DrawCount.ToString("N0") + "명\n\n" +
+                "파견 비용   " + product.PriceText.Replace("SP", "스카우트 포인트"),
+                () => ScoutPurchaseRequested?.Invoke(product.ProductId), "파견하기");
             _scoutBaseInput.interactable = false;
             _scoutBaseInput.blocksRaycasts = false;
             _confirmRoot.GetComponentsInChildren<Button>()[0].Select();
@@ -542,10 +562,10 @@ namespace Baseball.Presentation.Owner
                 ? "재료 부족\n\n동일 선수 카드를 추가로 획득하세요"
                 : "동일 카드 필요\n\n보유 중복 카드가 자동 등록됩니다";
             _enhancementDetails.text = !_hasRegisteredEnhancement
-                ? "왼쪽에서 합성할 선수를 선택하세요.\n중복 카드 1장 소모 · 실패 없이 강화"
+                ? "왼쪽에서 합성할 선수를 선택하세요."
                 : target.Enhancement.CanEnhance
                     ? target.Card.DisplayName + "   +" + target.Enhancement.CurrentLevel + " → +" + target.Enhancement.NextLevel +
-                        "   ·   전 능력치 +1\n중복 " + target.Card.DuplicateCount + "장 보유 · 1장 소모 · 실패 없음"
+                        "\n전 능력치 +1"
                     : enhancementReason + "\n" + (target.Enhancement.Result == CardEnhancementResult.MaximumLevel
                         ? "다른 선수를 선택하세요." : "동일 선수 카드를 추가로 획득하세요.");
             _enhanceButton.transform.Find("Label").GetComponent<Text>().text =
@@ -578,9 +598,10 @@ namespace Baseball.Presentation.Owner
                 () => DuplicateSaleRequested?.Invoke(target.Card.CardId, _saleCount));
         }
 
-        private void OpenConfirmation(string title, string body, Action action)
+        private void OpenConfirmation(string title, string body, Action action, string actionLabel = "확정")
         {
             _confirmTitle.text = title;
+            _confirmActionLabel.text = actionLabel;
             _confirmBody.text = body;
             _confirmedAction = action;
             _confirmRoot.gameObject.SetActive(true);

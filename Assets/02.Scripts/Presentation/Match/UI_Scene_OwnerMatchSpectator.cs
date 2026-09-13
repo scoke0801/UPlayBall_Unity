@@ -156,7 +156,7 @@ namespace Baseball.Presentation.Match
         {
             if (_canvas == null || _root == null) return;
             // 외곽 V2 프레임 안쪽 16px은 데이터와 입력 영역이 침범하지 않는다.
-            float scale = Mathf.Min((_root.rect.width - 32f) / 1440f, (_root.rect.height - 32f) / 810f);
+            float scale = Mathf.Min((_root.rect.width - 32f) / 1440f, (_root.rect.height - 32f) / BroadcastHeight);
             _canvas.localScale = Vector3.one * Mathf.Max(0.01f, scale);
         }
 

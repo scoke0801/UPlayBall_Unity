@@ -35,7 +35,7 @@ namespace Baseball.Presentation.Match
             for (int index = 0; index < _highlightSprites.Length; index++)
                 _highlightSprites[index] = Resources.Load<Sprite>(_highlightConfig.images[index].resourcePath);
             // 투구 상세와 같은 영역을 교대로 사용한다. 점수·투타 이름·감독 설명·조작 영역은 계속 표시한다.
-            _highlightInset = Panel("HighlightInset", sidebar, Paper, 16, 152, 472, 338);
+            _highlightInset = Panel("HighlightInset", sidebar, Color.clear, 16, 152, 472, 338);
             _highlightOpacity = _highlightInset.gameObject.AddComponent<CanvasGroup>();
             _highlightOpacity.blocksRaycasts = false;
             _highlightOpacity.interactable = false;

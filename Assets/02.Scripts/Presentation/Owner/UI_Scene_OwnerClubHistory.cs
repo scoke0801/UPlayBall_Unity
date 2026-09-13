@@ -96,7 +96,7 @@ namespace Baseball.Presentation.Owner
                 _description.text = _tab == 2 ? "완료된 정규시즌 · 비율 기록은 규정 충족자 · 공동 최고 기록 모두 표시 · 행을 눌러 달성 시즌 확인" :
                     _tab == 3 ? "우리 구단이 쌓아 온 영광 · 트로피를 선택하면 아래에서 달성 시즌을 확인합니다." :
                     _tab == 1 ? "현재 시즌 포함 · 승률은 무승부 제외 · 타율과 평균자책점은 전체 원본 기록으로 계산" :
-                    "내가 운영한 시즌의 기록 · 행을 눌러 시즌 상세 확인 · 열 제목으로 정렬 · 좌우 스크롤로 상세 지표 확인";
+                "역대 시즌 성적";
                 table = _tab == 1 ? _model.BuildTotals(_grade) : _tab == 2 ? _model.BuildBest(_grade) :
                     _tab == 3 ? _model.BuildHonorSeasons(_grade, _honor) : _model.BuildSeasons(_grade);
                 empty = _tab == 2 ? "완료된 시즌의 기록이 없습니다. 정규시즌을 마치면 최고 기록이 등록됩니다." :

@@ -211,7 +211,7 @@ namespace Baseball.Presentation.Owner
             OwnerDashboardStyle.SetDataSurface(blueRule, OwnerDashboardStyle.Line);
 
             Text footer = OwnerRuntimeUiFactory.CreateText(
-                "Footer", root, "상위 30명 · 좌우로 밀어 상세 기록 확인 · 열 제목을 누르면 정렬 · 내 구단 배지로 소속 표시",
+                "Footer", root, "부문별 상위 30명",
                 13, FontStyle.Normal, TextAnchor.MiddleLeft, OwnerDashboardStyle.TableSecondary);
             OwnerDashboardStyle.SetDataText(footer);
             OwnerRuntimeUiFactory.SetAnchors(

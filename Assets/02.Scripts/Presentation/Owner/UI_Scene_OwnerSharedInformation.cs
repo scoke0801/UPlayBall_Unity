@@ -41,8 +41,8 @@ namespace Baseball.Presentation.Owner
                 : string.Concat(snapshot.SeasonLabel, " · ", snapshot.LeagueLabel, " 일정");
             _context.text = snapshot == null
                 ? string.Empty
-                : string.Concat(snapshot.CurrentPeriodLabel, " · 확정 라운드/점수");
-            _footer.text = "라운드 기준 · 완료 경기는 확정 점수, 예정 경기는 대진만 표시";
+                : snapshot.CurrentPeriodLabel;
+            _footer.text = string.Empty;
             RecordTableModel table = snapshot == null
                 ? null
                 : ScheduleRecordTableBuilder.CreateFocusedSchedule(snapshot);
@@ -50,7 +50,7 @@ namespace Baseball.Presentation.Owner
             bool hasNextMatch = HasNextFocusTeamMatch(snapshot);
             _nextMatchAnalysisButton.gameObject.SetActive(true);
             _nextMatchAnalysisButton.interactable = hasNextMatch;
-            if (!hasNextMatch) _footer.text += " · 예정된 내 구단 경기가 없습니다.";
+            if (!hasNextMatch) _footer.text = "예정된 내 구단 경기가 없습니다.";
         }
 
         /// <summary>현재 Save에서 진행한 시즌별 구단 성적과 콘텐츠 상태를 표시한다.</summary>
@@ -66,7 +66,7 @@ namespace Baseball.Presentation.Owner
             _context.text = snapshot == null
                 ? string.Empty
                 : string.Concat(snapshot.ScopeLabel, " · ", snapshot.QualificationText);
-            _footer.text = "현재 Save의 실제 진행 기록 · 현재 시즌 배지 표시 · 열 제목을 누르면 정렬";
+            _footer.text = "역대 시즌 성적";
             _table.HighlightBadge = "현재 시즌";
             _table.Bind(
                 snapshot?.Table,

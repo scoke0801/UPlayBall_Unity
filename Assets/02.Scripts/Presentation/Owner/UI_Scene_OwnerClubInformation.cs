@@ -29,8 +29,9 @@ namespace Baseball.Presentation.Owner
         /// <summary>공용 셸의 본문 슬롯에 구단 정보 화면을 생성한다.</summary>
         public static UI_Scene_OwnerClubInformation CreateRuntime(RectTransform host)
         {
-            return OwnerRuntimeUiFactory.CreateRect(nameof(UI_Scene_OwnerClubInformation), host)
-                .gameObject.AddComponent<UI_Scene_OwnerClubInformation>();
+            RectTransform root = OwnerRuntimeUiFactory.CreateRect(nameof(UI_Scene_OwnerClubInformation), host);
+            UIOwnerFrontOfficePanel.ApplyWorkspace(root);
+            return root.gameObject.AddComponent<UI_Scene_OwnerClubInformation>();
         }
 
         /// <summary>현재 Save에서 투영한 구단 정보로 화면을 갱신한다.</summary>
@@ -59,8 +60,6 @@ namespace Baseball.Presentation.Owner
             BuildIdentity(root);
             if (_showOwner) BuildOwnerInformation(root);
             else BuildClubInformation(root);
-            Label(root, "DataNotice", "누적 기록은 이 구단의 진행 이력 기준입니다. 자세한 시즌 성적은 구단 기록실에서 확인하세요.",
-                .025f, .012f, .975f, .055f, 12, Muted, TextAnchor.MiddleLeft);
         }
 
         private void BuildIdentity(RectTransform root)
@@ -93,7 +92,6 @@ namespace Baseball.Presentation.Owner
             {
                 RankText(), _model.WinningPercentage, _model.Runs.ToString(), _model.RunsAllowed.ToString()
             });
-            Section(history, "누적 구단 기록", .20f);
             HonorSlots(history);
 
             RectTransform manager = Panel(root, "FrontManager", "프런트 매니저", .51f, .08f, .975f, .665f);
@@ -131,8 +129,6 @@ namespace Baseball.Presentation.Owner
                 _model.NormalCardCount.ToString(), _model.AllStarCardCount.ToString(),
                 _model.GoldenGloveCardCount.ToString(), _model.MvpCardCount.ToString()
             });
-            Label(roster, "RosterHint", "선수단에서 현재 편성을 확인하고\n전력보강에서 다음 성장을 준비하세요.", .04f, .25f, .96f, .37f, 15,
-                Muted, TextAnchor.MiddleCenter);
             Section(roster, "현재 구단 운영", .18f);
             GridRow(roster, .035f, new[] { "인기도", "팬 기반", "순위", "승률" }, new[]
             {
@@ -173,18 +169,31 @@ namespace Baseball.Presentation.Owner
 
         private void HonorSlots(RectTransform parent)
         {
+            Label(parent, "HistoryTitle", "누적 구단 기록", .04f, .245f, .48f, .295f,
+                15, Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Label(parent, "HistoryScope", _model.HasHistory ? "전체 시즌 통산" : "기록을 확인할 수 없습니다",
+                .48f, .245f, .96f, .295f, 12, Muted, TextAnchor.MiddleRight);
             string[] labels = { "우승", "준우승", "승격", "강등" };
+            string[] descriptions = { "포스트시즌 정상", "포스트시즌 2위", "상위 리그 진출", "하위 리그 이동" };
             int[] counts = { _model.Championships, _model.RunnerUps, _model.Promotions, _model.Relegations };
+            Color[] accents = { Gold, Ink, OwnerDashboardStyle.Info, Muted };
             for (int index = 0; index < labels.Length; index++)
             {
-                float left = .04f + index * .24f;
-                var slot = OwnerRuntimeUiFactory.CreateRect("HonorSlot" + index, parent);
-                Place(slot, left, .04f, left + .20f, .21f);
-                var badge = UIOwnerFrontOfficeSkin.CreateBadge(slot, "Badge", "Count", 28);
-                Place(badge.rectTransform, .28f, .33f, .72f, 1f);
-                badge.color = counts[index] > 0 ? Color.white : OwnerDashboardStyle.Muted;
-                Label(slot, "Count", _model.HasHistory ? counts[index].ToString() : "—", .28f, .33f, .72f, 1f, 17, OwnerDashboardStyle.Ivory, TextAnchor.MiddleCenter);
-                Label(slot, "Caption", labels[index], 0, 0, 1, .33f, 12, Muted);
+                float left = .04f + index * .232f;
+                var slot = Surface(parent, "HonorSlot" + index, Paper, left, .035f, left + .224f, .235f);
+                OwnerDashboardStyle.ApplyInset(slot.GetComponent<Image>());
+                Color accent = _model.HasHistory && counts[index] > 0 ? accents[index] : Muted;
+                OwnerDashboardStyle.Rule(slot, "RecordAccent", Vector2.up, Vector2.one,
+                    new Vector2(0, -2), Vector2.zero, accent);
+                var safe = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", slot);
+                OwnerRuntimeUiFactory.Stretch(safe, new Vector2(12, 8), new Vector2(-12, -8));
+                Label(safe, "Caption", labels[index], 0, .70f, 1, 1, 16, accent,
+                    TextAnchor.MiddleLeft, FontStyle.Bold);
+                // 단위를 함께 읽게 하고, 미연결 기록을 실제 0회와 구분한다.
+                Label(safe, "Count", _model.HasHistory ? $"{counts[index]:N0}<size=15> 회</size>" : "—",
+                    0, .25f, 1, .72f, 28, accent, TextAnchor.MiddleLeft, FontStyle.Bold);
+                Label(safe, "Description", descriptions[index], 0, 0, 1, .25f,
+                    12, Muted, TextAnchor.MiddleLeft);
             }
         }
 

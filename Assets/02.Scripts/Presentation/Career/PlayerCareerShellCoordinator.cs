@@ -458,8 +458,25 @@ namespace Baseball.Presentation.Career
     /// <summary>기존 Player Career 화면을 Shared Shell Workspace에 안전하게 합성하고 원래 배치를 복원한다.</summary>
     public sealed class PlayerCareerWorkspaceAdapter
     {
+        private static bool _isApplicationQuitting;
+
         private readonly RectTransform _workspaceHost;
         private readonly List<EmbeddedScreenState> _embeddedScreens = new List<EmbeddedScreenState>();
+
+        // 종료·씬 언로드 중에는 원래 부모가 이미 파괴 대기 상태라 SetParent가 Unity 에러를 낸다.
+        // 어차피 함께 파괴되므로 복원 자체가 무의미하고, 이 플래그로 복원을 생략한다.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetQuittingFlag()
+        {
+            _isApplicationQuitting = false;
+            Application.quitting -= HandleApplicationQuitting;
+            Application.quitting += HandleApplicationQuitting;
+        }
+
+        private static void HandleApplicationQuitting()
+        {
+            _isApplicationQuitting = true;
+        }
 
         /// <summary>Workspace 크기 확정 뒤 한 번 더 배율 계산이 필요한지 나타낸다.</summary>
         public bool HasPendingLayout { get; private set; }
@@ -609,6 +626,9 @@ namespace Baseball.Presentation.Career
                 if (ScreenRect == null)
                     return;
 
+                if (!CanReparent())
+                    return;
+
                 ScreenRect.SetParent(_originalParent, false);
                 _screenLayout.Apply(ScreenRect);
                 if (_originalParent != null)
@@ -626,6 +646,18 @@ namespace Baseball.Presentation.Career
                     else
                         UnityEngine.Object.DestroyImmediate(Mask);
                 }
+            }
+
+            /// <summary>원래 부모가 살아 있고 파괴 대기 상태가 아닐 때만 복원을 허용한다.</summary>
+            private bool CanReparent()
+            {
+                if (_isApplicationQuitting)
+                    return false;
+                if (_originalParent == null)
+                    return false;
+
+                Scene parentScene = _originalParent.gameObject.scene;
+                return !parentScene.IsValid() || parentScene.isLoaded;
             }
         }
 

@@ -438,7 +438,7 @@ namespace Baseball.Presentation.Owner
                     new Vector2(0f, tick / 100f), new Vector2(-32f, -8f), new Vector2(-4f, 8f));
             }
             Text caption = CreateConditionChartText(content, "ConditionCaption",
-                "기본 컨디션 · 수비 배치와 선수 궁합에 따라 경기 컨디션이 달라집니다.",
+                "경기 컨디션은 수비 위치와 선수 궁합에 따라 변동됩니다.",
                 11, CareerUiTheme.RosterTextSecondary);
             caption.alignment = TextAnchor.MiddleLeft;
             caption.horizontalOverflow = HorizontalWrapMode.Wrap;

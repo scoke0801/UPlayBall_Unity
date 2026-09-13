@@ -91,7 +91,7 @@ namespace Baseball.Presentation.Owner
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpScout, "스카우트"),
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpTraining, "카드훈련"),
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpEnhancementSale, "카드 합성"),
-                new NavigationEntry(OwnerNavigationRoutes.PowerUpSkills, "스킬 블록 배치"),
+                new NavigationEntry(OwnerNavigationRoutes.PowerUpSkills, "스킬 블록"),
                 new NavigationEntry(OwnerNavigationRoutes.PowerUpStudy, "선수 성장"),
                 new NavigationEntry(OwnerNavigationRoutes.SpecialRecruitLegend, "레전드 영입"),
                 new NavigationEntry(OwnerNavigationRoutes.SpecialRecruitCareerHigh, "커리어하이 영입")

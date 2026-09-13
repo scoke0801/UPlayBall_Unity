@@ -30,6 +30,9 @@
 
 ### 2026-09-13 구단주 전체 리뉴얼 우선 규칙
 
+- 오늘의 경기 패널은 사용자 후속 수정 요청에 따라 상단 띠가 남는 PNG 대신 불투명 네이비 면과
+  공용 `UIOwnerPanelFrame`을 사용한다. 경기 상태를 나타내지 않는 마름모 장식은 제거한다.
+
 `docs/todo/UPlayBall_OwnerMode_UI_Renewal_Plan.html`의 명시적 요청에 따라 구단주 일반 작업면은
 ImageGen `UI_Frame_Surface`와 기존 V2 버튼·탭을 사용한다. `OwnerDashboardStyle`에 네이비·골드·상태색을
 모으고 내부 면에는 장식 코너를 반복하지 않는다. 기존 홈 Hero·선수 카드·초상·로고는 보존한다.

@@ -10,7 +10,8 @@ namespace Baseball.Presentation.Shop
 {
     public sealed partial class UI_Scene_Shop
     {
-        private static readonly Color ArtworkBackground = new Color32(232, 236, 233, 255);
+        private static Color ArtworkBackground => UIOwnerFrontOfficeSkin.IsOwnerContext
+            ? OwnerDashboardStyle.InsetSurface : new Color32(232, 236, 233, 255);
         private readonly List<Image> _productTileSurfaces = new List<Image>();
         private readonly List<string> _productTileIds = new List<string>();
 
@@ -218,6 +219,12 @@ namespace Baseball.Presentation.Shop
             Toggle toggle = dropdown.itemText.GetComponentInParent<Toggle>(true);
             toggle.targetGraphic.color = new Color32(215, 225, 235, 255);
             toggle.graphic.color = CareerUiTheme.ReferenceAccent;
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                OwnerDashboardStyle.SetDataDropdown(dropdown);
+                OwnerDashboardStyle.SetDataText(arrow);
+                toggle.graphic.color = OwnerDashboardStyle.Gold;
+            }
             return dropdown;
         }
 
@@ -247,6 +254,7 @@ namespace Baseball.Presentation.Shop
 
             Image artworkFrame = OwnerRuntimeUiFactory.CreateImage(
                 "ArtworkFrame", _previewRoot, ArtworkBackground);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.ApplyInset(artworkFrame);
             var artworkLayout = artworkFrame.gameObject.AddComponent<LayoutElement>();
             artworkLayout.minHeight = 120f;
             artworkLayout.preferredHeight = 210f;
@@ -294,6 +302,8 @@ namespace Baseball.Presentation.Shop
             Text text = OwnerRuntimeUiFactory.CreateText(
                 name, _previewRoot, string.Empty, fontSize, fontStyle,
                 anchor, CareerUiTheme.ReferenceText);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+                OwnerDashboardStyle.SetDataText(text, fontStyle == FontStyle.Bold);
             AddFixedHeight(text.rectTransform, height);
             return text;
         }
@@ -324,6 +334,7 @@ namespace Baseball.Presentation.Shop
             // 공용 Image는 장식용 기본값으로 Raycast를 끈다. 상품 타일은 이 표면 자체가
             // Button의 입력 영역이므로 명시적으로 켜야 포인터 클릭이 선택 처리까지 도달한다.
             surface.raycastTarget = true;
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.ApplyInset(surface, true);
             var outline = surface.gameObject.AddComponent<Outline>();
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = false;
@@ -353,30 +364,47 @@ namespace Baseball.Presentation.Shop
         {
             Image frame = OwnerRuntimeUiFactory.CreateImage(
                 "ArtworkFrame", parent, ArtworkBackground);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext) OwnerDashboardStyle.ApplyInset(frame);
             var size = frame.gameObject.AddComponent<LayoutElement>();
             size.minWidth = ArtworkSize;
             size.preferredWidth = ArtworkSize;
+            // 원화와 수량 설명의 영역을 분리해 밝은 패키지에서도 글자가 묻히지 않게 한다.
+            RectTransform artworkSlot = OwnerRuntimeUiFactory.CreateRect("ArtworkSlot", frame.transform);
+            OwnerRuntimeUiFactory.Stretch(artworkSlot,
+                new Vector2(0f, TileBadgeHeight + CareerUiTheme.Space1), Vector2.zero);
             Texture2D texture = ShopArtwork.Load(tile.ArtworkKey);
             if (texture != null)
             {
-                RawImage art = ShopArtwork.Create(frame.transform, "Artwork", tile.ArtworkKey, Color.white);
+                RawImage art = ShopArtwork.Create(artworkSlot, "Artwork", tile.ArtworkKey, Color.white);
                 OwnerRuntimeUiFactory.Stretch(art.rectTransform, new Vector2(3f, 3f), new Vector2(-3f, -3f));
                 var aspect = art.gameObject.AddComponent<AspectRatioFitter>();
                 aspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
                 aspect.aspectRatio = texture.width / (float)texture.height;
             }
 
-            Text count = OwnerRuntimeUiFactory.CreateText(
-                "Count", frame.rectTransform, tile.CountBadgeText, 11, FontStyle.Bold,
-                TextAnchor.LowerCenter, Color.white);
-            OwnerRuntimeUiFactory.Stretch(count.rectTransform, new Vector2(3f, 3f), new Vector2(-3f, -3f));
-            count.gameObject.AddComponent<Shadow>().effectColor = Color.black;
+            Image count = CreateTileBadge(frame.transform, "Count", tile.CountBadgeText, false);
+            OwnerRuntimeUiFactory.SetAnchors(count.rectTransform, Vector2.zero, Vector2.right,
+                Vector2.zero, new Vector2(0f, TileBadgeHeight));
 
             if (tile.BadgeText.Length == 0) return;
-            Text badge = OwnerRuntimeUiFactory.CreateText(
-                "Badge", frame.rectTransform, tile.BadgeText, 10, FontStyle.Bold,
-                TextAnchor.UpperLeft, CareerUiTheme.Warning);
-            OwnerRuntimeUiFactory.Stretch(badge.rectTransform, new Vector2(4f, 4f), new Vector2(-4f, -4f));
+            Image badge = CreateTileBadge(artworkSlot, "Badge", tile.BadgeText, true);
+            OwnerRuntimeUiFactory.SetAnchors(badge.rectTransform, Vector2.up, Vector2.up,
+                new Vector2(0f, -TileBadgeHeight), new Vector2(52f, 0f));
+        }
+
+        /// <summary>상품 배지는 불투명 배경과 실제 Medium 서체로 스킨 재적용 후에도 대비를 유지한다.</summary>
+        private static Image CreateTileBadge(Transform parent, string name, string value, bool highlighted)
+        {
+            Color background = highlighted ? OwnerDashboardStyle.Gold : OwnerDashboardStyle.Raised;
+            Image badge = OwnerRuntimeUiFactory.CreateImage(name, parent, background);
+            OwnerDashboardStyle.SetDataSurface(badge, background);
+            Text label = OwnerRuntimeUiFactory.CreateText("Label", badge.transform, value,
+                TileBadgeFontSize, FontStyle.Normal, TextAnchor.MiddleCenter, OwnerDashboardStyle.Ivory);
+            OwnerDashboardStyle.SetDataText(label, true);
+            label.color = highlighted ? OwnerDashboardStyle.Ink : OwnerDashboardStyle.Ivory;
+            OwnerRuntimeUiFactory.Stretch(label.rectTransform,
+                new Vector2(CareerUiTheme.Space1, 0f), new Vector2(-CareerUiTheme.Space1, 0f));
+            return badge;
         }
 
         private static void BuildReferenceTileText(RectTransform parent, ShopProductTileSnapshot tile)
@@ -396,12 +424,21 @@ namespace Baseball.Presentation.Shop
             Text price = OwnerRuntimeUiFactory.CreateText(
                 "Price", body, tile.PriceText, 16, FontStyle.Bold,
                 TextAnchor.MiddleRight, CareerUiTheme.ReferenceText);
-            AddFixedHeight(price.rectTransform, 28f);
+            AddFixedHeight(price.rectTransform, 44f);
             Text status = OwnerRuntimeUiFactory.CreateText(
                 "Status", body, tile.CanPurchase ? "구매 가능" : tile.BlockedReason,
                 10, FontStyle.Normal, TextAnchor.MiddleRight,
                 tile.CanPurchase ? CareerUiTheme.ReferenceAccent : CareerUiTheme.Error);
             AddFixedHeight(status.rectTransform, 18f);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                OwnerDashboardStyle.SetDataText(title, true);
+                OwnerDashboardStyle.SetDataText(subtitle);
+                OwnerDashboardStyle.SetDataText(price, true);
+                price.color = OwnerDashboardStyle.Gold;
+                OwnerDashboardStyle.SetDataText(status);
+                status.color = tile.CanPurchase ? OwnerDashboardStyle.Success : OwnerDashboardStyle.Danger;
+            }
         }
 
         private void EnsureSelectedProduct(ShopTabSnapshot tab)
@@ -537,7 +574,7 @@ namespace Baseball.Presentation.Shop
                 _previewStatus.text = tile.CanPurchase ? "구매 가능" : tile.BlockedReason;
                 _previewStatus.color = tile.CanPurchase
                     ? UIOwnerFrontOfficePanel.HasDarkSurface(_previewRoot) ? OwnerDashboardStyle.Gold : CareerUiTheme.ReferenceAccent
-                    : CareerUiTheme.Error;
+                    : UIOwnerFrontOfficeSkin.IsOwnerContext ? OwnerDashboardStyle.Danger : CareerUiTheme.Error;
                 _selectedProductCanPurchase = tile.CanPurchase;
                 _previewDetailsButton.interactable = !_isProcessing;
                 _previewPurchaseButton.interactable = tile.CanPurchase && !_isProcessing;
@@ -565,6 +602,11 @@ namespace Baseball.Presentation.Shop
         private void ApplyProductSelection(Image surface, Outline outline, string productId)
         {
             bool selected = string.Equals(productId, _selectedProductId, StringComparison.Ordinal);
+            if (UIOwnerFrontOfficeSkin.IsOwnerContext)
+            {
+                OwnerDashboardStyle.SetDataRow(surface.GetComponent<Button>(), selected, OwnerDashboardStyle.TableSurface);
+                return;
+            }
             surface.color = selected ? new Color32(221, 229, 235, 255) : CareerUiTheme.ReferencePanel;
             outline.effectColor = selected ? CareerUiTheme.ReferenceAccent : CareerUiTheme.ReferenceBorder;
             outline.effectDistance = selected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);

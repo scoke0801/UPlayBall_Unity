@@ -65,7 +65,7 @@ namespace Baseball.Presentation.Owner
                     (string.IsNullOrEmpty(card.Card.StudyStatus) ? "유학 대기" : card.Card.StudyStatus),
                     13, 850, 313, 210, 48);
             }
-            Tab(_content, "ChooseStudyPlayer", "선수 선택", () =>
+            Button choosePlayer = Tab(_content, "ChooseStudyPlayer", "선수 선택", () =>
             {
                 _isChoosingStudyPlayer = true;
                 _studyDraftCardId = _cardId;
@@ -74,6 +74,7 @@ namespace Baseball.Presentation.Owner
                 Render();
                 FocusRosterControl("StudySearch");
             }, false, 850, 374, 205, 30);
+            OwnerUiButtonSkin.Apply(choosePlayer, OwnerButtonRole.Secondary);
             if (option == null)
             {
                 if (_isChoosingStudyPlayer) RenderStudyPlayerPicker();
@@ -83,7 +84,8 @@ namespace Baseball.Presentation.Owner
             bool isPending = option != null && _pendingStudy == _cardId + ":" + _programId;
             Text status = StudyLabel(_content, "StudyBlockedReason", isPending
                 ? $"{card.Card.DisplayName} · {option.Program.DurationWeeks}주 · {option.CostText} 사용. 확정하면 시작합니다."
-                : reason.Length == 0 ? "시즌당 한 번 참가할 수 있습니다." : reason, 11, 757, 409, 305, 50);
+                : reason.Length == 0 ? "시즌당 한 번 참가할 수 있습니다." : reason, 11, 757, 425, 305, 34);
+            status.alignment = TextAnchor.UpperLeft;
             status.color = reason.Length == 0 ? OwnerDashboardStyle.Ivory : Baseball.Presentation.UI.CareerUiTheme.Error;
             Button start = Tab(_content, "StartStudy", isPending ? "유학 확정" : "유학지 결정", () =>
             {

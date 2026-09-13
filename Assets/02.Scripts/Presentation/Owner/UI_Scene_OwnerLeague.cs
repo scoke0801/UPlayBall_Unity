@@ -86,7 +86,7 @@ namespace Baseball.Presentation.Owner
             bool hasHistoryNavigation = _tab == 3;
             float legendBottom = hasHistoryNavigation ? .005f : .025f;
             float legendTop = hasHistoryNavigation ? .045f : .095f;
-            Label(root, "Legend", hasHistoryNavigation ? "라운드 종료 기준 · 승률 → 득실차 순" :
+            Label(root, "Legend", hasHistoryNavigation ? "승률순 · 동률 시 득실차" :
                 _tab == 2 ? "행 구단 기준  승 - 패 (무)" : "순위 기준: 승률 · 득실차",
                 .035f, legendBottom, .75f, legendTop, 14, OwnerDashboardStyle.TableSecondary, TextAnchor.MiddleLeft);
             if (_tab <= 1)

@@ -87,10 +87,8 @@ namespace Baseball.Presentation.Career
                     _showPitcherCardPreview ? PlayerPosition.StartingPitcher : PlayerPosition.Shortstop, PreviewCost(index), PreviewEdition(index),
                     0, 0, false, false, teamDisplayName: "서울 스타즈", condition: 90,
                     conditionLabel: "컨디션", conditionLevel: 10 - index % 5 * 2);
+                // 등급과 Cost는 공용 렌더러가 처리한다. 내부 계층을 다시 찾으면 카드 개편 시 갤러리가 깨진다.
                 UI_Popup_OwnerPlayerCard.BuildFrontCard(full, snapshot);
-                full.Find("MainFrame").GetComponent<Image>().sprite = LoadGalleryFrame(variant, false);
-                full.Find("EditionPlate/Edition").GetComponent<Text>().text = CardDesignLabels[index];
-                OwnerPlayerCardFrames.SetCostStars((RectTransform)full.Find("CostStars"), variant, PreviewCost(index));
             }
             AttachGalleryFx(full, index, false);
         }
@@ -132,9 +130,6 @@ namespace Baseball.Presentation.Career
             PlayerPosition playerPosition = _showPitcherCardPreview ? PlayerPosition.StartingPitcher : PlayerPosition.Shortstop;
             mini.Bind(new PlayerMiniCardModel("gallery-" + index, "김하늘", _showPitcherCardPreview ? "선발투수" : "유격수", "25", "", "",
                 frameEdition: PreviewEdition(index), cost: PreviewCost(index), conditionLevel: 10 - index % 5 * 2), PlayerPortraitSprites.GetDefault(playerPosition));
-            mini.transform.Find("LineupSubFrame").GetComponent<Image>().sprite = LoadGalleryFrame(CardDesignVariants[index], true);
-            OwnerPlayerCardFrames.SetCostStars((RectTransform)mini.transform.Find("CostStars"),
-                CardDesignVariants[index], PreviewCost(index));
             if (_showCardArtworkOnly)
             {
                 mini.gameObject.SetActive(false);

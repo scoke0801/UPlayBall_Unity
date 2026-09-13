@@ -36,7 +36,7 @@ namespace Baseball.Presentation.Owner
             dim.raycastTarget = true;
             Image panel = Surface(_content, "StudyPlayerPicker", 32, 16, 1036, 512, new Color32(244, 246, 248, 255));
             panel.raycastTarget = true;
-            UIOwnerFrontOfficePanel.Apply(panel.rectTransform, "ManagerReport");
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(panel.rectTransform);
             _studyPickerSafe = OwnerRuntimeUiFactory.CreateRect("ContentSafeRect", panel.transform);
             Place(_studyPickerSafe, 16, 16, 1004, 480);
             Label(_studyPickerSafe, "PickerHeading", "유학 선수 선택", 22, 0, 0, 700, 32);
@@ -60,6 +60,10 @@ namespace Baseball.Presentation.Owner
             Text hint = Label(field.transform, "Placeholder", "선수 이름 검색", 13, 12, 0, 248, 32);
             hint.color = new Color32(110, 121, 135, 255);
             _studySearch.placeholder = hint;
+            _studySearch.lineType = InputField.LineType.SingleLine;
+            _studySearch.textComponent.horizontalOverflow = HorizontalWrapMode.Overflow;
+            hint.horizontalOverflow = HorizontalWrapMode.Overflow;
+            OwnerDashboardStyle.SetDataInput(_studySearch);
             _studySearch.SetTextWithoutNotify(_studyQuery);
             _studySearch.onValueChanged.AddListener(value => { _studyQuery = value; ChangeStudyPickerFilter(); });
             _studyPositions.Clear();

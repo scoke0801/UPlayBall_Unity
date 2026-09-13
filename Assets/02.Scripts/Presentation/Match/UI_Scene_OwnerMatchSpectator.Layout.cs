@@ -13,6 +13,8 @@ namespace Baseball.Presentation.Match
         private static Color Silver => OwnerDashboardStyle.TableHeader;
         private static Color Blue => OwnerDashboardStyle.Gold;
         private static Color Muted => OwnerDashboardStyle.TableSecondary;
+        private const float BroadcastHeight = 792f;
+        private Text _awayScore, _homeScore;
         private readonly Button[] _recordTabs = new Button[4];
         private readonly float[] _recordScrollPositions = { 1f, 1f, 1f, 1f };
         private int _renderedRecordTab = -1;
@@ -47,7 +49,7 @@ namespace Baseball.Presentation.Match
 
         private void Build()
         {
-            _canvas = Panel("BroadcastCanvas", _root, OwnerDashboardStyle.Surface, 0, 0, 1440, 810);
+            _canvas = Panel("BroadcastCanvas", _root, Color.clear, 0, 0, 1440, BroadcastHeight);
             _canvas.anchorMin = _canvas.anchorMax = new Vector2(0.5f, 0.5f);
             _canvas.pivot = new Vector2(0.5f, 0.5f);
             _canvas.anchoredPosition = Vector2.zero;
@@ -70,12 +72,14 @@ namespace Baseball.Presentation.Match
 
         private void BuildHeader()
         {
-            Panel("Header", _canvas, Silver, 0, 0, 1440, 62);
-            Panel("AwayRibbon", _canvas, Paper, 0, 0, 305, 59);
-            Panel("HomeRibbon", _canvas, OwnerDashboardStyle.TableSelected, 379, 0, 305, 59);
-            _awayLabel = Label("Away", _canvas, "원정", 22, 14, 4, 278, 48, Color.white);
-            _homeLabel = Label("Home", _canvas, "홈", 22, 391, 4, 278, 48, Color.white);
-            _inningLabel = Label("Inning", _canvas, "1회 초", 19, 305, 0, 74, 58, Ink);
+            var header = Panel("Header", _canvas, Color.clear, 0, 0, 1440, 62);
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(header);
+            _awayLabel = Label("Away", _canvas, "원정", 19, 32, 10, 216, 42, Ink);
+            _homeLabel = Label("Home", _canvas, "홈", 19, 448, 10, 216, 42, Ink);
+            _awayScore = Label("AwayScore", _canvas, "0", 30, 252, 8, 52, 46, Ink);
+            _homeScore = Label("HomeScore", _canvas, "0", 30, 388, 8, 52, 46, Ink);
+            _awayScore.alignment = _homeScore.alignment = TextAnchor.MiddleCenter;
+            _inningLabel = Label("Inning", _canvas, "1회 초", 17, 308, 10, 76, 42, Blue);
             _inningLabel.alignment = TextAnchor.MiddleCenter;
             BuildCount("B", _balls, 700, new Color32(76, 177, 57, 255));
             BuildCount("S", _strikes, 824, new Color32(224, 169, 17, 255));
@@ -106,7 +110,7 @@ namespace Baseball.Presentation.Match
 
         private void BuildFieldOverlay()
         {
-            var badge = Panel("LiveBadge", _canvas, Silver, 12, 74, 270, 38);
+            var badge = Panel("LiveBadge", _canvas, Color.clear, 12, 74, 270, 38);
             _statusLabel = Label("LiveStatus", badge, "경기 중계", 17, 12, 0, 246, 36, Color.white);
             _viewingModeButtons = new Button[3];
             var viewingModes = new[]
@@ -128,7 +132,7 @@ namespace Baseball.Presentation.Match
                     106,
                     () => HandleViewingModeRequested(mode));
             }
-            var runners = Panel("BaseOccupancy", _canvas, Silver, 782, 76, 124, 43);
+            var runners = Panel("BaseOccupancy", _canvas, Color.clear, 782, 76, 124, 43);
             Label("BaseTitle", runners, "주자 상황", 12, 0, 7, 52, 27, Color.white).alignment = TextAnchor.MiddleCenter;
             for (int i = 0; i < 3; i++)
             {
@@ -155,11 +159,9 @@ namespace Baseball.Presentation.Match
         {
             Sprite baseballSprite = _gameCastConfig.LoadBaseballSprite();
             var side = Panel("GameCastSidebar", _canvas, Paper, 924, 74, 504, 602);
-            OwnerDashboardStyle.ApplySection(side.GetComponent<Image>(), 36f);
-            var duel = Panel("DuelSurface", side, OwnerDashboardStyle.TableAlternate, 8, 40, 488, 98);
-            OwnerDashboardStyle.ApplyInset(duel.GetComponent<Image>());
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(side);
             Panel("DuelDivider", side, OwnerDashboardStyle.Line, 252, 48, 1, 82);
-            Label("Heading", side, "현재 승부", 15, 16, 8, 472, 27, Blue);
+            Label("Heading", side, "현재 승부", 15, 16, 12, 472, 27, Blue);
             _pitcherRole = Label("PitcherRole", side, "마운드 · 투수", 12, 16, 42, 226, 23, Muted);
             _batterRole = Label("BatterRole", side, "타석 · 타자", 12, 266, 42, 222, 23, Muted);
             _pitcherLabel = Label("PitcherName", side, "등판 대기", 24, 16, 68, 226, 36, Ink);
@@ -194,22 +196,21 @@ namespace Baseball.Presentation.Match
             _pitchHistory.fontStyle = FontStyle.Normal;
             Label("ZoneNote", detail, "포수 시점", 11, 16, 370, 472, 20, Muted);
             _playExplanation = Panel("PlayExplanation", detail, Color.clear, 16, 404, 472, 85);
-            OwnerDashboardStyle.ApplySection(_playExplanation.GetComponent<Image>(), 32f);
             Panel("PlayRule", _playExplanation, OwnerDashboardStyle.Line, 0, 0, 472, 1);
             Label("PlayTitle", _playExplanation, "플레이 해설", 13, 0, 9, 472, 22, Blue);
             _playDetail = Label("PlayDetail", _playExplanation, "", 15, 0, 36, 472, 49, Ink);
             _playDetail.fontStyle = FontStyle.Normal;
             _playExplanation.gameObject.SetActive(false);
             _decisionExplanation = Panel("DecisionExplanation", side, Color.clear, 16, 504, 472, 87);
-            OwnerDashboardStyle.ApplySection(_decisionExplanation.GetComponent<Image>(), 32f);
             Panel("DecisionRule", _decisionExplanation, OwnerDashboardStyle.Line, 0, 0, 472, 1);
             Label("DecisionTitle", _decisionExplanation, "감독의 판단", 13, 0, 9, 472, 22, Blue);
             _decisionNote = Label("DecisionNote", _decisionExplanation, "", 14, 0, 37, 472, 50, Ink);
             _decisionNote.fontStyle = FontStyle.Normal;
             _decisionExplanation.gameObject.SetActive(false);
             BuildHighlightInset(side);
-            _miniLineScore = Panel("CompactLineScore", _canvas, Paper, 24, 622, 852, 54);
-            OwnerDashboardStyle.ApplySection(_miniLineScore.GetComponent<Image>(), 18f);
+            var lineScoreFrame = Panel("CompactLineScoreFrame", _canvas, Color.clear, 12, 606, 876, 70);
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(lineScoreFrame);
+            _miniLineScore = Panel("CompactLineScore", lineScoreFrame, Color.clear, 12, 8, 852, 54);
             Label("Title", _miniLineScore, "이닝별 득점", 13, 0, 0, 180, 18, Color.white);
             _miniAwayTeam = Label("AwayTeam", _miniLineScore, "", 13, 0, 18, 180, 18, Color.white);
             _miniHomeTeam = Label("HomeTeam", _miniLineScore, "", 13, 0, 36, 180, 18, Color.white);
@@ -220,12 +221,10 @@ namespace Baseball.Presentation.Match
 
         private void BuildFooter()
         {
-            var footer = Panel("Footer", _canvas, Paper, 0, 682, 1440, 128);
-            OwnerDashboardStyle.ApplyInset(footer.GetComponent<Image>());
-            Panel("CommentaryAccent", _canvas, Blue, 12, 696, 3, 24);
-            Panel("FooterRule", _canvas, OwnerDashboardStyle.Line, 0, 682, 1440, 1);
-            Label("CommentaryTitle", _canvas, "경기 중계", 16, 20, 692, 106, 28, Blue);
-            _commentary = Label("Commentary", _canvas, "잠시 후 경기가 시작됩니다.", 17, 140, 692, 900, 108, Ink);
+            var footer = Panel("Footer", _canvas, Color.clear, 0, 688, 1440, 104);
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(footer);
+            Label("CommentaryTitle", _canvas, "경기 중계", 14, 20, 702, 106, 28, Blue);
+            _commentary = Label("Commentary", _canvas, "잠시 후 경기가 시작됩니다.", 17, 140, 702, 880, 64, Ink);
             _commentary.alignment = TextAnchor.UpperLeft;
             _advanceButton = Control("Advance", _canvas, "다음 장면", 1070, 700, 160, HandleAdvanceRequested);
             _resultButton = Control("Result", _canvas, "경기 결과", 1242, 700, 176, () =>
@@ -234,8 +233,8 @@ namespace Baseball.Presentation.Match
                 RefreshControls();
             });
             _resultToggleLabel = _resultButton.GetComponentInChildren<Text>();
-            _homeButton = Control("ReturnHome", _canvas, "구단 홈으로", 1242, 752, 176, () => HomeRequested?.Invoke());
-            _nextGameButton = Control("NextGame", _canvas, "다음 경기", 1046, 752, 184, () =>
+            _homeButton = Control("ReturnHome", _canvas, "구단 홈으로", 1242, 740, 176, () => HomeRequested?.Invoke());
+            _nextGameButton = Control("NextGame", _canvas, "다음 경기", 1046, 740, 184, () =>
             {
                 if (IsComplete && _hasNextGame && !_isPreparingNextGame) NextGameRequested?.Invoke();
             });

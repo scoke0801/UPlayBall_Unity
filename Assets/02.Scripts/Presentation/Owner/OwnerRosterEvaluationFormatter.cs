@@ -6,12 +6,12 @@ namespace Baseball.Presentation.Owner
     /// <summary>Game에서 계산한 기본 전력과 편성 비용을 서로 다른 의미로 표시한다.</summary>
     public static class OwnerRosterEvaluationFormatter
     {
-        /// <summary>시즌 기본 능력 평균의 대상 인원과 수치를 표시한다.</summary>
+        /// <summary>시즌 기본 능력으로 계산한 전력 수치를 표시한다.</summary>
         public static string FormatStrength(RosterStrengthBreakdown strength)
         {
             return strength?.Overall == null
                 ? "기본 전력 미평가"
-                : $"기본 전력 {FormatRating(strength.Overall)} · {strength.PlayerCount}인 평균";
+                : $"기본 전력 {FormatRating(strength.Overall)}";
         }
 
         /// <summary>타자·투수의 별도 능력 평균을 표시한다.</summary>

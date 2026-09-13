@@ -415,7 +415,7 @@ namespace Baseball.Presentation.Owner
                     }
                 }
 
-                return $"레전드 {legendCount}장 · 커리어 하이 {careerHighCount}장 · 합계 {legendCount + careerHighCount}/{OwnerSpecialCardRosterRule.MaxTotalCount}\n" +
+                return $"특수 선수 {legendCount + careerHighCount}/{OwnerSpecialCardRosterRule.MaxTotalCount}명 · 레전드 {legendCount} · 커리어하이 {careerHighCount}\n" +
                        CreateTeamColorSummaryText();
             }
         }
