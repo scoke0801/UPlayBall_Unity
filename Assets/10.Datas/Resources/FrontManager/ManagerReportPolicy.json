@@ -1,0 +1,16 @@
+{
+  "retainedSeasons": 2,
+  "maximumHistoryTargets": 256,
+  "maximumBookmarks": 100,
+  "maximumHomeNewsPerWeek": 2,
+  "newsVisibleWeeks": 2,
+  "minimumReviewGames": 3,
+  "minimumBullpenOuts": 18,
+  "minimumWalksPerNineChange": 1.0,
+  "minimumDecisionAppearances": 3,
+  "minimumDecisionOuts": 9,
+  "minimumDecisionPlateAppearances": 20,
+  "maximumDecisionGames": 12,
+  "homeRunMilestones": [20, 50, 100],
+  "strikeoutMilestones": [100, 200, 300]
+}

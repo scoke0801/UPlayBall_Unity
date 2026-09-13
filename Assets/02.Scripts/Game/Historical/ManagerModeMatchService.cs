@@ -317,7 +317,8 @@ namespace Baseball.Game.Historical
             int scoutingPointsEarned = GrantMatchScoutingPoints(runtime, match, playerIsHome);
             OwnerTraitTrainingService.GrantMatchReward(runtime, _balance.TraitTraining);
             ApplyPostGameState(mode, playerBuild, opponentBuild, match);
-            RecordStatistics(mode, game, match);
+            CareerGameResult recordedGame = RecordStatistics(mode, game, match);
+            RecordManagerNews(runtime, playerIds, recordedGame);
             ConsumePlayerTactics(runtime.TacticCollection, playerPlan.TacticCardIds);
             mode.ClearSelectedTactics();
             mode.Dugout.RecordMatchCompleted();
@@ -639,12 +640,12 @@ namespace Baseball.Game.Historical
         }
 
         /// <summary>플레이어 경기와 AI 경기를 같은 집계 경로에 넣어 리그 기록이 한쪽으로 치우치지 않게 한다.</summary>
-        private static void RecordStatistics(
+        private static CareerGameResult RecordStatistics(
             ManagerModeRuntimeState mode,
             ScheduledGameState game,
             MatchResult match)
         {
-            new LeagueStatisticsService(mode.LiveSeason.Statistics).RecordMatch(
+            return new LeagueStatisticsService(mode.LiveSeason.Statistics).RecordMatch(
                 match,
                 CompetitionScope.RegularSeason,
                 game.Round,

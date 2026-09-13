@@ -51,15 +51,20 @@ namespace Baseball.Presentation.Owner
                 _ownerGuide.SetFeedback(_homeView.FeedbackMessage, _homeView.IsFeedbackError);
                 _ownerGuide.ActionRequested += NavigateGuideGoal;
                 _homeView.OutsideSuggestionPressed += _ownerGuide.CollapseSuggestion;
-                _ownerGuide.ReadRequested += id => SaveGuideChoice(state => state.MarkReportRead(id));
+                _ownerGuide.ReadRequested += id => SaveGuideChoice(state => state.MarkNewsCaseRead(id));
                 _ownerGuide.AllReadRequested += () => SaveGuideChoice(state => state.MarkAllReportsRead());
                 _ownerGuide.BookmarkRequested += (id, bookmarked) => SaveGuideChoice(state => state.SetReportBookmark(id, bookmarked));
+                _ownerGuide.KeepRequested += (key, keep) => SaveGuideChoice(state =>
+                {
+                    if (keep) state.AcceptAsIs(key); else state.Reconsider(key);
+                });
+                _ownerGuide.DeferRequested += id => SaveGuideChoice(state => state.SnoozeReport(id));
             }
             if (_hasUnsavedGuideChange) return;
             try
             {
                 var progress = _manager.RefreshGuideProgress();
-                _ownerGuide.Bind(progress, _manager.Runtime.OwnerProfile.FrontManagerId);
+                _ownerGuide.Bind(progress, _manager.Runtime.OwnerProfile.FrontManagerId, ResolveGuidePlayerName);
                 if (_observedGuideTrackedKey.Length > 0 && progress.GetStatus(_observedGuideTrackedKey) == GuideGoalStatus.Resolved &&
                     (_observedGuideTrackedKind == GuideGoalKind.RosterIssue || _observedGuideTrackedKind == GuideGoalKind.PresetIssue))
                     _ownerGuide.ShowResolution();
@@ -145,9 +150,19 @@ namespace Baseball.Presentation.Owner
         {
             if (goal == null) return;
             RefreshOwnerGuide();
-            bool exists = false;
-            foreach (var current in _manager.Runtime.GuideProgress.GetVisibleGoals(true))
-                if (current.Key == goal.Key && current.CardId == goal.CardId) exists = true;
+            if (goal.Kind == GuideGoalKind.News)
+            {
+                foreach (var report in _manager.Runtime.GuideProgress.GetReports())
+                {
+                    if (report.news == null || report.isExpired || report.deduplicationKey != goal.Key) continue;
+                    if (report.target == GuideTargetKind.PlayerCard) HandleShopPlayerCardDetailsRequested(report.cardId);
+                    else NavigateGuideRoute(OwnerNavigationRoutes.LeagueTeamResults);
+                    return;
+                }
+                _ownerGuide.SetFeedback(_ownerGuide.Copy.missing);
+                return;
+            }
+            bool exists = _manager.Runtime.GuideProgress.IsCurrentTarget(goal);
             if (!exists) { _ownerGuide.SetFeedback(_ownerGuide.Copy.missing); return; }
             string route = goal.Target switch
             {
@@ -209,6 +224,13 @@ namespace Baseball.Presentation.Owner
                 rect.anchoredPosition = Vector2.zero;
                 var image = line.GetComponent<Image>(); image.color = CareerUiTheme.ReferenceAccent; image.raycastTarget = false;
             }
+        }
+
+        private string ResolveGuidePlayerName(string cardId)
+        {
+            var runtime = _manager.Runtime;
+            if (string.IsNullOrEmpty(cardId) || !runtime.WorldCardCatalog.TryGetCard(cardId, out var card)) return null;
+            return runtime.IdentityRegistry.GetPresentationPlayerName(runtime.WorldCardCatalog.GetPlayerSeason(card).PlayerPersonId);
         }
 
         private void ClearGuideTarget()

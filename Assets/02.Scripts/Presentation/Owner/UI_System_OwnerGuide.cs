@@ -28,6 +28,7 @@ namespace Baseball.Presentation.Owner
         private Image _unreadBadge;
         private RectTransform _portraitViewport;
         private GuideGoal _goal;
+        private ManagerReportCase _homeNews;
         private GuideProgressState _progress;
         private readonly FrontManagerGuideCtaRouter _router = new();
         private GuideMessage _legacyMessage;
@@ -45,6 +46,9 @@ namespace Baseball.Presentation.Owner
         public event Action<string> ReadRequested;
         public event Action AllReadRequested;
         public event Action<string, bool> BookmarkRequested;
+        public event Action<string, bool> KeepRequested;
+        public event Action<string> DeferRequested;
+        private Func<string, string> _playerNameResolver;
 
         /// <summary>호환 호출도 Workspace 내부에만 생성한다.</summary>
         public static UI_System_OwnerGuide Create(SharedGameShellView shell, OwnerGuidePresentationData copy)
@@ -63,8 +67,11 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>갱신해도 사용자가 펼친 추천과 리포트 선택을 안정 ID로 유지한다.</summary>
-        public void Bind(GuideProgressState progress, string managerId)
+        public void Bind(GuideProgressState progress, string managerId, Func<string, string> playerNameResolver = null)
         {
+            if (_progress != null && !ReferenceEquals(_progress, progress))
+            { _selectedReportId = null; _selectedCaseKey = null; _filter = 0; _page = 0; _bookmarksOnly = false; _historySeason = 0; }
+            _playerNameResolver = playerNameResolver;
             _progress = progress; _legacyMessage = null;
             if (_scope != progress.Scope) { _scope = progress.Scope; _goal = null; }
             string selected = _goal?.Key;
@@ -209,13 +216,14 @@ namespace Baseball.Presentation.Owner
             _snooze = MakeButton(_suggestion, "Snooze", _copy.snooze, () =>
             {
                 string id = _progress?.FindReportId(_goal?.Key);
-                if (id != null) BookmarkRequested?.Invoke(id, true);
+                if (id != null && !_progress.CanBookmarkReport(id)) { SetFeedback(_copy.bookmarkLimit); return; }
+                if (id != null) { ReadRequested?.Invoke(id); BookmarkRequested?.Invoke(id, true); }
                 if (_snooze.gameObject.activeInHierarchy) _snooze.Select();
                 else _review.Select();
             }, OwnerButtonRole.Quiet);
             _next = MakeButton(_suggestion, "Next", _copy.next, () =>
             {
-                string id = _progress?.FindReportId(_goal?.Key);
+                string id = _goal == null ? _homeNews?.Primary.reportId : _progress?.FindReportId(_goal.Key);
                 if (id != null) ReadRequested?.Invoke(id);
                 if (_next.gameObject.activeInHierarchy) _next.Select();
                 else _review.Select();
@@ -248,6 +256,13 @@ namespace Baseball.Presentation.Owner
         private void NavigateCurrent()
         {
             if (_goal != null) ActionRequested?.Invoke(_goal);
+            else if (_homeNews != null)
+            {
+                _filter = 1; _page = 0; _selectedCaseKey = _homeNews.Key;
+                _selectedReportId = _homeNews.Primary.reportId;
+                ReadRequested?.Invoke(_selectedReportId);
+                SetState(2);
+            }
             else if (_legacyMessage != null && _router.TryRoute(_legacyMessage)) SetOpen(false, false);
         }
 
@@ -274,27 +289,31 @@ namespace Baseball.Presentation.Owner
         {
             if (_body == null) return;
             int unread = 0;
-            if (_progress != null) foreach (var report in _progress.GetReports())
-                if (!report.isRead && !report.isExpired) unread++;
-            _counter.text = unread > 0 ? string.Format(_copy.unread, unread) : _copy.noUnread;
-            _unreadBadge.gameObject.SetActive(unread > 0);
-            if (_state == 1 && _goal != null)
+            int currentCount = 0;
+            if (_progress != null)
             {
-                int index = 0;
-                for (int i = 0; i < _goals.Count; i++) if (_goals[i].Key == _goal.Key) index = i;
-                _counter.text = string.Format(_copy.count, index + 1, _goals.Count) + " · " + _counter.text;
+                unread = 0;
+                foreach (var item in _progress.GetReportCases(ManagerReportView.Current))
+                { currentCount++; if (item.HasUnread) unread++; }
+                foreach (var item in _progress.GetReportCases(ManagerReportView.News))
+                    if (item.HasUnread) unread++;
             }
-            _dock.gameObject.SetActive(_state == 0 && _goal != null);
-            bool hasReviewedIssues = _goal == null && _progress != null && _progress.GetVisibleGoals(true).Count > 0;
+            _homeNews = _progress?.GetHomeNews();
+            _counter.text = unread > 0 ? string.Format(_copy.unread, unread) : _copy.noUnread;
+            if (currentCount > 0) _counter.text += " · " + string.Format(_copy.currentCount, currentCount);
+            _unreadBadge.gameObject.SetActive(unread > 0);
+            _dock.gameObject.SetActive(_state == 0 && (_goal != null || _homeNews != null));
+            bool hasReviewedIssues = _goal == null && currentCount > 0;
             _body.text = hasReviewedIssues ? _copy.reviewed : FormatBody(_goal, _progress?.HomeScore ?? 0, _progress?.AwayScore ?? 0);
-            _action.GetComponentInChildren<Text>().text = ActionLabel(_goal);
-            _action.gameObject.SetActive(_goal != null);
+            if (_goal == null && _homeNews != null) _body.text = FormatCaseTitle(_homeNews) + "\n" + FormatCaseSummary(_homeNews);
+            _action.GetComponentInChildren<Text>().text = _goal == null && _homeNews != null ? _copy.newsOpen : ActionLabel(_goal);
+            _action.gameObject.SetActive(_goal != null || _homeNews != null);
             _snooze.gameObject.SetActive(_goal != null);
-            _next.gameObject.SetActive(_goal != null);
+            _next.gameObject.SetActive(_goal != null || _homeNews != null);
             _news.gameObject.SetActive(unread > 0);
             // 접힌 상태에서도 초상·본문·주요 행동의 위치를 유지해 클릭 대상이 움직이지 않게 한다.
             SetRect(_portraitViewport, Vector2.zero, new Vector2(0, 1), new Vector2(8, 156), new Vector2(152, -8));
-            SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(176, 156), new Vector2(-16, -8));
+            SetRect(_body.rectTransform, Vector2.zero, Vector2.one, new Vector2(176, 156), new Vector2(-16, -32));
             SetRect((RectTransform)_action.transform, Vector2.zero, new Vector2(0, 0), new Vector2(8, 80), new Vector2(260, 148));
             SetRect((RectTransform)_snooze.transform, Vector2.zero, Vector2.zero, new Vector2(268, 80), new Vector2(476, 148));
             SetRect((RectTransform)_next.transform, Vector2.zero, Vector2.zero, new Vector2(484, 80), new Vector2(708, 148));
@@ -307,6 +326,7 @@ namespace Baseball.Presentation.Owner
 
         private string ActionLabel(GuideGoal goal) => goal?.Target switch
         {
+            GuideTargetKind.PlayerCard => _copy.playerAction,
             GuideTargetKind.Analysis => _copy.analysisAction,
             GuideTargetKind.PlanConfirmation => _copy.preparationAction,
             GuideTargetKind.Condition => _copy.pitchingAction,
@@ -325,9 +345,10 @@ namespace Baseball.Presentation.Owner
             if (issueCopy != null)
             {
                 string explanation = issueCopy.body;
+                if (goal.Evidence == "PitcherRoleMismatch") explanation = FormatRoleEvidence(goal);
                 if (goal.Kind == GuideGoalKind.PresetIssue && goal.SlotIndex >= 0 &&
                     _copy.assignmentGroups != null && (int)goal.Group < _copy.assignmentGroups.Length)
-                    explanation = string.Format(_copy.issueLocation, _copy.assignmentGroups[(int)goal.Group], goal.SlotIndex + 1)
+                    explanation = FormatTarget(goal)
                         + "\n" + explanation;
                 if (goal.Actual.HasValue && goal.Expected.HasValue)
                     explanation += "\n" + string.Format(_copy.reportCounts, goal.Actual.Value, goal.Expected.Value);

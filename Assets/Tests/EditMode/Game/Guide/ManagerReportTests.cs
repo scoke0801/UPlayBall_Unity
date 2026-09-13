@@ -12,7 +12,57 @@ namespace Baseball.Tests.EditMode.Game.Guide
             new GuideGoal(key, GuideGoalKind.PresetIssue, GuideTargetKind.PresetSlot, required, "MissingAssignment");
 
         [Test]
-        public void 읽음과보관은문제를해결하지않고복원후추천에서제외된다()
+        public void Restore_NormalReportWithSerializedEmptyNews_PreservesReportAndNormalizesNews()
+        {
+            var state = new GuideProgressState();
+            state.Reconcile("match", 0, new[] { Goal("a") });
+            var data = state.Capture();
+            // JsonUtility는 인라인 직렬화 클래스의 null을 기본값 객체로 복원할 수 있다.
+            data.reports[0].news = new ManagerNewsEvidence { growth = Array.Empty<int>() };
+
+            var restored = GuideProgressState.Restore(data);
+
+            Assert.That(restored.GetReports().Single().news, Is.Null);
+            Assert.That(restored.GetReports().Single().deduplicationKey, Is.EqualTo("a"));
+            Assert.That(data.reports[0].news, Is.Not.Null);
+            Assert.That(GuideProgressState.Restore(restored.Capture()).GetReports().Single().news, Is.Null);
+        }
+
+        [TestCase(GuideGoalKind.News, ManagerNewsKind.None)]
+        [TestCase(GuideGoalKind.PresetIssue, ManagerNewsKind.Training)]
+        [TestCase(GuideGoalKind.News, (ManagerNewsKind)999)]
+        public void Restore_InconsistentNewsKind_RejectsSave(GuideGoalKind reportKind, ManagerNewsKind newsKind)
+        {
+            var state = new GuideProgressState();
+            state.Reconcile("match", 0, new[] { Goal("a") });
+            var data = state.Capture();
+            data.reports[0].kind = reportKind;
+            data.reports[0].news = new ManagerNewsEvidence { kind = newsKind };
+
+            Assert.Throws<ArgumentException>(() => GuideProgressState.Restore(data));
+        }
+
+        [Test]
+        public void Restore_NewsReport_PreservesEvidenceAndRejectsMissingEvidence()
+        {
+            var state = new GuideProgressState();
+            state.Reconcile("match", 0, new[] { Goal("a") });
+            var data = state.Capture();
+            data.reports[0].kind = GuideGoalKind.News;
+            data.reports[0].news = new ManagerNewsEvidence { kind = ManagerNewsKind.Training, label = "훈련 완료" };
+            data.reports[0].news.growth[0] = 2;
+
+            var report = GuideProgressState.Restore(data).GetReports().Single();
+            Assert.That(report.news.kind, Is.EqualTo(ManagerNewsKind.Training));
+            Assert.That(report.news.growth[0], Is.EqualTo(2));
+            data.reports[0].news.growth = null;
+            Assert.Throws<ArgumentException>(() => GuideProgressState.Restore(data));
+            data.reports[0].news = null;
+            Assert.Throws<ArgumentException>(() => GuideProgressState.Restore(data));
+        }
+
+        [Test]
+        public void 읽음은추천에서제외되지만보관은열람과독립이다()
         {
             var state = new GuideProgressState();
             var goals = new[] { Goal("a", true), Goal("b") };
@@ -22,7 +72,7 @@ namespace Baseball.Tests.EditMode.Game.Guide
             state = GuideProgressState.Restore(state.Capture());
             state.Reconcile("match2", 0, goals, "season1");
             Assert.That(state.GetReports().Count, Is.EqualTo(2));
-            Assert.That(state.GetSuggestionGoals(), Is.Empty);
+            Assert.That(state.GetSuggestionGoals().Single().Key, Is.EqualTo("b"));
             Assert.That(state.GetVisibleGoals().Count, Is.EqualTo(2));
             Assert.That(state.GetStatus("a"), Is.EqualTo(GuideGoalStatus.Pending));
         }
@@ -37,7 +87,8 @@ namespace Baseball.Tests.EditMode.Game.Guide
                 GuideTargetKind.PresetSlot, false, "OffPositionAssignment", cardId: "card", slotIndex: 3) }, "season1");
             var report = state.GetReports().Single();
             Assert.That(report.reportId, Is.EqualTo(id));
-            Assert.That(report.createdWeek, Is.EqualTo(1));
+            Assert.That(report.createdWeek, Is.EqualTo(0));
+            Assert.That(report.updatedWeek, Is.EqualTo(1));
             Assert.That(report.ToGoal().CardId, Is.EqualTo("card"));
             Assert.That(report.ToGoal().SlotIndex, Is.EqualTo(3));
             state.SetReportBookmark(id, true);
@@ -51,7 +102,7 @@ namespace Baseball.Tests.EditMode.Game.Guide
         {
             var state = new GuideProgressState();
             state.Reconcile("match", 0, new[] { Goal("c1", true), Goal("c2", true), Goal("i1"), Goal("i2"), Goal("i3"), Goal("i4") });
-            Assert.That(state.GetSuggestionGoals().Count, Is.EqualTo(4));
+            Assert.That(state.GetSuggestionGoals().Count, Is.EqualTo(2));
             Assert.That(state.GetSuggestionGoals().Count(item => item.IsRequired), Is.EqualTo(1));
             Assert.That(state.GetSuggestionGoals()[0].IsRequired, Is.True);
             Assert.That(state.GetReports().Count, Is.EqualTo(6));

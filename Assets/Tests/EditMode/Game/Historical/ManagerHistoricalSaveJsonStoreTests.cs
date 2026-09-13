@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Baseball.Game.Historical;
+using Baseball.Game.Guide;
 using Baseball.Game.Unity.Persistence;
 using NUnit.Framework;
 using UnityEngine;
@@ -18,6 +19,9 @@ namespace Baseball.Tests.EditMode.Game.Historical
             var adapter = (ManagerHistoricalSaveAdapter)fixture.GetType().GetMethod("CreateAdapter").Invoke(fixture, null);
             var runtime = (ManagerHistoricalRuntimeState)fixture.GetType().GetProperty("State").GetValue(fixture);
             runtime = adapter.Restore(adapter.CreateSaveData(runtime));
+            runtime.GuideProgress.Reconcile("match", 0, new[] {
+                new GuideGoal("save-report", GuideGoalKind.PresetIssue, GuideTargetKind.PresetSlot,
+                    false, "MissingAssignment") });
             var source = adapter.CreateSaveData(runtime);
             // 간소화 Fixture에도 실제 새 게임과 같은 25장 지급 이력을 채워 JSON 전체 복원을 검증한다.
             source.newGameReceipt = new OwnerNewGameReceiptSaveData {
@@ -40,6 +44,8 @@ namespace Baseball.Tests.EditMode.Game.Historical
                 Assert.That(restored.PlayerGrowth.Slogan.Definition.GetMinimumAbility(1), Is.EqualTo(1));
             Assert.That(restored.OwnedCards.Count, Is.EqualTo(runtime.OwnedCards.Count));
             Assert.That(restored.Economy.Money, Is.EqualTo(runtime.Economy.Money));
+            Assert.That(restored.GuideProgress.GetReports().Count, Is.EqualTo(1));
+            Assert.That(restored.GuideProgress.GetReports()[0].news, Is.Null);
         }
 
         [Test]

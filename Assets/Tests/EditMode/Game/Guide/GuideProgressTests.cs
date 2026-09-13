@@ -184,6 +184,7 @@ namespace Baseball.Tests.EditMode.Game.Guide
             var state = new GuideProgressState();
             state.Reconcile("game1", 0, new[] { Problem() });
             string id = state.FindReportId("slot");
+            state.MarkReportRead(id);
             state.SetReportBookmark(id, true);
             Assert.That(state.GetReports()[0].isRead, Is.True);
             state.SetReportBookmark(id, false);

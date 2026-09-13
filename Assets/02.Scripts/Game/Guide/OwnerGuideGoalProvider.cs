@@ -32,7 +32,8 @@ namespace Baseball.Game.Guide
                         issue.Group == LineupPresetAssignmentGroup.Tactic ? GuideTargetKind.Tactic : GuideTargetKind.PresetSlot;
                     if (keys.Add(key)) goals.Add(new GuideGoal(key, GuideGoalKind.PresetIssue, target,
                         issue.Severity != LineupPresetIssueSeverity.Warning, issue.Code.ToString(),
-                        issue.Group, issue.SlotIndex, issue.CardId, preset.PresetId));
+                        issue.Group, issue.SlotIndex, issue.CardId, preset.PresetId,
+                        context: issue.Context, conditionPenalty: issue.ConditionPenalty));
                 }
             }
             // 경기 일정과 점수만으로는 기용 변경의 근거가 되지 않는다.

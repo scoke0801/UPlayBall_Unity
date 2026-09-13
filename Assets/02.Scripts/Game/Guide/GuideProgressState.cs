@@ -6,8 +6,8 @@ namespace Baseball.Game.Guide
 {
     /// <summary>안내 열람과 원본 문제 해결을 구분하는 저장 상태다.</summary>
     public enum GuideGoalStatus { Pending, Tracking, Snoozed, Resolved, AcceptedAsIs, Expired }
-    public enum GuideGoalKind { RosterIssue, PresetIssue, Preparation, Debrief, PlanConfirmation }
-    public enum GuideTargetKind { Roster, PresetSlot, Analysis, Condition, TeamColor, Tactic, PlanConfirmation }
+    public enum GuideGoalKind { RosterIssue, PresetIssue, Preparation, Debrief, PlanConfirmation, News }
+    public enum GuideTargetKind { Roster, PresetSlot, Analysis, Condition, TeamColor, Tactic, PlanConfirmation, PlayerCard }
     public enum GuideArrivalStatus { Requested, RouteReady, TargetReady, Cancelled, Unsupported, TargetMissing }
 
     /// <summary>표현 객체 없이 실제 원본 문제와 의미적 조작 대상을 연결한다.</summary>
@@ -15,13 +15,15 @@ namespace Baseball.Game.Guide
     {
         public GuideGoal(string key, GuideGoalKind kind, GuideTargetKind target, bool isRequired,
             string evidence, LineupPresetAssignmentGroup group = default, int slotIndex = -1,
-            string cardId = "", string presetId = "", int? actual = null, int? expected = null)
+            string cardId = "", string presetId = "", int? actual = null, int? expected = null,
+            string context = "", int conditionPenalty = 0)
         {
             if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("목표 식별자가 필요합니다.", nameof(key));
             Key = key; Kind = kind; Target = target; IsRequired = isRequired;
             Evidence = evidence ?? string.Empty; Group = group; SlotIndex = slotIndex;
             CardId = cardId ?? string.Empty; PresetId = presetId ?? string.Empty;
             Actual = actual; Expected = expected;
+            Context = context ?? string.Empty; ConditionPenalty = conditionPenalty;
         }
         public string Key { get; }
         public GuideGoalKind Kind { get; }
@@ -34,6 +36,8 @@ namespace Baseball.Game.Guide
         public string PresetId { get; }
         public int? Actual { get; }
         public int? Expected { get; }
+        public string Context { get; }
+        public int ConditionPenalty { get; }
     }
 
     [Serializable]
@@ -49,6 +53,8 @@ namespace Baseball.Game.Guide
         public int awayScore;
         public ManagerReportData[] reports = Array.Empty<ManagerReportData>();
         public int reportSequence;
+        public ManagerReportSeasonSummary[] reportSummaries = Array.Empty<ManagerReportSeasonSummary>();
+        public ManagerNewsProgressData newsProgress;
     }
 
     [Serializable]
@@ -80,6 +86,9 @@ namespace Baseball.Game.Guide
         {
             if (string.IsNullOrWhiteSpace(scope)) throw new ArgumentException("진행 범위가 필요합니다.", nameof(scope));
             if (goals == null) throw new ArgumentNullException(nameof(goals));
+            var inputKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var goal in goals)
+                if (goal == null || !inputKeys.Add(goal.Key)) throw new ArgumentException("중복되거나 비어 있는 안내 목표입니다.", nameof(goals));
             if (!string.Equals(Scope, scope, StringComparison.Ordinal))
             {
                 // 경기 범위가 끝난 상세 이력은 보존하지 않아 장기 커리어 저장이 무한히 커지지 않는다.
@@ -112,6 +121,18 @@ namespace Baseball.Game.Guide
                     entry.status = GuideGoalStatus.Pending;
                 if (goal.IsRequired && entry.status == GuideGoalStatus.AcceptedAsIs)
                     entry.status = GuideGoalStatus.Pending;
+                var report = _reports.FindLast(item => !item.isExpired && item.deduplicationKey == goal.Key);
+                // 경기 Scope의 임시 목표가 초기화되어도 저장된 대상별 판단은 유지한다.
+                if (report != null && (goal.Kind == GuideGoalKind.PresetIssue || goal.Kind == GuideGoalKind.RosterIssue))
+                {
+                    entry.occurrence = report.occurrence;
+                    entry.status = report.isAccepted ? GuideGoalStatus.AcceptedAsIs :
+                        report.snoozedUntil > progress && report.snoozedSeason == seasonNumber
+                            ? GuideGoalStatus.Snoozed : GuideGoalStatus.Pending;
+                    if (TrackedKey == goal.Key && entry.status == GuideGoalStatus.Pending)
+                        entry.status = GuideGoalStatus.Tracking;
+                    entry.snoozedUntil = report.snoozedUntil;
+                }
                 entry.wasPresent = true;
             }
             foreach (GuideGoalEntryData entry in _entries.Values)
@@ -163,6 +184,12 @@ namespace Baseball.Game.Guide
             if (!_current.ContainsKey(key)) return false;
             _entries[key].status = GuideGoalStatus.Snoozed;
             _entries[key].snoozedUntil = untilProgress;
+            var report = _reports.FindLast(item => !item.isExpired && item.deduplicationKey == key);
+            if (report != null)
+            {
+                report.snoozedUntil = untilProgress; report.snoozedSeason = _currentSeasonNumber;
+                report.isRead = true;
+            }
             if (TrackedKey == key) TrackedKey = "";
             return true;
         }
@@ -172,10 +199,31 @@ namespace Baseball.Game.Guide
         {
             if (!_current.TryGetValue(key, out var goal) || goal.IsRequired || goal.Kind != GuideGoalKind.PresetIssue)
                 return false;
+            if (_entries[key].status == GuideGoalStatus.AcceptedAsIs) return true;
             _entries[key].status = GuideGoalStatus.AcceptedAsIs;
+            StartDecisionObservation(goal);
+            var report = _reports.FindLast(item => !item.isExpired && item.deduplicationKey == key);
+            if (report != null) { report.isAccepted = true; report.isRead = true; report.snoozedUntil = 0; }
             if (TrackedKey == key) TrackedKey = "";
             return true;
         }
+
+        /// <summary>유지했던 선택 경고를 다시 검토한다. 경기 규칙과 배치는 바꾸지 않는다.</summary>
+        public bool Reconsider(string key)
+        {
+            if (!_current.ContainsKey(key)) return false;
+            var report = _reports.FindLast(item => !item.isExpired && item.deduplicationKey == key);
+            if (report == null) return false;
+            report.isAccepted = false; report.snoozedUntil = 0;
+            _decisions.RemoveAll(item => item.key == key);
+            _entries[key].status = GuideGoalStatus.Pending;
+            return true;
+        }
+
+        /// <summary>유지·보류 중인 안건도 현재 적용된 대상인지 확인한다.</summary>
+        public bool IsCurrentTarget(GuideGoal goal) => goal != null &&
+            _current.TryGetValue(goal.Key, out var current) && current.CardId == goal.CardId &&
+            current.PresetId == goal.PresetId;
 
         /// <summary>열람형 목표만 실제 대상 준비가 확인된 뒤 완료한다.</summary>
         public bool RecordArrival(string key, GuideArrivalStatus arrival)
@@ -208,7 +256,8 @@ namespace Baseball.Game.Guide
             var data = new GuideProgressData { scope = Scope, seasonId = SeasonId, trackedKey = TrackedKey,
                 publishedMatchKey = PublishedMatchKey, homeScore = HomeScore, awayScore = AwayScore,
                 reviewedMatchKey = ReviewedMatchKey,
-                entries = new GuideGoalEntryData[keys.Count], reports = CaptureReports(), reportSequence = _reportSequence };
+                entries = new GuideGoalEntryData[keys.Count], reports = CaptureReports(), reportSequence = _reportSequence,
+                reportSummaries = GetReportSummaries(), newsProgress = CaptureNews() };
             for (int index = 0; index < keys.Count; index++) data.entries[index] = Copy(_entries[keys[index]]);
             return data;
         }
@@ -224,6 +273,8 @@ namespace Baseball.Game.Guide
             if (data.homeScore < 0 || data.awayScore < 0) throw new ArgumentException("안내 경기 점수가 잘못되었습니다.");
             state.HomeScore = data.homeScore; state.AwayScore = data.awayScore;
             state.RestoreReports(data.reports, data.reportSequence);
+            state.RestoreReportSummaries(data.reportSummaries);
+            state.RestoreNews(data.newsProgress);
             foreach (var entry in data.entries ?? Array.Empty<GuideGoalEntryData>())
             {
                 if (entry == null || string.IsNullOrWhiteSpace(entry.key) || entry.occurrence < 1 ||

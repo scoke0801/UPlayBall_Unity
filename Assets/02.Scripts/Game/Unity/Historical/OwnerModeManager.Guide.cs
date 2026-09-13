@@ -5,6 +5,7 @@ namespace Baseball.Game.Historical
 {
     public sealed partial class OwnerModeManager
     {
+        private ManagerReportPolicy _managerReportPolicy;
         /// <summary>매니저 선택을 저장하고, 저장 실패 시 이전 선택을 복원한다.</summary>
         public void ChangeFrontManager(string managerId)
         {
@@ -22,6 +23,13 @@ namespace Baseball.Game.Historical
         {
             var runtime = RequireRuntime();
             var season = runtime.ManagerMode.LiveSeason;
+            if (_managerReportPolicy == null)
+            {
+                var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>("FrontManager/ManagerReportPolicy");
+                if (asset == null) throw new InvalidOperationException("매니저 리포트 정책이 없습니다.");
+                _managerReportPolicy = UnityEngine.JsonUtility.FromJson<ManagerReportPolicy>(asset.text);
+            }
+            runtime.GuideProgress.ConfigureReportPolicy(_managerReportPolicy);
             string scope = season.SeasonId + ":" + (season.NextPlayerGame?.GameId.ToString() ?? "end");
             var preset = runtime.ManagerMode.GetSelectedLineupPreset();
             var goals = OwnerGuideGoalProvider.Create(BuildRosterStatus().Validation,

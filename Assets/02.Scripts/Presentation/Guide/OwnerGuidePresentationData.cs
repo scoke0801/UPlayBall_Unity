@@ -21,6 +21,14 @@ namespace Baseball.Presentation.Guide
         public string preparationTitle, confirmationTitle, debriefTitle, rosterTitle, presetTitle;
         public string reportCounts, emptyBookmark, emptyImportant;
         public string allRead, noUnread, reviewed, issueLocation;
+        public string shortTitle, defer, deferred, accepted, reconsider, previousTarget, nextTarget, targetPage;
+        public string groupedTitle, pitcherCaseTitle, remainingTargets, currentCount, targetUnknown;
+        public string roleAssignment, rolePenalty, roleNoPenalty, firstSeen, lastChanged, recurring;
+        public string bookmarkLimit, historySummary, historySummaryShort, updated;
+        public string[] pitcherRoles;
+        public string newsTab, historyTab, emptyNews, newNews, pastNews, playerAction, recordsAction, newsOpen;
+        public string bookmarksOnly, allHistory, allSeasons, seasonOnly;
+        public OwnerManagerNewsCopy newsText;
         public string[] assignmentGroups;
         public OwnerGuideIssueCopy[] issues;
 
