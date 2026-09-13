@@ -90,7 +90,8 @@ namespace Baseball.Presentation.Owner
                 roster.Cost,
                 game == null ? string.Empty : CreateOpponentStrengthText(manager, mode, game),
                 runtime.League.Grade,
-                runtime.Economy.ContractArrears);
+                runtime.Economy.ContractArrears,
+                ownerName: runtime.OwnerProfile.Nickname);
         }
 
         /// <summary>현재 1군·선택 프리셋·Resolver 검증을 규칙 재계산 없이 선수단 화면에 투영한다.</summary>
@@ -541,7 +542,9 @@ namespace Baseball.Presentation.Owner
                     placement.OriginX,
                     placement.OriginY,
                     placement.RotationQuarterTurns,
-                    definition.Rarity);
+                    definition.Rarity, definition.Category,
+                    definition.AbilityBonuses.Length == 0 ? "특성 블록"
+                        : PlayerAbilityCatalog.GetDisplayName(definition.AbilityBonuses[0].Ability));
             }
             return result;
         }

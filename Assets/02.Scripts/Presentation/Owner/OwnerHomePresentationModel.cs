@@ -35,7 +35,8 @@ namespace Baseball.Presentation.Owner
             RosterCostBreakdown? rosterCost = null,
             string opponentStrengthText = null,
             LeagueGrade leagueGrade = LeagueGrade.Rookie,
-            long contractArrears = 0L)
+            long contractArrears = 0L,
+            string ownerName = null)
         {
             if (money < 0)
                 throw new ArgumentOutOfRangeException(nameof(money));
@@ -76,6 +77,7 @@ namespace Baseball.Presentation.Owner
             DateText = dateText ?? string.Empty;
             LeagueText = leagueText ?? string.Empty;
             TeamName = teamName ?? string.Empty;
+            OwnerName = ownerName?.Trim() ?? string.Empty;
             RankText = rankText ?? string.Empty;
             NextMatchText = nextMatchText ?? string.Empty;
             Money = money;
@@ -104,6 +106,8 @@ namespace Baseball.Presentation.Owner
         public string DateText { get; }
         public string LeagueText { get; }
         public string TeamName { get; }
+        /// <summary>현재 구단주의 공개 이름이다.</summary>
+        public string OwnerName { get; }
         public string RankText { get; }
         public string NextMatchText { get; }
         public long Money { get; }
@@ -177,7 +181,8 @@ namespace Baseball.Presentation.Owner
                 snapshot.TeamName,
                 snapshot.RankText,
                 snapshot.NextMatchText,
-                slots);
+                slots,
+                ownerName: snapshot.OwnerName);
             return new OwnerHomePresentationModel(snapshot, shellStatus);
         }
     }

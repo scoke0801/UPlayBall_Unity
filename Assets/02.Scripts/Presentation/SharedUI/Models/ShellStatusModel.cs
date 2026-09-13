@@ -82,12 +82,14 @@ namespace Baseball.Presentation.SharedUI
             string teamName,
             string rankText,
             string nextMatchText,
-            IReadOnlyList<ShellStatusSlotModel> modeSlots = null)
+            IReadOnlyList<ShellStatusSlotModel> modeSlots = null,
+            string ownerName = null)
         {
             SeasonText = seasonText ?? string.Empty;
             DateText = dateText ?? string.Empty;
             LeagueText = leagueText ?? string.Empty;
             TeamName = teamName ?? string.Empty;
+            OwnerName = ownerName?.Trim() ?? string.Empty;
             RankText = rankText ?? string.Empty;
             NextMatchText = nextMatchText ?? string.Empty;
             _modeSlots = CopySlots(modeSlots);
@@ -112,6 +114,8 @@ namespace Baseball.Presentation.SharedUI
         /// 현재 소속 구단 표시다.
         /// </summary>
         public string TeamName { get; }
+        /// <summary>구단주 모드에서 구단명 옆에 표시할 공개 이름이다.</summary>
+        public string OwnerName { get; }
 
         /// <summary>
         /// 현재 순위 표시다.

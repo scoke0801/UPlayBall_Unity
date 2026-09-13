@@ -186,8 +186,15 @@ namespace Baseball.Presentation.SharedUI
                 throw new ArgumentNullException(nameof(status));
 
             EnsureHierarchy();
-            _teamNameText.text = status.TeamName;
-            _commonStatusText.text = JoinStatus(status);
+            bool isOwner = _profile != null && _profile.Mode == UiGameMode.OwnerCareer;
+            _teamNameText.text = isOwner ? status.OwnerName : status.TeamName;
+            _commonStatusText.text = isOwner ? status.TeamName : JoinStatus(status);
+            if (isOwner)
+            {
+                _ownerLeagueText.text = status.LeagueText;
+                _ownerScheduleText.text = string.Join(" · ",
+                    new[] { status.SeasonText, status.DateText });
+            }
             _nextMatchText.text = status.NextMatchText;
             RenderStatusSlots(status.ModeSlots);
         }

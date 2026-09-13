@@ -197,6 +197,8 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(16f, 7f), new Vector2(92f, -7f));
             _backButton = backRect.gameObject.AddComponent<Button>();
             _backButton.targetGraphic = backRect.GetComponent<Image>();
+            // V2 스킨은 장식 프레임의 Raycast를 끄므로 버튼 본체가 입력을 받아야 한다.
+            _backButton.targetGraphic.raycastTarget = true;
             _backButton.colors = CreateButtonColors(true);
             _backButton.onClick.AddListener(() => BackRequested?.Invoke());
             _backButtonLabel = CreateText(

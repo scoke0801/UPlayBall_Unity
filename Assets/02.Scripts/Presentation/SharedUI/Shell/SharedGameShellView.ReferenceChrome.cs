@@ -12,6 +12,10 @@ namespace Baseball.Presentation.SharedUI
         private const float HeaderSecondaryRowRatio = 0.38f;
         private RectTransform _ownerStatusPlate;
         private Button _globalSave;
+        private RectTransform _ownerLogoDivider;
+        private Text _ownerIdentityLabels;
+        private Text _ownerLeagueText;
+        private Text _ownerScheduleText;
 
         private float ApplyReferenceChrome(bool isOwner)
         {
@@ -50,10 +54,13 @@ namespace Baseball.Presentation.SharedUI
                 new Vector2(isOwner ? 0f : 270f, 0f),
                 new Vector2(isOwner ? -12f : 790f, 0f));
             _teamNameText.fontSize = isOwner ? 18 : 20;
+            _commonStatusText.fontSize = 13;
+            _commonStatusText.color = TextSecondary;
             ConfigureHeaderTextRows(_teamNameText, _commonStatusText, isOwner, -22f);
             _nextMatchText.gameObject.SetActive(!isOwner);
             _globalTopBar.Find("NextMatchAccent").gameObject.SetActive(!isOwner);
-            _globalTopBar.Find("BrandDivider").gameObject.SetActive(!isOwner);
+            ConfigureBrandDividers(brand, isOwner);
+            ConfigureOwnerIdentity(brand, isOwner);
             _globalTopBar.Find("TeamDivider").gameObject.SetActive(!isOwner);
             SetAnchors(_statusSlotHost, new Vector2(isOwner ? .40f : .63f, 0f),
                 new Vector2(isOwner ? .94f : 1f, 1f), new Vector2(0f, isOwner ? 1f : 7f),
@@ -69,8 +76,9 @@ namespace Baseball.Presentation.SharedUI
             _globalSave.gameObject.SetActive(isOwner);
             if (isOwner)
             {
-                SetAnchors(_statusSlotHost, new Vector2(.40f, 0), new Vector2(1, 1),
-                    new Vector2(0, 1), new Vector2(-142, -1));
+                // 자원은 저장 버튼 앞에 우측 정렬하고 리그·일정은 왼쪽 구단 정보에 붙인다.
+                SetAnchors(_statusSlotHost, new Vector2(.36f, 0), Vector2.one,
+                    new Vector2(12, 1), new Vector2(-154, -1));
                 SetAnchors(settings, new Vector2(1, 0), Vector2.one, new Vector2(-66, 4), new Vector2(-8, -4));
             }
             settings.GetComponent<Image>().color = isOwner ? CareerUiTheme.ReferenceButton : StatusSurface;
@@ -103,6 +111,90 @@ namespace Baseball.Presentation.SharedUI
             _contextTitleText.color = isOwner ? OwnerDashboardStyle.Ivory : DarkText;
             _contextSummaryText.color = isOwner ? OwnerDashboardStyle.TableSecondary : Color.Lerp(DarkText, ContextSurface, .22f);
             return chromeHeight;
+        }
+
+        private void ConfigureBrandDividers(RectTransform brand, bool isOwner)
+        {
+            if (_ownerLogoDivider == null)
+                _ownerLogoDivider = CreateAnchoredImage("LogoDivider", brand, Divider,
+                    new Vector2(.59f, 0f), new Vector2(.59f, 1f),
+                    new Vector2(0f, 10f), new Vector2(1f, -10f));
+            _ownerLogoDivider.gameObject.SetActive(isOwner);
+            _ownerLogoDivider.GetComponent<Image>().color = OwnerDashboardStyle.Line;
+            if (isOwner)
+            {
+                SetAnchors(_modeNameText.rectTransform, new Vector2(.60f, 0f), Vector2.one,
+                    new Vector2(8f, 0f), Vector2.zero);
+                _modeNameText.alignment = TextAnchor.MiddleLeft;
+                RectTransform logo = (RectTransform)brand.Find("GameLogo");
+                if (logo == null)
+                    SetAnchors(brand.Find("GameName").GetComponent<RectTransform>(),
+                        Vector2.zero, new Vector2(.58f, 1f), Vector2.zero, Vector2.zero);
+            }
+
+            RectTransform divider = (RectTransform)_globalTopBar.Find("BrandDivider");
+            divider.gameObject.SetActive(true);
+            SetAnchors(divider, new Vector2(isOwner ? .13f : 0f, 0f),
+                new Vector2(isOwner ? .13f : 0f, 1f),
+                new Vector2(isOwner ? 0f : 260f, isOwner ? 10f : 13f),
+                new Vector2(isOwner ? 1f : 261f, isOwner ? -10f : -13f));
+            divider.GetComponent<Image>().color = isOwner ? OwnerDashboardStyle.Line : Divider;
+        }
+
+        private void ConfigureOwnerIdentity(RectTransform brand, bool isOwner)
+        {
+            RectTransform identity = (RectTransform)_globalTopBar.Find("TeamStatus");
+            if (_ownerIdentityLabels == null)
+            {
+                _ownerIdentityLabels = CreateText("OwnerIdentityLabels", identity,
+                    "구단주명\n구단명", 15, FontStyle.Normal, TextAnchor.MiddleLeft,
+                    OwnerDashboardStyle.Success);
+                _ownerLeagueText = CreateText("OwnerLeague", _globalTopBar, string.Empty,
+                    16, FontStyle.Normal, TextAnchor.MiddleRight, TextPrimary);
+                _ownerScheduleText = CreateText("OwnerSchedule", _globalTopBar, string.Empty,
+                    13, FontStyle.Normal, TextAnchor.MiddleRight, TextSecondary);
+            }
+            _ownerIdentityLabels.gameObject.SetActive(isOwner);
+            _ownerLeagueText.gameObject.SetActive(isOwner);
+            _ownerScheduleText.gameObject.SetActive(isOwner);
+            _modeNameText.gameObject.SetActive(!isOwner);
+            _teamNameText.horizontalOverflow = isOwner ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+            _commonStatusText.horizontalOverflow = isOwner ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+            RectTransform logo = (RectTransform)brand.Find("GameLogo");
+            if (logo != null)
+                SetAnchors(logo, Vector2.zero, new Vector2(isOwner ? 1f : .58f, 1f),
+                    Vector2.zero, Vector2.zero);
+            if (!isOwner) return;
+
+            _ownerLogoDivider.gameObject.SetActive(false);
+            SetAnchors(brand, Vector2.zero, new Vector2(.08f, 1f),
+                new Vector2(20f, 0f), new Vector2(-12f, 0f));
+            SetAnchors((RectTransform)_globalTopBar.Find("BrandDivider"),
+                new Vector2(.08f, 0f), new Vector2(.08f, 1f),
+                new Vector2(0f, 10f), new Vector2(1f, -10f));
+            SetAnchors(identity, new Vector2(.09f, 0f), new Vector2(.22f, 1f),
+                Vector2.zero, new Vector2(-12f, 0f));
+            SetAnchors(_ownerIdentityLabels.rectTransform, Vector2.zero, new Vector2(0f, 1f),
+                new Vector2(0f, 4f), new Vector2(80f, -4f));
+            // 이름과 구단을 같은 높이의 두 행으로 분리하고 라벨 너비를 보장한다.
+            SetAnchors(_teamNameText.rectTransform, new Vector2(0f, .5f), Vector2.one,
+                new Vector2(84f, 0f), new Vector2(0f, -4f));
+            SetAnchors(_commonStatusText.rectTransform, Vector2.zero, new Vector2(1f, .5f),
+                new Vector2(84f, 4f), Vector2.zero);
+            _teamNameText.fontSize = 15;
+            _commonStatusText.fontSize = 15;
+            _commonStatusText.color = TextPrimary;
+            _ownerIdentityLabels.font = UIProjectFonts.Body;
+            _ownerLeagueText.font = UIProjectFonts.Default;
+            _ownerScheduleText.font = UIProjectFonts.Body;
+            _ownerLeagueText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _ownerScheduleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _ownerLeagueText.alignment = TextAnchor.MiddleLeft;
+            _ownerScheduleText.alignment = TextAnchor.MiddleLeft;
+            SetAnchors(_ownerLeagueText.rectTransform, new Vector2(.22f, .5f), new Vector2(.36f, 1f),
+                Vector2.zero, new Vector2(-12f, -4f));
+            SetAnchors(_ownerScheduleText.rectTransform, new Vector2(.22f, 0f), new Vector2(.36f, .5f),
+                new Vector2(0f, 4f), new Vector2(-12f, 0f));
         }
 
         private static void ConfigureHeaderTextRows(
