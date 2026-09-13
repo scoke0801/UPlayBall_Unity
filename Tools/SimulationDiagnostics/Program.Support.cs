@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Text.Json;
 using Baseball.Core.Historical;
 using Baseball.Core.Players;
@@ -16,17 +17,30 @@ namespace Baseball.Tools.SimulationDiagnostics
         private static int RunSupportComparison(string[] args)
         {
             int games = ParseCount(args, 1, 1000);
-            var catalog = JsonSerializer.Deserialize<SupportDiagnosticCatalog>(File.ReadAllText(
+            var catalog = JsonSerializer.Deserialize<SupportDiagnosticCatalog>(File.ReadAllText(args.Length > 2 ? args[2] :
                 "Assets/10.Datas/Resources/NewGame/OwnerSupportCards.json"), new JsonSerializerOptions { IncludeFields = true });
+            int rating = ParseCount(args, 3, 50);
+            int opponentRating = ParseCount(args, 5, rating);
             var balance = Baseball.Tools.CommonMatchBalanceInput.Load();
             foreach (var card in catalog.cards) card.Validate();
-            for (int variant = -1; variant < catalog.cards.Length; variant++)
+            var variants = new List<(string Name, OwnerSupportDefinition Team, OwnerSupportDefinition Personal)>();
+            variants.Add(("baseline", null, null));
+            if (args.Length > 4 && args[4] == "loadouts")
             {
-                var definition = variant < 0 ? null : catalog.cards[variant];
+                foreach (int grade in new[] { 0, 2, 4, 6, 8, 9 })
+                foreach (var target in new[] { OwnerSupportTarget.Batter, OwnerSupportTarget.Pitcher })
+                    variants.Add(($"loadout_{grade}_{target}", SelectSupportDiagnosticCard(catalog.cards, grade, target, OwnerSupportScope.Team),
+                        SelectSupportDiagnosticCard(catalog.cards, grade, target, OwnerSupportScope.Player)));
+            }
+            else foreach (var card in catalog.cards)
+                if (card.maximumAge == 0) variants.Add((card.id, card, null));
+            foreach (var variant in variants)
+            {
+                var definition = variant.Team;
                 // 기존 연령·컨디션 카드는 역사 나이와 컨디션 입력이 필요한 별도 실험이다.
                 if (definition != null && definition.maximumAge > 0) continue;
-                var team = CreateSupportDiagnosticRoster(definition);
-                var opponent = CreateRoster(2, 50, 50, 50);
+                var team = CreateSupportDiagnosticRoster(definition, rating, variant.Personal);
+                var opponent = CreateRoster(2, opponentRating, opponentRating, opponentRating);
                 var statistics = new AggregateStatistics();
                 int wins = 0, draws = 0;
                 for (int i = 0; i < games; i++)
@@ -42,25 +56,44 @@ namespace Baseball.Tools.SimulationDiagnostics
                     if (own > other) wins++;
                     if (own == other) draws++;
                 }
-                Console.WriteLine($"SUPPORT={definition?.id ?? "baseline"} Wins={wins} Draws={draws}");
+                Console.WriteLine($"SUPPORT={variant.Name} Wins={wins} Draws={draws}");
                 Console.WriteLine(statistics.Format(games));
             }
             return 0;
         }
 
-        private static MatchRosterSnapshot CreateSupportDiagnosticRoster(OwnerSupportDefinition definition)
+        private static OwnerSupportDefinition SelectSupportDiagnosticCard(OwnerSupportDefinition[] cards, int grade,
+            OwnerSupportTarget target, OwnerSupportScope scope)
         {
-            var source = CreateRoster(1, 50, 50, 50);
+            OwnerSupportDefinition selected = null;
+            int highest = 0;
+            foreach (var card in cards)
+            {
+                if ((int)card.unlockGrade > grade || card.target != target || card.scope != scope || card.maximumAge > 0) continue;
+                int total = 0;
+                foreach (int bonus in card.bonuses) total += bonus;
+                if (total <= highest) continue;
+                selected = card; highest = total;
+            }
+            return selected;
+        }
+
+        private static MatchRosterSnapshot CreateSupportDiagnosticRoster(OwnerSupportDefinition definition, int rating = 50,
+            OwnerSupportDefinition personal = null)
+        {
+            var source = CreateRoster(1, rating, rating, rating);
+            Player Apply(Player player, bool batter, bool primary, bool personalTarget) => ApplySupportDiagnosticBonus(
+                ApplySupportDiagnosticBonus(player, definition, batter, primary), personal, batter, personalTarget);
             var slots = new LineupSlot[source.StartingLineup.Count];
             for (int i = 0; i < slots.Length; i++)
-                slots[i] = new LineupSlot(ApplySupportDiagnosticBonus(source.StartingLineup[i].Player, definition, true, i == 0), source.StartingLineup[i].FieldingPosition);
+                slots[i] = new LineupSlot(Apply(source.StartingLineup[i].Player, true, i == 0, i < 3), source.StartingLineup[i].FieldingPosition);
             var bench = new Player[source.Bench.Count];
             for (int i = 0; i < bench.Length; i++) bench[i] = ApplySupportDiagnosticBonus(source.Bench[i], definition, true, false);
             var bullpen = new PitcherRosterEntry[source.Bullpen.Count];
             for (int i = 0; i < bullpen.Length; i++)
-                bullpen[i] = new PitcherRosterEntry(ApplySupportDiagnosticBonus(source.Bullpen[i].Player, definition, false, false), source.Bullpen[i].Role);
+                bullpen[i] = new PitcherRosterEntry(Apply(source.Bullpen[i].Player, false, false, i < 2), source.Bullpen[i].Role);
             return new MatchRosterSnapshot(source.TeamId, source.TeamName, new Lineup(slots),
-                new PitcherRosterEntry(ApplySupportDiagnosticBonus(source.StartingPitcher.Player, definition, false, true), source.StartingPitcher.Role),
+                new PitcherRosterEntry(Apply(source.StartingPitcher.Player, false, true, true), source.StartingPitcher.Role),
                 bullpen, bench, source.ManagerProfile, source.RunningApproach);
         }
 

@@ -79,7 +79,7 @@ namespace Baseball.Presentation.Owner
             OwnerDashboardStyle.Rule(_root, "BackdropShade", Vector2.zero, Vector2.one,
                 Vector2.zero, Vector2.zero, new Color(0, 0, 0, .55f));
             Label(_root, "Heading", "서포트 카드", .025f, .925f, .4f, .985f, 28);
-            Label(_root, "Introduction", "필요한 효과를 고르고, 선수에게 적용될 변화를 확인하세요.", .025f, .882f, .75f, .925f, 18).color = OwnerDashboardStyle.Muted;
+            Label(_root, "Introduction", "구단 자금으로 구매합니다. 중요한 경기에 맞춰 효과와 비용을 비교하세요.", .025f, .882f, .75f, .925f, 18).color = OwnerDashboardStyle.Muted;
             Label(_root, "Duration", "다음 2경기 적용", .79f, .925f, .975f, .975f, 20).alignment = TextAnchor.MiddleRight;
             var left = Panel(_root, "Inventory", .015f, .025f, .255f, .86f);
             var middle = Panel(_root, "Targets", .265f, .025f, .725f, .86f);
@@ -97,7 +97,7 @@ namespace Baseball.Presentation.Owner
                 var tile = OwnerDugoutDetailUiFactory.CreateRect(_targets, "PlayerTile" + i,
                     leftEdge, top - .48f, leftEdge + .24f, top);
                 _playerTiles[i] = tile;
-                OwnerDashboardStyle.ApplyInset(tile.gameObject.AddComponent<Image>());
+                // 선수 카드 자체의 프레임을 사용해 보드에 사각 배경이 반복되지 않게 한다.
                 _playerStates[i] = Label(tile, "State", "", .04f, .9f, .96f, 1, 14);
                 _playerStates[i].alignment = TextAnchor.MiddleCenter;
                 var cardHost = OwnerDugoutDetailUiFactory.CreateRect(tile, "CardBounds", .08f, .31f, .92f, .9f);
@@ -164,10 +164,10 @@ namespace Baseball.Presentation.Owner
                     + (i == _selected ? "   ·   선택됨" : "") + "</size>\n<size=22>" + definition.displayName
                     + "</size>\n<size=16>" + FormatEffect(definition) + "</size>"
                     + "\n<size=15>보유 " + runtime.PlayerGrowth.Support.GetCount(definition.id)
-                    + "장    ·    " + definition.price.ToString("N0") + " PT</size>"
-                    + "\n<size=14>" + (OwnerSupportService.IsUnlocked(runtime, definition) ? "이용 가능" : "잠김 · " + OwnerLeagueDisplayNameFormatter.FormatFull(definition.unlockGrade) + " 진출 시 해금") + "</size>";
+                    + "장    ·    " + OwnerMoneyFormatter.Format(definition.price) + "</size>"
+                    + "\n<size=14>" + OwnerLeagueDisplayNameFormatter.FormatFull(definition.unlockGrade)
+                    + (OwnerSupportService.IsUnlocked(runtime, definition) ? " · 이용 가능" : " 진출 시 해금") + "</size>";
                 OwnerUiButtonSkin.SetSelected(button, i == _selected);
-                button.transform.Find("SelectionRail").gameObject.SetActive(i == _selected);
             }
             var candidates = new List<OwnedPlayerCardState>();
             foreach (var entry in runtime.GetRoster(runtime.PlayerTeamSeasonKey).Entries)
@@ -257,8 +257,8 @@ namespace Baseball.Presentation.Owner
             _details.text = selected.description + "\n\n"
                 + (selected.scope == OwnerSupportScope.Team ? "팀·개인 효과는 함께 적용됩니다." : "2군 이동 시 개인 효과가 종료됩니다.");
             _cost.text = "보유 " + runtime.PlayerGrowth.Support.GetCount(selected.id) + "장   ·   사용 시 1장 소비\n"
-                + (runtime.Economy.Money >= selected.price ? "구매 후 " + (runtime.Economy.Money - selected.price).ToString("N0") + " PT"
-                    : "구매 자금  " + (selected.price - runtime.Economy.Money).ToString("N0") + " PT 부족");
+                + (runtime.Economy.Money >= selected.price ? "구매 후 자금 " + OwnerMoneyFormatter.Format((runtime.Economy.Money - selected.price))
+                    : "구매 자금  " + OwnerMoneyFormatter.Format((selected.price - runtime.Economy.Money)) + " 부족");
             string reason = "";
             try
             {
@@ -278,10 +278,10 @@ namespace Baseball.Presentation.Owner
             // 미보유 시 구매, 보유 시 적용으로 대표 행동을 옮겨 다음 단계를 바로 찾게 한다.
             OwnerUiButtonSkin.Apply(_buy, ownedCount == 0 ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
             OwnerUiButtonSkin.Apply(_equip, ownedCount > 0 ? OwnerButtonRole.Primary : OwnerButtonRole.Secondary);
-            _buy.GetComponentInChildren<Text>().text = _confirmation == 1 ? "1장 구매 확정 · " + selected.price.ToString("N0") + " PT" : "1장 구매 · " + selected.price.ToString("N0") + " PT";
+            _buy.GetComponentInChildren<Text>().text = _confirmation == 1 ? "1장 구매 확정 · " + OwnerMoneyFormatter.Format(selected.price) : "1장 구매 · " + OwnerMoneyFormatter.Format(selected.price);
             _equip.GetComponentInChildren<Text>().text = _confirmation == 2 ? "선택한 대상에게 사용 확정" : "다음 2경기에 적용";
             _cancel.gameObject.SetActive(_confirmation != 0);
-            _message.text = _confirmation == 1 ? selected.price.ToString("N0") + " PT로 카드 1장을 구매할까요?"
+            _message.text = _confirmation == 1 ? OwnerMoneyFormatter.Format(selected.price) + "으로 카드 1장을 구매할까요?"
                 : _confirmation == 2 ? targetName + "에게 카드 1장을 사용합니다. 확정할까요?"
                 : reason.Length > 0 ? reason : "영향 선수와 변화량을 확인한 뒤 사용하세요.";
             if (ownedCount == int.MaxValue) _cost.text = "보유 한도에 도달했습니다.\n카드를 사용한 뒤 구매하세요.";
@@ -327,12 +327,11 @@ namespace Baseball.Presentation.Owner
         private static RectTransform Panel(Transform parent, string name, float l, float b, float r, float t)
         {
             var panel = OwnerDugoutDetailUiFactory.CreatePanel(parent, name, l, b, r, t);
-            OwnerDashboardStyle.ApplySurface(panel);
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(panel);
             var safe = OwnerDugoutDetailUiFactory.CreateRect(panel, "ContentSafeRect", 0, 0, 1, 1);
             safe.offsetMin = new Vector2(CareerUiTheme.Space6, CareerUiTheme.Space6);
             safe.offsetMax = -safe.offsetMin;
-            // 환경 원화의 세부 묘사가 선수·수치와 경쟁하지 않도록 본문은 불투명 작업면을 쓴다.
-            OwnerDashboardStyle.ApplyInset(safe.gameObject.AddComponent<Image>());
+            // 불투명 본문은 외곽 프레임이 소유한다. 안전 영역은 배치만 맡아 중첩 면을 만들지 않는다.
             return safe;
         }
 
@@ -342,8 +341,6 @@ namespace Baseball.Presentation.Owner
             text.alignment = TextAnchor.MiddleLeft;
             text.rectTransform.offsetMin = new Vector2(CareerUiTheme.Space4, CareerUiTheme.Space2);
             text.rectTransform.offsetMax = new Vector2(-CareerUiTheme.Space4, -CareerUiTheme.Space2);
-            OwnerDashboardStyle.Rule(button.transform, "SelectionRail", Vector2.zero, Vector2.up,
-                Vector2.zero, new Vector2(3, 0), OwnerDashboardStyle.Gold);
         }
 
         private void EnsureCatalogRows()

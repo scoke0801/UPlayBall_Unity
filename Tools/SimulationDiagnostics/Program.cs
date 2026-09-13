@@ -37,6 +37,7 @@ namespace Baseball.Tools.SimulationDiagnostics
         private static int Run(string[] args)
         {
             if (args.Length > 0 && args[0] == "support-comparison") return RunSupportComparison(args);
+            if (args.Length > 0 && args[0] == "support-economy") return RunSupportEconomy(args);
             if (args.Length > 0 && args[0] == "trait-comparison") return RunTraitComparison(args);
             if (args.Length > 0 && args[0] == "dugout-comparison") return RunDugoutComparison(args);
             if (args.Length > 0 && args[0] == "study-comparison") return RunStudyComparison(args);

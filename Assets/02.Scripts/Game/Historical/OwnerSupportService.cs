@@ -48,7 +48,7 @@ namespace Baseball.Game.Historical
             definition.Validate();
             ValidateUnlock(runtime, definition);
             if (runtime.PlayerGrowth.Support.GetCount(definition.id) == int.MaxValue) throw new InvalidOperationException("보유 한도입니다.");
-            if (!runtime.Economy.TrySpendMoney(definition.price)) throw new InvalidOperationException("서포트 구매에 필요한 PT가 부족합니다.");
+            if (!runtime.Economy.TrySpendMoney(definition.price)) throw new InvalidOperationException("서포트 구매에 필요한 자금이 부족합니다.");
             runtime.PlayerGrowth.Support.Add(definition.id);
         }
         public static void Equip(ManagerHistoricalRuntimeState runtime, OwnerSupportDefinition definition, string cardId)
