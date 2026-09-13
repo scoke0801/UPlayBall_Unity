@@ -1,0 +1,484 @@
+{
+    "entries":  [
+                    {
+                        "id":  "club_guide_01",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "어서 오세요, 구단주님.\n오늘도 우리 구단을\n함께 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_02",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "구단 운영의 시작은\n선수단 확인이에요.\n지금 구성을 살펴볼까요?"
+                    },
+                    {
+                        "id":  "club_guide_03",
+                        "condition":  "BeforeFirstGame",
+                        "expression":  "FM_WELCOME",
+                        "text":  "첫 경기 전에는\n선발과 타순부터\n차근차근 확인해요."
+                    },
+                    {
+                        "id":  "club_guide_04",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "오늘은 어떤 구단을\n만들고 싶으세요?\n한마디에 담아보세요."
+                    },
+                    {
+                        "id":  "club_guide_05",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "선수단부터 재정까지,\n궁금한 항목을 골라\n하나씩 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_06",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "구단의 이름 옆에\n우리만의 다짐도\n남겨두면 좋겠어요."
+                    },
+                    {
+                        "id":  "club_guide_07",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "반가워요, 구단주님.\n선수들의 역할을\n함께 점검해볼까요?"
+                    },
+                    {
+                        "id":  "club_guide_08",
+                        "condition":  "BeforeFirstGame",
+                        "expression":  "FM_WELCOME",
+                        "text":  "아직 시즌 첫 경기 전이에요.\n준비한 선수단을\n한 번 더 확인해요."
+                    },
+                    {
+                        "id":  "club_guide_09",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "구단 운영이 막막하면\n먼저 선수단에서\n주전 구성을 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_10",
+                        "condition":  "Any",
+                        "expression":  "FM_WELCOME",
+                        "text":  "다시 오셨네요.\n오늘의 운영 방향을\n차근차근 정해봐요."
+                    },
+                    {
+                        "id":  "club_guide_11",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "보유 선수와 1군 등록은\n서로 달라요.\n출전할 선수를 확인하세요."
+                    },
+                    {
+                        "id":  "club_guide_12",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "라인업을 바꾼 뒤에는\n적용된 편성도\n한 번 확인해 주세요."
+                    },
+                    {
+                        "id":  "club_guide_13",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "선수 비교는\n같은 포지션끼리 하면\n장단점이 더 잘 보여요."
+                    },
+                    {
+                        "id":  "club_guide_14",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "타자와 투수는\n맡은 역할에 맞는\n능력치를 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_15",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "전력 보강 전에는\n어느 자리가 필요한지\n먼저 정해두세요."
+                    },
+                    {
+                        "id":  "club_guide_16",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "구단 정보에서는\n선수 구성과 구장 현황을\n함께 확인할 수 있어요."
+                    },
+                    {
+                        "id":  "club_guide_17",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "순위표를 볼 때는\n승률과 경기 수도\n나란히 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_18",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "선수의 가치는\n우리 구단에서 맡을\n역할과 함께 보세요."
+                    },
+                    {
+                        "id":  "club_guide_19",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "상점에서 선택하기 전에\n상품 구성과 비용을\n확인해 주세요."
+                    },
+                    {
+                        "id":  "club_guide_20",
+                        "condition":  "Any",
+                        "expression":  "FM_NEUTRAL",
+                        "text":  "같은 타순이라도\n들어가는 선수에 따라\n공격 구성이 달라져요."
+                    },
+                    {
+                        "id":  "club_guide_21",
+                        "condition":  "Played",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "승패만으로는\n모든 걸 알기 어려워요.\n득점과 실점도 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_22",
+                        "condition":  "Any",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "타순을 고민할 때는\n출루할 선수와\n불러들일 선수를 보세요."
+                    },
+                    {
+                        "id":  "club_guide_23",
+                        "condition":  "Any",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "투수진은 선발뿐 아니라\n경기 후반을 맡을\n불펜도 중요해요."
+                    },
+                    {
+                        "id":  "club_guide_24",
+                        "condition":  "Played",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "타격 기록을 볼 때는\n타율만큼 출루와 장타도\n함께 비교해 보세요."
+                    },
+                    {
+                        "id":  "club_guide_25",
+                        "condition":  "Any",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "수비 자리를 바꾼다면\n그 포지션을 맡기에\n적합한지 먼저 보세요."
+                    },
+                    {
+                        "id":  "club_guide_26",
+                        "condition":  "Played",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "실점이 마음에 걸리면\n투수 기록과 수비 구성을\n함께 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_27",
+                        "condition":  "Played",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "득점이 아쉬웠다면\n출루와 장타 중 어디가\n부족했는지 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_28",
+                        "condition":  "Any",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "팀컬러를 고를 때는\n혜택을 받는 선수가\n누구인지 확인하세요."
+                    },
+                    {
+                        "id":  "club_guide_29",
+                        "condition":  "Any",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "스카우트 전에는\n후보 선수와 현재 주전을\n같은 기준으로 비교해요."
+                    },
+                    {
+                        "id":  "club_guide_30",
+                        "condition":  "Played",
+                        "expression":  "FM_ANALYSIS",
+                        "text":  "한 경기 기록보다는\n시즌 누적 기록을 함께 봐야\n판단하기 수월해요."
+                    },
+                    {
+                        "id":  "club_guide_31",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "구단 운영은 긴 호흡이에요.\n한 번에 바꾸기보다\n필요한 곳부터 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_32",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CALM",
+                        "text":  "지금은 패가 더 많지만\n시즌 기록에서\n개선할 단서를 찾아봐요."
+                    },
+                    {
+                        "id":  "club_guide_33",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "선수마다 잘하는 일이\n달라요. 강점에 맞는\n역할을 찾아주세요."
+                    },
+                    {
+                        "id":  "club_guide_34",
+                        "condition":  "Played",
+                        "expression":  "FM_CALM",
+                        "text":  "결과가 아쉬웠더라도\n잘된 부분까지\n놓치지는 말아요."
+                    },
+                    {
+                        "id":  "club_guide_35",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "육성 방향은\n선수가 맡을 역할부터\n정하면 한결 명확해져요."
+                    },
+                    {
+                        "id":  "club_guide_36",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "보강할 곳이 많다면\n가장 아쉬운 자리부터\n우선순위를 정해봐요."
+                    },
+                    {
+                        "id":  "club_guide_37",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "당장의 전력과\n앞으로 키울 선수를\n함께 생각해 보세요."
+                    },
+                    {
+                        "id":  "club_guide_38",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "선수 기록은\n충분한 출전 기회와\n함께 살펴봐야 해요."
+                    },
+                    {
+                        "id":  "club_guide_39",
+                        "condition":  "Any",
+                        "expression":  "FM_CALM",
+                        "text":  "편성을 고민할 때는\n주전과 교체 자원을\n나눠서 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_40",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CALM",
+                        "text":  "마음이 급해질수록\n바꿀 이유가 분명한 곳부터\n하나씩 손봐요."
+                    },
+                    {
+                        "id":  "club_guide_41",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "승리가 패배보다 많네요!\n어떤 선수가 힘을 보탰는지\n기록도 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_42",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "좋은 성적을 쌓고 있어요.\n지금의 강점을\n잘 기억해두세요."
+                    },
+                    {
+                        "id":  "club_guide_43",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "승리가 더 많은 시즌이에요.\n주전뿐 아니라\n뒤를 받칠 선수도 챙겨요."
+                    },
+                    {
+                        "id":  "club_guide_44",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "여기까지 잘해왔어요!\n다음 편성도\n차분히 준비해봐요."
+                    },
+                    {
+                        "id":  "club_guide_45",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "쌓아온 승리가 반갑네요.\n활약한 선수들의\n시즌 기록을 확인해요."
+                    },
+                    {
+                        "id":  "club_guide_46",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "승리 쪽으로 기울어 있네요!\n우리 구단의 강점을\n다시 살펴볼까요?"
+                    },
+                    {
+                        "id":  "club_guide_47",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "좋은 성적도\n여러 선수의 몫이에요.\n각자의 활약을 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_48",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "승리가 앞서고 있어요.\n선수단 컨디션도\n함께 챙겨주세요."
+                    },
+                    {
+                        "id":  "club_guide_49",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "차곡차곡 쌓인 승리네요!\n운영 방향을 한마디로\n남겨보셔도 좋겠어요."
+                    },
+                    {
+                        "id":  "club_guide_50",
+                        "condition":  "WinningRecord",
+                        "expression":  "FM_CELEBRATE",
+                        "text":  "현재는 승리가 더 많아요.\n지금 편성에서 잘 맞는\n조합을 찾아봐요."
+                    },
+                    {
+                        "id":  "club_guide_51",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "패배가 더 많은 상황이에요.\n타격과 투수 기록부터\n함께 확인해봐요."
+                    },
+                    {
+                        "id":  "club_guide_52",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "성적이 아쉽네요.\n선수단 전체를 바꾸기 전에\n부족한 자리를 짚어봐요."
+                    },
+                    {
+                        "id":  "club_guide_53",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "지금은 어려운 성적이지만\n보강 방향은\n차분히 정할 수 있어요."
+                    },
+                    {
+                        "id":  "club_guide_54",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "패가 더 쌓였네요.\n득점과 실점 중\n어디부터 살펴볼까요?"
+                    },
+                    {
+                        "id":  "club_guide_55",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "결과가 마음에 걸려요.\n선수들의 역할과 편성이\n잘 맞는지 확인해봐요."
+                    },
+                    {
+                        "id":  "club_guide_56",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "승리보다 패배가 많아요.\n선수 기록을 보고\n기용 방향을 점검해요."
+                    },
+                    {
+                        "id":  "club_guide_57",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "어려울 때일수록\n다음 보강의 목적을\n분명히 정해봐요."
+                    },
+                    {
+                        "id":  "club_guide_58",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "아쉬운 성적 속에서도\n제 몫을 하는 선수가\n있는지 찾아봐요."
+                    },
+                    {
+                        "id":  "club_guide_59",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "지금 성적만으로\n선수 한 명을 탓하기보다\n전체 기록을 살펴봐요."
+                    },
+                    {
+                        "id":  "club_guide_60",
+                        "condition":  "LosingRecord",
+                        "expression":  "FM_CONCERNED",
+                        "text":  "반등을 준비하려면\n주전과 교체 선수의\n구성부터 점검해봐요."
+                    },
+                    {
+                        "id":  "club_guide_61",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "편성을 마치기 전에\n비어 있는 자리가 없는지\n확인해 주세요."
+                    },
+                    {
+                        "id":  "club_guide_62",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "선수를 보강할 때는\n영입 비용과 남은 자금을\n함께 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_63",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "능력치가 좋아도\n포지션이 맞는지는\n따로 확인해야 해요."
+                    },
+                    {
+                        "id":  "club_guide_64",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "합성 전에는\n재료로 선택한 선수를\n꼭 확인해 주세요."
+                    },
+                    {
+                        "id":  "club_guide_65",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "선수 컨디션도\n기용 판단의 한 부분이에요.\n편성 전에 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_66",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "전술을 고르기 전에는\n현재 선수단과\n잘 맞는지 확인해요."
+                    },
+                    {
+                        "id":  "club_guide_67",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "강화나 합성은\n안내된 비용과 결과를\n읽고 결정해 주세요."
+                    },
+                    {
+                        "id":  "club_guide_68",
+                        "condition":  "Played",
+                        "expression":  "FM_WARNING",
+                        "text":  "짧은 기간의 기록만으로\n선수의 가능성을\n단정하지는 말아요."
+                    },
+                    {
+                        "id":  "club_guide_69",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "팀컬러를 바꿨다면\n실제로 적용되는 대상을\n다시 확인해 주세요."
+                    },
+                    {
+                        "id":  "club_guide_70",
+                        "condition":  "Any",
+                        "expression":  "FM_WARNING",
+                        "text":  "한 자리에만 투자하면\n다른 자리가 아쉬울 수 있어요.\n전체 구성을 함께 봐요."
+                    },
+                    {
+                        "id":  "club_guide_71",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "같은 선수라도\n카드의 연도와 종류가\n다를 수 있어요!"
+                    },
+                    {
+                        "id":  "club_guide_72",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "눈여겨본 선수는\n도감에서 다른 카드도\n함께 살펴보세요."
+                    },
+                    {
+                        "id":  "club_guide_73",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "타율이 비슷해도\n출루와 장타 능력은\n다를 수 있어요."
+                    },
+                    {
+                        "id":  "club_guide_74",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "주전만큼이나\n교체 선수의 역할에서도\n보강할 곳이 보여요."
+                    },
+                    {
+                        "id":  "club_guide_75",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "익숙한 선수도\n카드별 능력치를 보면\n새로운 강점이 보여요."
+                    },
+                    {
+                        "id":  "club_guide_76",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "팀컬러는 이름보다\n실제 적용되는 조합을 보면\n선택이 쉬워져요."
+                    },
+                    {
+                        "id":  "club_guide_77",
+                        "condition":  "Played",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "순위와 함께\n득실점도 비교해 보세요.\n다른 모습이 보일 수 있어요."
+                    },
+                    {
+                        "id":  "club_guide_78",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "강한 선수 한 명보다\n비어 있던 역할을 채우는 게\n필요할 때도 있어요."
+                    },
+                    {
+                        "id":  "club_guide_79",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "선수의 이름만 보지 말고\n카드에 표시된 시즌도\n확인해 보세요!"
+                    },
+                    {
+                        "id":  "club_guide_80",
+                        "condition":  "Any",
+                        "expression":  "FM_SURPRISED",
+                        "text":  "한마디는 언제든\n수정 버튼으로 바꿀 수 있어요.\n우리 구단의 색을 담아봐요."
+                    }
+                ]
+}

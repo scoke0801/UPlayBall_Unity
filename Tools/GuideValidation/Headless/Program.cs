@@ -34,6 +34,7 @@ internal static class Program
             Require(!invalid.IsAccepted, "미등록 Fact 검증 유지");
         }
         ValidateStudySlot(catalog);
+        ValidateStudyStarted(catalog);
         Console.WriteLine($"가이드 카탈로그 검증 통과: {data.cueDefinitions.Length} cues / {data.factTypeIndex.Length} facts");
         Console.WriteLine("수동·자동 배치 Fact 수신, 표시, 저장 복원 후 중복 억제, 미등록 Fact 거부: 10개 검증 통과");
     }
@@ -60,6 +61,29 @@ internal static class Program
             payload: null, runtimeContext: context));
         Require(nextSeason.IsAccepted && nextSeason.EnqueuedCount == 1, "새 시즌 유학 안내 허용");
         Console.WriteLine("유학 빈자리 context 누락 재현·수신·중복 억제·표시·저장 복원·시즌 구분: 6개 검증 통과");
+    }
+
+    private static void ValidateStudyStarted(GuideDatasetCatalog catalog)
+    {
+        var guide = new FrontManagerGuide(catalog);
+        var payload = new Dictionary<string, string> { ["cardId"] = "card", ["program"] = "유학 과정" };
+        var identity = new GuideFactIdentity(1, "owner-growth:CardStudyStarted:1:card:0", "save");
+        var rejected = guide.Enqueue(new GuideFact(GuideModeScope.Owner, "CardStudyStarted", identity, payload));
+        Require(!rejected.IsAccepted && rejected.Error.Contains("seasonId"), "유학 시작 시즌 누락 재현");
+        var context = new Dictionary<string, string> { ["seasonId"] = "season-1" };
+        var fact = new GuideFact(GuideModeScope.Owner, "CardStudyStarted", identity, payload, context);
+        var accepted = guide.Enqueue(fact);
+        Require(accepted.IsAccepted && accepted.EnqueuedCount == 1, "유학 시작 수신: " + accepted.Error);
+        Require(guide.Enqueue(fact).DuplicateCount == 1, "유학 시작 표시 전 중복 억제");
+        Require(guide.TryDequeue(new GuideDisplayContext(Array.Empty<string>(), false, true), out var message)
+            && message.CueId == "CARD_STUDY_STARTED", "유학 시작 안내 표시");
+        var restored = new FrontManagerGuide(catalog);
+        restored.RepeatState.Restore(guide.RepeatState.Capture());
+        Require(restored.Enqueue(fact).DuplicateCount == 1, "저장 복원 후 유학 시작 중복 억제");
+        context["seasonId"] = "season-2";
+        var nextSeason = restored.Enqueue(new GuideFact(GuideModeScope.Owner, "CardStudyStarted", identity, payload, context));
+        Require(nextSeason.IsAccepted && nextSeason.EnqueuedCount == 1, "다음 시즌 동일 카드 유학 시작 안내 허용");
+        Console.WriteLine("유학 시작 context 누락 재현·수신·중복 억제·표시·저장 복원·시즌 구분: 6개 검증 통과");
     }
 
     private static void Require(bool passed, string description)

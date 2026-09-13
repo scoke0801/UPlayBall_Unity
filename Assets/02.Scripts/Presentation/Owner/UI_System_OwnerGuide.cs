@@ -14,7 +14,7 @@ using UnityEngine.UI;
 namespace Baseball.Presentation.Owner
 {
     /// <summary>홈 내부에서 접힌 추천·펼친 추천·매니저 리포트를 전환한다.</summary>
-    public sealed partial class UI_System_OwnerGuide : MonoBehaviour, IPointerClickHandler
+    public sealed partial class UI_System_OwnerGuide : MonoBehaviour
     {
         private OwnerGuidePresentationData _copy;
         private RectTransform _content, _suggestion, _reportsRoot;
@@ -136,11 +136,6 @@ namespace Baseball.Presentation.Owner
             return true;
         }
 
-        public void OnPointerClick(PointerEventData eventData)
-        {
-            if (_state == 0) SetState(1);
-        }
-
         private void SetState(int state, bool restoreFocus = true)
         {
             bool changed = _state != state;
@@ -178,7 +173,8 @@ namespace Baseball.Presentation.Owner
             _card = panel.Root;
             SetRect(panel.Root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             OwnerDashboardStyle.ApplySurface(panel.Root);
-            panel.Root.GetComponent<Image>().raycastTarget = true;
+            // 빈 카드 영역은 펼치기 입력이 아니다. 상태 전환은 표시된 버튼에서만 처리한다.
+            panel.Root.GetComponent<Image>().raycastTarget = false;
             panel.Root.Find("HeaderSurface").GetComponent<Image>().color = OwnerDashboardStyle.Surface;
             panel.Root.Find("HeaderAccent").GetComponent<Image>().color = OwnerDashboardStyle.Line;
             panel.Root.Find("HeaderAccent").gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.FlatSurface);
