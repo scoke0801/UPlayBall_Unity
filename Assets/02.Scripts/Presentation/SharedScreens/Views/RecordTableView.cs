@@ -97,6 +97,8 @@ namespace Baseball.Presentation.SharedScreens
         public string HighlightBadge { get; set; } = "내 구단";
         /// <summary>상세를 열 수 있는 표에서만 행 입력 반응을 활성화한다.</summary>
         public bool AllowRowActivation { get; set; } = true;
+        /// <summary>열 수가 적은 요약표를 가로 스크롤 없이 가용 너비에 맞춘다. Bind 전에 지정한다.</summary>
+        public bool FitColumnsToViewport { get; set; }
         /// <summary>상세에서 돌아오면 가시 풀의 선택 행으로 포커스를 복원한다.</summary>
         public bool FocusSelectedRow()
         {
@@ -365,13 +367,25 @@ namespace Baseball.Presentation.SharedScreens
 
         private void ConfigureContentSize()
         {
+            if (FitColumnsToViewport)
+            {
+                // 가로 스크롤바 공간을 반환하고, 누적 행이 넘칠 때만 세로 공간을 예약한다.
+                bool needsVerticalScrollbar = _model.Rows.Count * RowHeight >
+                    _tableRoot.rect.height - DefaultHeaderHeight + 0.5f;
+                float rightInset = needsVerticalScrollbar ? ScrollbarThickness : 0f;
+                _bodyViewport.offsetMin = Vector2.zero;
+                _bodyViewport.offsetMax = new Vector2(-rightInset, -DefaultHeaderHeight);
+                _headerViewport.offsetMax = new Vector2(-rightInset, 0f);
+                ((RectTransform)_verticalScrollbar.transform).offsetMin = new Vector2(-ScrollbarThickness, 0f);
+            }
             float viewportWidth = ResolveViewportWidth();
             float viewportHeight = ResolveViewportHeight();
             float totalWeight = 0f;
             for (int i = 0; i < _model.Columns.Count; i++)
                 totalWeight += ColumnWidthWeight(_model.Columns[i]);
 
-            _contentWidth = Mathf.Max(viewportWidth, totalWeight * (IsOwnerFrontOffice ? 120f : MinimumColumnWidthPerWeight));
+            _contentWidth = FitColumnsToViewport ? viewportWidth :
+                Mathf.Max(viewportWidth, totalWeight * (IsOwnerFrontOffice ? 120f : MinimumColumnWidthPerWeight));
             float contentHeight = Mathf.Max(viewportHeight, _model.Rows.Count * RowHeight);
             _content.sizeDelta = new Vector2(_contentWidth, contentHeight);
             _headerContent.sizeDelta = new Vector2(_contentWidth, DefaultHeaderHeight);
@@ -958,16 +972,12 @@ namespace Baseball.Presentation.SharedScreens
                 if (_owner.IsOwnerFrontOffice)
                 {
                     bool hasAction = _owner.RowSelected != null && _owner.AllowRowActivation;
-                    _button.interactable = hasAction;
                     OwnerDashboardStyle.SetDataRow(_button, isSelected && hasAction,
                         row.IsHighlighted ? OwnerDashboardStyle.TableSelected :
-                        rowIndex % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.InsetSurface);
+                        rowIndex % 2 == 0 ? OwnerDashboardStyle.TableAlternate : OwnerDashboardStyle.InsetSurface,
+                        hasAction);
+                    _button.interactable = hasAction;
                     _button.navigation = new Navigation { mode = hasAction ? Navigation.Mode.Automatic : Navigation.Mode.None };
-                    if (!hasAction)
-                    {
-                        _button.transition = Selectable.Transition.None;
-                        _background.canvasRenderer.SetColor(Color.white);
-                    }
                 }
                 Color textColor = isSelected || row.IsHighlighted
                     ? _owner.PrimaryTextColor

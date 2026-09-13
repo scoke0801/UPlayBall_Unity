@@ -175,11 +175,20 @@ namespace Baseball.Presentation.Owner
         }
 
         /// <summary>데이터 행의 지속 선택을 입력 포커스와 별도로 표시한다.</summary>
-        public static void SetDataRow(Button button, bool selected, Color normal)
+        public static void SetDataRow(Button button, bool selected, Color normal, bool interactive = true)
         {
             OwnerUiButtonSkin.Restore(button);
             SetDataSurface(button.GetComponent<Image>(), selected ? TableSelected : normal, true);
             button.targetGraphic = button.GetComponent<Image>();
+            if (!interactive)
+            {
+                // CanvasRenderer.SetColor만 호출하면 이전 ColorTint 트윈이 다음 프레임에 색을 덮어쓴다.
+                button.transition = Selectable.Transition.None;
+                button.interactable = false;
+                button.targetGraphic.CrossFadeColor(Color.white, 0f, true, true);
+                return;
+            }
+
             ConfigureDataControl(button);
         }
 

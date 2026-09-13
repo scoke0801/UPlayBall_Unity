@@ -42,7 +42,9 @@ namespace Baseball.Presentation.Owner
             RectTransform board = OwnerRuntimeUiFactory.CreateRect("PostseasonBoard", root);
             Place(board, .035f, .12f, .965f, .79f);
             var art = OwnerRuntimeUiFactory.CreateImage("Backdrop", board, Color.white);
-            Place(art.rectTransform, .50f, 0, 1, 1);
+            // 장식은 시리즈 정보 영역에만 두어 대진표의 결승 진출선과 겹치지 않게 한다.
+            Place(art.rectTransform, .735f, .025f, .985f, .87f);
+            art.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
             art.preserveAspect = true;
             if (_postseasonBackdrop == null)
             {
@@ -52,6 +54,8 @@ namespace Baseball.Presentation.Owner
                         new Vector2(.5f, .5f), 100);
             }
             art.sprite = _postseasonBackdrop;
+            // 리소스가 없을 때 기본 흰 사각형이 표시되지 않게 한다.
+            art.enabled = _postseasonBackdrop != null;
             art.raycastTarget = false;
             art.color = new Color(1, 1, 1, .08f);
             Label(board, "Status", PostseasonStatus(), .02f, .88f, .98f, .98f, 18, Ink, TextAnchor.MiddleLeft);

@@ -59,14 +59,17 @@ namespace Baseball.Presentation.Owner
                 _confetti[index].raycastTarget = false;
                 _confetti[index].color = new Color(1f, 0.8f, 0.4f, 0f);
             }
-            _category = Label("Category", 48, 614, 460, 42, 17, new Color32(225, 189, 110, 255));
+            var resultPanel = OwnerRuntimeUiFactory.CreateRect("ResultPanel", _modal);
+            Place(resultPanel, 56, 164, 492, 436);
+            UIOwnerFrontOfficePanel.Apply(resultPanel, "ManagerReport");
+            _category = Label("Category", 72, 630, 460, 42, 17, OwnerDashboardStyle.Gold);
             var categoryOutline = _category.gameObject.AddComponent<Outline>();
             categoryOutline.effectColor = new Color(0f, 0.02f, 0.05f, 0.9f);
             categoryOutline.effectDistance = new Vector2(1f, -1f);
-            _title = Label("Title", 48, 508, 510, 96, 56, Color.white);
-            _team = Label("Team", 48, 422, 485, 64, 32, Color.white);
-            _score = Label("SeriesScore", 48, 326, 480, 86, 48, new Color32(242, 204, 126, 255));
-            _description = Label("Description", 48, 176, 470, 128, 21, new Color32(225, 230, 234, 255));
+            _title = Label("Title", 80, 504, 444, 72, 36, OwnerDashboardStyle.Ivory);
+            _team = Label("Team", 80, 426, 444, 60, 28, OwnerDashboardStyle.Ivory);
+            _score = Label("SeriesScore", 80, 338, 444, 64, 30, OwnerDashboardStyle.Gold);
+            _description = Label("Description", 80, 188, 444, 116, 18, OwnerDashboardStyle.Muted);
             _continue = Button("Continue", "대진 확인", 850, 28, 262, () => ContinueRequested?.Invoke());
             _records = Button("Records", "경기 기록 보기", 560, 28, 262, () => RecordsRequested?.Invoke());
             _skip = Button("Skip", "연출 건너뛰기", 48, 28, 220, Skip);
@@ -80,6 +83,7 @@ namespace Baseball.Presentation.Owner
         {
             Text text = OwnerWorkspaceUiFactory.CreateText(_modal, name, "", size, FontStyle.Bold, TextAnchor.MiddleLeft, color);
             text.color = color;
+            OwnerDashboardStyle.SetTypography(text, size >= 28);
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = size - 5;
             text.resizeTextMaxSize = size;
@@ -119,18 +123,18 @@ namespace Baseball.Presentation.Owner
             _title.text = pennant ? "정규시즌 1위" : champion ? "포스트시즌 우승" : result.NextRoundTitle + " 진출";
             _team.text = teamName(result.TeamKey);
             _score.text = pennant ? $"{result.Wins}승 {result.Draws}무 {result.Losses}패"
-                : $"{result.Wins}승 {result.Draws}무 {result.Losses}패 · 시리즈 통과";
+                : $"{result.Wins}승  {result.Losses}패  {result.Draws}무";
             _description.text = pennant ? "긴 시즌을 선두로 마쳤습니다.\n이제 포스트시즌 우승에 도전합니다."
                 : champion ? $"결승 상대 · {teamName(result.OpponentKey)}\n마지막 승부 끝에 정상에 올랐습니다!"
                 : $"{result.RoundTitle} 상대 · {teamName(result.OpponentKey)}\n이제 {result.NextRoundTitle}에 도전합니다.";
             _continue.GetComponentInChildren<Text>().text = pennant ? "정규시즌 결과 보기"
                 : champion ? "우승 결과 보기" : "다음 대진 보기";
             _records.gameObject.SetActive(canViewMatchRecords && !pennant);
-            // 정규시즌 일러스트의 왼쪽 선수까지 가리지 않도록 본문 폭을 아트의 여백 안에 둔다.
-            Place(_title.rectTransform, 48, 508, pennant ? 390 : 510, 96);
-            Place(_team.rectTransform, 48, 422, pennant ? 360 : 485, 64);
-            Place(_score.rectTransform, 48, 326, pennant ? 360 : 480, 86);
-            Place(_description.rectTransform, 48, 176, pennant ? 360 : 470, 128);
+            // 결과 문구는 왼쪽 패널의 안전 여백 안에 고정한다.
+            Place(_title.rectTransform, 80, 504, 444, 72);
+            Place(_team.rectTransform, 80, 426, 444, 60);
+            Place(_score.rectTransform, 80, 338, 444, 64);
+            Place(_description.rectTransform, 80, 188, 444, 116);
             ConfigureNavigation();
             _previousSelection = EventSystem.current?.currentSelectedGameObject;
             gameObject.SetActive(true);
