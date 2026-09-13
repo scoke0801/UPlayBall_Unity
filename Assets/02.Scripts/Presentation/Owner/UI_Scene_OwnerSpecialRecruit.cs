@@ -41,6 +41,7 @@ namespace Baseball.Presentation.Owner
             _root.gameObject.SetActive(visible);
             if (!visible)
             {
+                if (_resultPopup != null) _resultPopup.TryHandleCancel();
                 _help.gameObject.SetActive(false);
                 ClosePicker();
                 _isConfirming = false;
@@ -50,6 +51,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>영입 안내를 닫아 셸의 취소 입력을 소비한다.</summary>
         public bool TryHandleCancel()
         {
+            if (_resultPopup != null && _resultPopup.gameObject.activeSelf) return _resultPopup.TryHandleCancel();
             if (_targets != null && _targets.IsOpen) { _targets.Close(); return true; }
             if (_help != null && _help.gameObject.activeSelf)
             {

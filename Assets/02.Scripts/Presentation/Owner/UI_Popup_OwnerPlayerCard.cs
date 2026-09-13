@@ -3,6 +3,7 @@ using Baseball.Core.Players;
 using Baseball.Presentation.UI;
 using Baseball.Presentation.SharedUI;
 using Baseball.Core.Historical;
+using Baseball.Game.Historical;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
@@ -11,7 +12,7 @@ using System.Collections.Generic;
 
 namespace Baseball.Presentation.Owner
 {
-    /// <summary>보유 선수의 카드 앞면·뒷면과 실제 시즌 기본 능력치를 읽기 전용으로 표시한다.</summary>
+    /// <summary>선수 카드 앞면·뒷면과 실제 시즌 능력치를 표시하고 보유 카드 잠금을 관리한다.</summary>
     public sealed partial class UI_Popup_OwnerPlayerCard : UIPopupBase
     {
         private static UI_Popup_OwnerPlayerCard _current;
@@ -101,12 +102,49 @@ namespace Baseball.Presentation.Owner
             if (_detailResolver != null) card = _detailResolver(card);
             bool pitcher = card.Position == PlayerPosition.StartingPitcher || card.Position == PlayerPosition.ReliefPitcher;
             BuildFrontCard(_front, card);
+            BindLockControl(card);
             BuildReferenceBack(_back, card, pitcher);
             BindGrowthHistory(card);
             _front.gameObject.SetActive(!_isBack);
             _back.gameObject.SetActive(_isBack);
             _previousButton.interactable = _cardIndex > 0;
             _nextButton.interactable = _cardIndex < _cards.Length - 1;
+        }
+
+        /// <summary>현재 보유 상태를 다시 읽어 카드 보호 버튼과 변경 불가 사유를 표시한다.</summary>
+        private void BindLockControl(OwnerCollectionCardSnapshot card)
+        {
+            Transform iconTransform = _front.Find("LockStatus");
+            OwnerModeManager manager = OwnerModeManager.Instance;
+            if (!card.IsOwnedCard || iconTransform == null || manager?.Runtime == null ||
+                !manager.Runtime.TryGetOwnedCard(card.CardId, out var owned)) return;
+            Image icon = iconTransform.GetComponent<Image>();
+            icon.sprite = Resources.Load<Sprite>("UI/PlayerCardStatus/" + (owned.IsLocked ? "Locked" : "Unlocked"));
+            bool isPermanent = manager.Runtime.WorldCardCatalog.TryGetCard(card.CardId, out var definition) && definition.IsUniqueOwnedCard;
+            bool isReserved = manager.Runtime.IsCardReserved(card.CardId);
+            Text caption = Label(_front, "LockAction", isPermanent ? "영구 잠금" : isReserved ? "영입 예약 중" :
+                owned.IsLocked ? "잠금 해제" : "카드 잠금", .055f, .866f, .225f, .893f, 12, Gold);
+            Text feedback = Label(_front, "LockFeedback", "", .07f, .369f, .93f, .405f, 13, Gold);
+            icon.raycastTarget = true;
+            Button button = icon.gameObject.AddComponent<Button>();
+            button.targetGraphic = icon;
+            button.interactable = !isPermanent && !isReserved;
+            button.onClick.AddListener(() =>
+            {
+                if (_isFlipping) return;
+                try
+                {
+                    if (!manager.Runtime.TryGetOwnedCard(card.CardId, out var current))
+                        throw new InvalidOperationException("더 이상 보유하지 않은 카드입니다.");
+                    manager.SetPlayerCardLocked(card.CardId, !current.IsLocked);
+                }
+                catch (InvalidOperationException error) { feedback.text = error.Message; return; }
+                catch (Exception) { feedback.text = "잠금 상태를 저장하지 못했습니다. 다시 시도하세요."; return; }
+                if (!manager.Runtime.TryGetOwnedCard(card.CardId, out var updated)) return;
+                icon.sprite = Resources.Load<Sprite>("UI/PlayerCardStatus/" + (updated.IsLocked ? "Locked" : "Unlocked"));
+                caption.text = updated.IsLocked ? "잠금 해제" : "카드 잠금";
+                feedback.text = updated.IsLocked ? "카드를 잠갔습니다. 합성·특수 영입 재료에서 제외됩니다." : "카드 잠금을 해제했습니다.";
+            });
         }
 
         private void ShowPrevious()
@@ -146,16 +184,23 @@ namespace Baseball.Presentation.Owner
                 card.Edition, false, 1f, photoWindow.GetSiblingIndex() + 1);
             RectTransform teamPlate = BuildTeamPlate(parent);
             if (!string.IsNullOrWhiteSpace(card.TeamDisplayName))
-                Label(teamPlate, "Team", card.TeamDisplayName, .04f, .02f, .96f, .98f, 14, Color.white);
+                Label(teamPlate, "Team", card.TeamDisplayName, .04f, .02f, .96f, .98f, 14,
+                    card.Edition == PlayerCardEdition.Legend
+                        ? OwnerPlayerCardFrames.GetNameColor(card.Edition) : Color.white);
+            Image enhancementIcon = null;
             if (card.EnhancementLevel > 0)
-                Label(parent, "Enhancement", "+" + card.EnhancementLevel, .72f, .895f, .95f, .933f, 19, Gold);
-            if (card.IsLocked) Label(parent, "Locked", "잠금", .04f, .85f, .23f, .90f, 12, Gold);
-            RectTransform positionPlate = ContentRect(parent, "PositionPlate", .04f, .91f, .24f, .94f);
-            Label(positionPlate, "Position",
-                OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole, card.IsPositionEvidenceMissing),
-                .02f, 0, .98f, 1, 12, Color.white);
+            {
+                RectTransform enhancement = StatusIcon(parent, "EnhancementBadge", "Enhancement_" + card.EnhancementLevel, .855f, .864f, .965f, .942f);
+                enhancementIcon = enhancement.GetComponent<Image>();
+            }
+            if (card.IsOwnedCard || card.IsLocked)
+                StatusIcon(parent, "LockStatus", card.IsLocked ? "Locked" : "Unlocked", .10f, .895f, .18f, .947f);
             Rect name = OwnerPlayerCardFrames.GetNameRect(card.Edition, false);
             Color nameColor = OwnerPlayerCardFrames.GetNameColor(card.Edition);
+            RectTransform positionPlate = ContentRect(parent, "PositionPlate", .055f, name.yMin, .22f, name.yMax);
+            Label(positionPlate, "Position",
+                OwnerCollectionPresentationBuilder.FormatPlayerRole(card.Position, card.PitcherRole, card.IsPositionEvidenceMissing),
+                .02f, 0, .98f, 1, 17, nameColor);
             Label(parent, "Name", card.DisplayName, name.xMin, name.yMin, name.xMax, name.yMax, 28, nameColor);
             Label(parent, "Year", (card.OriginYear % 100).ToString("00") + "′", .79f, name.yMin, .91f, name.yMax, 20, nameColor);
             if (card.IsOwnedCard)
@@ -170,19 +215,17 @@ namespace Baseball.Presentation.Owner
             }
             // 기존 카드 프레임 위에 직접 표시해 사각 배경이 테두리를 덮지 않게 한다.
             CreateAbilityLegend(parent);
-            string[] labels = pitcher ? new[] { "체력", "구속", "구위", "변화구", "제구력", "정신력" } :
-                new[] { "교타력", "장타력", "주력", "번트", "수비력", "정신력" };
             PlayerAbility[] abilities = pitcher ? new[] { PlayerAbility.Stamina, PlayerAbility.Velocity, PlayerAbility.Stuff,
                 PlayerAbility.Breaking, PlayerAbility.Control, PlayerAbility.PitcherMental } :
                 new[] { PlayerAbility.Contact, PlayerAbility.Power, PlayerAbility.Speed, PlayerAbility.Bunt, PlayerAbility.Defense, PlayerAbility.BatterMental };
-            for (int i = 0; i < labels.Length; i++)
+            for (int i = 0; i < abilities.Length; i++)
             {
                 float y = .297f - i * .036f;
                 Surface(parent, "RowRule" + i, new Color(0.48f, 0.64f, 0.79f, .16f),
                     .045f, y - .001f, .95f, y);
                 bool isBunt = !pitcher && i == 3;
                 int? value = isBunt ? card.GetBuntAbility() : card.GetEffectiveAbility(abilities[i]);
-                Label(parent, "Ability" + i, labels[i], .035f, y, .20f, y + .034f, 14, Color.white);
+                Label(parent, "Ability" + i, PlayerAbilityCatalog.GetDisplayName(abilities[i]), .035f, y, .20f, y + .034f, 14, Color.white);
                 Gradient(parent, "Track" + i, new Color32(93, 97, 107, 255), new Color32(44, 47, 55, 255),
                     .205f, y + .010f, .77f, y + .023f);
                 OwnerAbilityBreakdownSnapshot? breakdown = isBunt
@@ -211,7 +254,20 @@ namespace Baseball.Presentation.Owner
             OwnerRuntimeUiFactory.SetAnchors(stars, new Vector2(.20f, costBottom), new Vector2(.81f, costTop), Vector2.zero, Vector2.zero);
             OwnerPlayerCardFrames.SetCostStars(stars, card.Edition, card.Cost);
             Label(parent, "Cost", card.Cost.ToString(), .83f, costBottom, .96f, costTop, 23, Color.white);
-            PlayerCardGrowthBadgesView.Bind(parent, card.GrowthBadges, isDetail: true);
+            PlayerCardGrowthBadgesView.Bind(parent, card.GrowthBadges, isDetail: true, enhancement: enhancementIcon);
+        }
+
+        /// <summary>생성한 투명 상태 아이콘을 카드 원화 위에 원본 비율로 표시한다.</summary>
+        private static RectTransform StatusIcon(Transform parent, string name, string resource,
+            float x0, float y0, float x1, float y1)
+        {
+            RectTransform rect = Surface(parent, name, Color.white, x0, y0, x1, y1);
+            // 잠금 버튼도 원화를 소유한다. 공용 버튼 스킨이 Sprite를 단색 면으로 교체하지 않게 한다.
+            rect.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.DataImage);
+            Image icon = rect.GetComponent<Image>();
+            icon.sprite = Resources.Load<Sprite>("UI/PlayerCardStatus/" + resource);
+            icon.preserveAspect = true;
+            return rect;
         }
 
         private static void CreateAbilityLegend(Transform parent)
@@ -360,32 +416,40 @@ namespace Baseball.Presentation.Owner
         {
             Rect bounds = _drawerRoot.rect;
             const float aspect = 2f / 3f;
-            float height = Mathf.Min(bounds.height * 0.82f, bounds.width * 0.90f / aspect);
+            const float gap = 24f;
+            const float edge = 88f;
+            float closedHeight = Mathf.Min(bounds.height * .82f, (bounds.width - edge * 2) / aspect);
+            float panelWidth = Mathf.Min(760f, bounds.width * .53f);
+            float openHeight = Mathf.Min(closedHeight, (bounds.width - panelWidth - gap - edge * 2) / aspect);
+            openHeight = Mathf.Max(120f, openHeight);
+            _historyProgress = Mathf.MoveTowards(_historyProgress, _isHistoryOpen ? 1f : 0f, Time.unscaledDeltaTime / .28f);
+            float t = Mathf.SmoothStep(0, 1, _historyProgress);
+            float height = Mathf.Lerp(closedHeight, openHeight, t);
             float width = height * aspect;
+            float cardX = -(panelWidth + gap) * .5f * t;
             _cardRoot.sizeDelta = new Vector2(width, height);
-            _cardRoot.anchoredPosition = Vector2.zero;
+            _cardRoot.anchoredPosition = new Vector2(cardX, 0);
+            if (_growthHistoryRoot != null)
+            {
+                float panelHeight = Mathf.Min(bounds.height * .82f, 640f);
+                PositionCardControl(_growthHistoryRoot,
+                    new Vector2(cardX + width * .5f + gap + panelWidth * .5f + 24 * (1 - t), 0),
+                    new Vector2(panelWidth, panelHeight));
+                _historyGroup.alpha = t;
+                _historyGroup.blocksRaycasts = _isHistoryOpen;
+                _historyGroup.interactable = _isHistoryOpen;
+                if (!_isHistoryOpen && _historyProgress == 0) _growthHistoryRoot.gameObject.SetActive(false);
+            }
             if (_closeButton == null || _previousButton == null || _nextButton == null) return;
-
-            const float navigationButtonWidth = 64f;
-            const float navigationHeight = 48f;
-            const float navigationGap = 12f;
-            PositionCardControl(
-                _previousButton.GetComponent<RectTransform>(),
-                new Vector2(-width * .5f - navigationGap - navigationButtonWidth * .5f, 0f),
-                new Vector2(navigationButtonWidth, navigationHeight));
-            PositionCardControl(
-                _nextButton.GetComponent<RectTransform>(),
-                new Vector2(width * .5f + navigationGap + navigationButtonWidth * .5f, 0f),
-                new Vector2(navigationButtonWidth, navigationHeight));
-            const float closeButtonWidth = 96f;
-            const float closeButtonHeight = 44f;
-            PositionCardControl(
-                _closeButton,
-                new Vector2(width * .5f + closeButtonWidth * .5f, height * .5f - closeButtonHeight * .5f),
-                  new Vector2(closeButtonWidth, closeButtonHeight));
+            PositionCardControl(_previousButton.GetComponent<RectTransform>(),
+                new Vector2(cardX - width * .5f - 40, 0), new Vector2(56, 48));
+            PositionCardControl(_nextButton.GetComponent<RectTransform>(),
+                new Vector2(cardX + width * .5f + 40, Mathf.Lerp(0, -height * .5f - 24, t)), new Vector2(56, 48));
+            PositionCardControl(_closeButton,
+                new Vector2(bounds.width * .5f - 64, bounds.height * .5f - 36), new Vector2(96, 44));
             if (_growthHistoryButton != null)
                 PositionCardControl(_growthHistoryButton.GetComponent<RectTransform>(),
-                    new Vector2(0, -height * .5f - 25), new Vector2(180, 40));
+                    new Vector2(cardX, -height * .5f - 28), new Vector2(192, 44));
         }
 
         private static void PositionCardControl(RectTransform rect, Vector2 anchoredPosition, Vector2 size)

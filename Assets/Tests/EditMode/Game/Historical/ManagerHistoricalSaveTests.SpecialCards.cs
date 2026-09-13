@@ -14,6 +14,48 @@ namespace Baseball.Tests.EditMode.Game.Historical
     public sealed partial class ManagerHistoricalSaveTests
     {
         [Test]
+        public void CardLock_ProtectsMaterialsAndRejectsPendingReservationChanges()
+        {
+            var state = CreateSpecialCardRuntime(out string target, out string[] materials);
+            state.SetPlayerCardLocked(materials[0], true);
+            Assert.That(state.CanUseSpecialRecruitMaterial(materials[0]), Is.False);
+            Assert.Throws<InvalidOperationException>(() => state.ReserveSpecialRecruit("locked", target, materials));
+            state.SetPlayerCardLocked(materials[0], false);
+            Assert.That(state.CanUseSpecialRecruitMaterial(materials[0]), Is.True);
+            state.ReserveSpecialRecruit("pending", target, materials);
+            Assert.Throws<InvalidOperationException>(() => state.SetPlayerCardLocked(materials[0], true));
+            state.CancelSpecialRecruit("pending");
+            state.SetPlayerCardLocked(materials[0], true);
+            Assert.That(state.TryGetOwnedCard(materials[0], out var owned) && owned.IsLocked, Is.True);
+        }
+
+        [Test]
+        public void CardLock_RejectsUnownedAndPermanentCardUnlock()
+        {
+            var state = CreateSpecialCardRuntime(out string target, out string[] materials);
+            Assert.Throws<InvalidOperationException>(() => state.SetPlayerCardLocked(target, true));
+            state.ReserveSpecialRecruit("recruit", target, materials);
+            state.CommitSpecialRecruit("recruit");
+            Assert.Throws<InvalidOperationException>(() => state.SetPlayerCardLocked(target, false));
+            Assert.That(state.TryGetOwnedCard(target, out var owned) && owned.IsLocked, Is.True);
+        }
+
+        [Test]
+        public void CardLock_PreservesLockAndUnlockAcrossSaveRestore()
+        {
+            var fixture = Fixture.Create(WorldRecordMode.SimulatedHistory);
+            var state = fixture.State;
+            string id = state.OwnedCards[0].CardId;
+            var adapter = fixture.CreateAdapter();
+            state.SetPlayerCardLocked(id, true);
+            var restored = adapter.Restore(adapter.CreateSaveData(state));
+            Assert.That(restored.TryGetOwnedCard(id, out var locked) && locked.IsLocked, Is.True);
+            restored.SetPlayerCardLocked(id, false);
+            restored = adapter.Restore(adapter.CreateSaveData(restored));
+            Assert.That(restored.TryGetOwnedCard(id, out var unlocked) && !unlocked.IsLocked, Is.True);
+        }
+
+        [Test]
         public void SpecialCards_MaterialAvailabilityMatchesReservationProtection()
         {
             var state = CreateSpecialCardRuntime(out string target, out string[] materials);

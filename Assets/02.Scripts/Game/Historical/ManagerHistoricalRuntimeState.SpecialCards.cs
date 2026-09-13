@@ -21,6 +21,20 @@ namespace Baseball.Game.Historical
         private readonly Dictionary<string, SpecialCardTransactionSaveData> _specialCardTransactions =
             new Dictionary<string, SpecialCardTransactionSaveData>(StringComparer.Ordinal);
 
+        /// <summary>특수 카드의 영구 보호와 재료 예약을 유지하며 보유 카드 잠금을 변경한다.</summary>
+        public void SetPlayerCardLocked(string cardId, bool isLocked)
+        {
+            if (!TryGetOwnedCard(cardId, out var card))
+                throw new InvalidOperationException("보유한 선수 카드만 잠금을 변경할 수 있습니다.");
+            if (!isLocked && WorldCardCatalog.TryGetCard(cardId, out var definition) && definition.IsUniqueOwnedCard)
+                throw new InvalidOperationException("특수 영입 카드는 잠금을 해제할 수 없습니다.");
+            if (card.IsLocked == isLocked) return;
+            // 예약 상태의 잠금을 바꾸면 저장 복원 시 재료 검증이 실패하므로 예약 취소를 먼저 요구한다.
+            if (IsCardReserved(cardId))
+                throw new InvalidOperationException("영입 재료 예약을 취소한 뒤 잠금을 변경하세요.");
+            card.IsLocked = isLocked;
+        }
+
         /// <summary>영입 화면과 확정 거래가 동일한 재료 보호 규칙을 사용한다.</summary>
         public bool CanUseSpecialRecruitMaterial(string cardId)
         {

@@ -40,6 +40,7 @@ namespace Baseball.Presentation.Owner
         private readonly List<Button> _candidateButtons = new List<Button>();
         private int _pickerSlot;
         private GameObject _returnFocus;
+        private UI_Popup_OwnerCardResult _resultPopup;
 
         /// <summary>실제 대상·레시피·보유 상태를 영입 카드 보드에 표시한다.</summary>
         public void Bind(OwnerModeManager manager)
@@ -269,7 +270,7 @@ namespace Baseball.Presentation.Owner
                 OwnerCollectionPresentationBuilder.FormatPlayerRole(season.Position, season.PitcherRole, season.IsPositionEvidenceMissing),
                 (season.OriginYear % 100).ToString("00"), "", "", portraitAssetKey: season.PlayerSeasonId,
                 isInteractable: !owned, frameEdition: card.Edition, cost: season.Cost,
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth, _manager.TraitBalance)),
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth, _manager.TraitBalance, _manager.Balance.OwnerCardGrowth)),
                 PlayerPortraitSprites.GetForPlayer(season.PlayerPersonId, season.Position));
             view.SetTeamIdentity(_manager.GetClubDisplayName(season.OriginTeamSeasonKey));
             view.SetVisualState(valid ? PlayerMiniCardVisualState.Selected : PlayerMiniCardVisualState.Normal);
@@ -311,12 +312,13 @@ namespace Baseball.Presentation.Owner
                 string name = Describe(_selectedTarget.CardId);
                 var materials = (string[])_selectedMaterials.Clone();
                 _confirm.interactable = false;
-                _manager.RecruitSpecialCard(_transactionId, _selectedTarget.CardId, materials);
+                string recruitedCardId = _manager.RecruitSpecialCard(_transactionId, _selectedTarget.CardId, materials);
                 _targets.MarkSelectedOwned();
                 _isConfirming = false;
                 Array.Clear(_selectedMaterials, 0, 8);
                 RefreshSelection();
                 _status.text = name + " · 영입 완료!";
+                ShowRecruitResult(recruitedCardId);
             }
             catch (Exception exception)
             {
@@ -423,6 +425,22 @@ namespace Baseball.Presentation.Owner
             Vector2 position = scroll.content.anchoredPosition;
             position.y = Mathf.Clamp(position.y + delta, 0, Mathf.Max(0, scroll.content.rect.height - viewport.height));
             scroll.content.anchoredPosition = position;
+        }
+
+        private void ShowRecruitResult(string cardId)
+        {
+            var collection = new OwnerModeRuntimeSnapshotFactory().CreateCollectionSummary(_manager);
+            for (int index = 0; index < collection.Cards.Count; index++)
+            {
+                var card = collection.Cards[index];
+                if (!string.Equals(card.CardId, cardId, StringComparison.Ordinal)) continue;
+                _resultPopup = UI_Popup_OwnerCardResult.Show(_root, card,
+                    card.Edition == PlayerCardEdition.CareerHigh
+                        ? OwnerCardResultKind.CareerHighRecruit : OwnerCardResultKind.LegendRecruit,
+                    () => { _resultPopup = null; SetModalActive(false); }, _root.Find("Help").gameObject);
+                SetModalActive(true);
+                return;
+            }
         }
 
         private void ClosePicker()

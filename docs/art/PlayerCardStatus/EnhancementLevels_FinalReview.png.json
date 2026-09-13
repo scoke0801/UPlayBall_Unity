@@ -1,0 +1,47 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Enhancement_1.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  19727,
+        "Partial":  45254,
+        "Opaque":  555,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Enhancement_2.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  19691,
+        "Partial":  45307,
+        "Opaque":  538,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Enhancement_3.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  19936,
+        "Partial":  45056,
+        "Opaque":  544,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Enhancement_4.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  19684,
+        "Partial":  45276,
+        "Opaque":  576,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Enhancement_5.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  22170,
+        "Partial":  42816,
+        "Opaque":  550,
+        "TransparentCorners":  true
+    }
+]

@@ -1,0 +1,29 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Locked.png",
+        "Width":  350,
+        "Height":  520,
+        "Transparent":  66277,
+        "Partial":  1583,
+        "Opaque":  114140,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Unlocked.png",
+        "Width":  350,
+        "Height":  520,
+        "Transparent":  65622,
+        "Partial":  1520,
+        "Opaque":  114858,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerCardStatus\\Enhancement.png",
+        "Width":  475,
+        "Height":  520,
+        "Transparent":  81805,
+        "Partial":  1241,
+        "Opaque":  163954,
+        "TransparentCorners":  true
+    }
+]
