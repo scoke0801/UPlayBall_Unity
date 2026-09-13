@@ -250,10 +250,11 @@ namespace Baseball.Simulation.Historical
             StaffBalanceTable balance)
         {
             StaffQualityBalance quality = balance.GetQuality(definition.QualityTier);
-            double leagueBias = 1d +
+            // 리그 상승이 고급 후보의 상대 출현율에 누적되도록 한다. 급여는 같은 등급의 기존 가격표를 유지한다.
+            double leagueBias = Math.Exp(Math.Min(40d,
                 (int)leagueGrade *
                 balance.Market.LeagueQualityBiasPerGrade *
-                (definition.QualityTier - StaffDefinition.MinimumQualityTier);
+                (definition.QualityTier - StaffDefinition.MinimumQualityTier)));
             return quality.MarketWeight * leagueBias;
         }
 

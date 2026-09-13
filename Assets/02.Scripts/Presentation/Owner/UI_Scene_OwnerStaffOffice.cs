@@ -14,6 +14,9 @@ namespace Baseball.Presentation.Owner
     {
         private readonly List<Button> _offerButtons = new List<Button>();
         private readonly List<Text> _offerLabels = new List<Text>();
+        private readonly List<Text> _offerDescriptions = new List<Text>();
+        private readonly List<Text> _offerEffects = new List<Text>();
+        private readonly List<Text> _offerCosts = new List<Text>();
         private readonly List<Button> _slotButtons = new List<Button>();
         private readonly List<Text> _slotLabels = new List<Text>();
         private Text _summaryText;
@@ -22,6 +25,11 @@ namespace Baseball.Presentation.Owner
         private Text _termsText;
         private Text _reviewText;
         private Button _allRolesButton;
+        private InputField _search;
+        private Dropdown _qualityFilter;
+        private Dropdown _availabilityFilter;
+        private Dropdown _termFilter;
+        private Dropdown _sortFilter;
         private Button _cancelButton;
         private ScrollRect _marketScroll;
         private ScrollRect _currentScroll;
@@ -83,10 +91,11 @@ namespace Baseball.Presentation.Owner
                 _offerButtons[index].gameObject.SetActive(active);
                 if (!active) continue;
                 OwnerStaffMarketOfferModel offer = model.Offers[index];
-                _offerLabels[index].text = $"<size=20>{offer.Name}</size>  {offer.QualityText}\n" +
-                    $"{offer.RoleText}  ·  {offer.TermText}\n" +
-                    Accent(offer.EffectText) + $"\n{offer.SalaryText}" +
-                    (offer.CanSign ? string.Empty : $"\n{offer.DisabledReason}");
+                _offerLabels[index].text = $"{offer.Name}   <size=15>{Accent(offer.QualityText)}</size>";
+                _offerDescriptions[index].text = $"{offer.RoleText}  ·  {offer.SpecialtyText}";
+                _offerEffects[index].text = offer.EffectText;
+                _offerCosts[index].text = $"{offer.SalaryText}  ·  {offer.TermText}" +
+                    (offer.CanSign ? string.Empty : $"  ·  {offer.DisabledReason}");
                 _offerButtons[index].interactable = ready;
             }
             _selectedOfferIndex = model.Offers.Count > 0 ? 0 : -1;
@@ -133,6 +142,11 @@ namespace Baseball.Presentation.Owner
             if (_signButton != null) _signButton.onClick.RemoveAllListeners();
             if (_cancelButton != null) _cancelButton.onClick.RemoveAllListeners();
             if (_allRolesButton != null) _allRolesButton.onClick.RemoveAllListeners();
+            if (_search != null) _search.onValueChanged.RemoveAllListeners();
+            if (_qualityFilter != null) _qualityFilter.onValueChanged.RemoveAllListeners();
+            if (_availabilityFilter != null) _availabilityFilter.onValueChanged.RemoveAllListeners();
+            if (_termFilter != null) _termFilter.onValueChanged.RemoveAllListeners();
+            if (_sortFilter != null) _sortFilter.onValueChanged.RemoveAllListeners();
             for (int index = 0; index < _slotButtons.Count; index++)
                 _slotButtons[index].onClick.RemoveAllListeners();
             OwnerWorkspaceUiFactory.DestroyOwnedRoot(_workspaceRoot);
@@ -151,10 +165,10 @@ namespace Baseball.Presentation.Owner
 
             OwnerWorkspaceUiFactory.Panel current = UIClubOfficeStyle.CreatePanel(
                 columns, "CurrentStaffPanel", "우리 구단 코칭스태프", true);
-            OwnerWorkspaceUiFactory.SetFlexible(current.Root, .9f);
+            OwnerWorkspaceUiFactory.SetFlexible(current.Root, .48f);
             _summaryText = UIClubOfficeStyle.Label("StaffSummary", current.Content, string.Empty, 18, true);
             PlaceTop(_summaryText.rectTransform, 0f, 72f);
-            Text instruction = UIClubOfficeStyle.Label("RoleHint", current.Content, "보강할 역할을 선택하세요", 14);
+            Text instruction = UIClubOfficeStyle.Label("RoleHint", current.Content, "역할 선택 → 후보 비교 → 계약", 14);
             PlaceTop(instruction.rectTransform, 76f, 28f);
             _currentScroll = OwnerRuntimeUiFactory.CreateVerticalScroll("CurrentStaffRows", current.Content, out _currentStaffList);
             OwnerDashboardStyle.ApplyInset(_currentScroll.GetComponent<Image>(), true);
@@ -163,14 +177,12 @@ namespace Baseball.Presentation.Owner
             OwnerWorkspaceUiFactory.Panel market = UIClubOfficeStyle.CreatePanel(
                 columns, "StaffMarketPanel", "영입 후보");
             OwnerWorkspaceUiFactory.SetFlexible(market.Root, 1f);
-            _allRolesButton = OwnerWorkspaceUiFactory.CreateButton(market.Content, "AllRoles", "전체 후보 보기", () => SelectSlot(-1));
-            PlaceTop(_allRolesButton.GetComponent<RectTransform>(), 0f, 40f);
-            OwnerUiButtonSkin.Apply(_allRolesButton, OwnerButtonRole.Secondary);
+            BuildFilters(market.Content);
             _marketSummaryText = UIClubOfficeStyle.Label("MarketSummary", market.Content, string.Empty, 15);
-            PlaceTop(_marketSummaryText.rectTransform, 48f, 56f);
+            PlaceTop(_marketSummaryText.rectTransform, 140f, 48f);
             _marketScroll = OwnerRuntimeUiFactory.CreateVerticalScroll("MarketList", market.Content, out _marketList);
             OwnerDashboardStyle.ApplyInset(_marketScroll.GetComponent<Image>(), true);
-            OwnerRuntimeUiFactory.Stretch(_marketScroll.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0f, -116f));
+            OwnerRuntimeUiFactory.Stretch(_marketScroll.GetComponent<RectTransform>(), Vector2.zero, new Vector2(0f, -196f));
 
             _contentStateText = OwnerWorkspaceUiFactory.CreateText(_marketScroll.viewport, "ContentState", string.Empty,
                 20, FontStyle.Bold, TextAnchor.MiddleCenter, CareerUiTheme.TextSecondary);
@@ -190,10 +202,10 @@ namespace Baseball.Presentation.Owner
             _portrait.preserveAspect = true;
             _portrait.raycastTarget = false;
             portraitRect.gameObject.AddComponent<LayoutElement>().preferredHeight = 112f;
-            _selectedNameText = AddLine(detailContent, 24, FontStyle.Bold, 72f);
-            _selectedDetailText = AddLine(detailContent, 16, FontStyle.Normal, 104f);
-            _comparisonText = AddLine(detailContent, 16, FontStyle.Normal, 192f);
-            _termsText = AddLine(detailContent, 16, FontStyle.Normal, 200f);
+            _selectedNameText = AddLine(detailContent, 24, FontStyle.Bold, 64f);
+            _selectedDetailText = AddLine(detailContent, 16, FontStyle.Normal, 80f);
+            _comparisonText = AddLine(detailContent, 16, FontStyle.Normal, 148f);
+            _termsText = AddLine(detailContent, 16, FontStyle.Normal, 168f);
             _reviewText = AddLine(detailContent, 16, FontStyle.Normal, 88f);
 
             _actionRoot = OwnerWorkspaceUiFactory.CreateRoot(actionBarHost, "OwnerStaffOfficeActionBar", false);
@@ -231,16 +243,95 @@ namespace Baseball.Presentation.Owner
                     string.Empty,
                     () => SelectOffer(capturedIndex));
                 LayoutElement layout = button.GetComponent<LayoutElement>();
-                layout.preferredHeight = 152f;
-                layout.minHeight = 152f;
+                layout.preferredHeight = 156f;
+                layout.minHeight = 156f;
                 Text label = button.GetComponentInChildren<Text>();
                 label.alignment = TextAnchor.MiddleLeft;
-                label.fontSize = 16;
+                label.fontSize = 22;
                 button.gameObject.AddComponent<UICardGridFocusRelay>().Selected = () => Reveal(_marketScroll, button);
                 UIClubOfficeStyle.Select(button, false);
                 _offerButtons.Add(button);
                 _offerLabels.Add(label);
+                _offerDescriptions.Add(CreateOfferLine(button, "Specialty", 15, 42f, 25f));
+                Text effect = CreateOfferLine(button, "Effect", 18, 71f, 26f);
+                effect.color = OwnerDashboardStyle.Gold;
+                _offerEffects.Add(effect);
+                _offerCosts.Add(CreateOfferLine(button, "AnnualCost", 15, 102f, 44f));
             }
+        }
+
+        private static Text CreateOfferLine(Button button, string name, int size, float top, float height)
+        {
+            Text text = UIClubOfficeStyle.Label(name, button.transform, string.Empty, size);
+            PlaceOfferLine(text.rectTransform, top, height);
+            return text;
+        }
+
+        private static void PlaceOfferLine(RectTransform rect, float top, float height)
+        {
+            PlaceTop(rect, top, height);
+            rect.offsetMin += new Vector2(16f, 0f);
+            rect.offsetMax -= new Vector2(16f, 0f);
+        }
+
+        private void BuildFilters(RectTransform parent)
+        {
+            RectTransform searchRow = OwnerWorkspaceUiFactory.CreateRoot(parent, "SearchRow", false);
+            PlaceTop(searchRow, 0f, 40f);
+            OwnerWorkspaceUiFactory.AddHorizontalLayout(searchRow, CareerUiTheme.Space2);
+            GameObject field = DefaultControls.CreateInputField(new DefaultControls.Resources());
+            field.name = "StaffSearch";
+            field.transform.SetParent(searchRow, false);
+            _search = field.GetComponent<InputField>();
+            _search.characterLimit = 40;
+            foreach (Text text in field.GetComponentsInChildren<Text>(true))
+            { text.font = UIProjectFonts.Body; text.fontSize = 15; text.fontStyle = FontStyle.Normal; }
+            ((Text)_search.placeholder).text = "스태프 검색";
+            OwnerWorkspaceUiFactory.SetFlexible(field.GetComponent<RectTransform>(), 1f);
+            OwnerDashboardStyle.SetDataInput(_search);
+            _search.onValueChanged.AddListener(_ => ChangeFilters());
+            _allRolesButton = OwnerWorkspaceUiFactory.CreateButton(searchRow, "ResetFilters", "필터 초기화", ResetFilters);
+            UIClubOfficeStyle.SizeAction(_allRolesButton, 120f);
+            _allRolesButton.GetComponent<LayoutElement>().flexibleWidth = 0f;
+
+            RectTransform first = OwnerWorkspaceUiFactory.CreateRoot(parent, "QualityAndBudget", false);
+            PlaceTop(first, 48f, 38f);
+            OwnerWorkspaceUiFactory.AddHorizontalLayout(first, CareerUiTheme.Space2);
+            _qualityFilter = CreateFilter(first, "Quality", new[] { "모든 등급", "2등급 이상", "3등급 이상", "4등급 이상", "5등급" });
+            _availabilityFilter = CreateFilter(first, "Availability", new[] { "계약 여부 전체", "지금 계약 가능" });
+            RectTransform second = OwnerWorkspaceUiFactory.CreateRoot(parent, "TermAndSort", false);
+            PlaceTop(second, 94f, 38f);
+            OwnerWorkspaceUiFactory.AddHorizontalLayout(second, CareerUiTheme.Space2);
+            _termFilter = CreateFilter(second, "ContractTerm", new[] { "모든 계약 기간", "1시즌 계약", "2시즌 이하" });
+            _sortFilter = CreateFilter(second, "Sort", new[] { "등급 높은 순", "연봉 낮은 순", "연봉 높은 순" });
+        }
+
+        private Dropdown CreateFilter(RectTransform parent, string name, string[] options)
+        {
+            Dropdown dropdown = OwnerCardFilters.CreateDropdown(parent, name, new List<string>(options), 0);
+            dropdown.captionText.fontSize = 15;
+            dropdown.itemText.fontSize = 15;
+            OwnerDashboardStyle.SetDataDropdown(dropdown);
+            dropdown.onValueChanged.AddListener(_ => ChangeFilters());
+            return dropdown;
+        }
+
+        private void ChangeFilters()
+        {
+            _isReviewing = false;
+            ApplyRoleFilter();
+            if (_marketScroll != null) _marketScroll.verticalNormalizedPosition = 1f;
+        }
+
+        private void ResetFilters()
+        {
+            _selectedSlotIndex = -1;
+            _search.SetTextWithoutNotify(string.Empty);
+            _qualityFilter.SetValueWithoutNotify(0);
+            _availabilityFilter.SetValueWithoutNotify(0);
+            _termFilter.SetValueWithoutNotify(0);
+            _sortFilter.SetValueWithoutNotify(0);
+            ChangeFilters();
         }
 
         private void SelectOffer(int index)
@@ -259,7 +350,10 @@ namespace Baseball.Presentation.Owner
             _reviewText.transform.parent.gameObject.SetActive(_isReviewing);
             _signButton.GetComponentInChildren<Text>().text = _isReviewing ? "계약 확정" : "계약 검토";
             for (int index = 0; index < _offerButtons.Count; index++)
+            {
                 UIClubOfficeStyle.Select(_offerButtons[index], index == _selectedOfferIndex);
+                PlaceOfferLine(_offerLabels[index].rectTransform, 10f, 30f);
+            }
             if (_model == null || _selectedOfferIndex < 0 || _selectedOfferIndex >= _model.Offers.Count)
             {
                 _selectedNameText.text = "후보를 선택하세요";
@@ -336,8 +430,8 @@ namespace Baseball.Presentation.Owner
                 Button button = OwnerWorkspaceUiFactory.CreateButton(_currentStaffList, "StaffRole" + captured,
                     string.Empty, () => SelectSlot(captured));
                 LayoutElement layout = button.GetComponent<LayoutElement>();
-                layout.minHeight = 104f;
-                layout.preferredHeight = 104f;
+                layout.minHeight = 96f;
+                layout.preferredHeight = 96f;
                 Text label = button.GetComponentInChildren<Text>();
                 label.fontSize = 16;
                 label.alignment = TextAnchor.MiddleLeft;
@@ -354,7 +448,7 @@ namespace Baseball.Presentation.Owner
                 for (int offer = 0; offer < _model.Offers.Count; offer++)
                     if (_model.GetCurrentSlot(_model.Offers[offer])?.Role == slot.Role) candidates++;
                 _slotLabels[index].text = Accent(slot.RoleText) + $"  ·  후보 {candidates}명\n" +
-                    (slot.IsVacant ? "<size=20>담당자 공석</size>\n선임하면 해당 분야의 효율이 높아집니다."
+                    (slot.IsVacant ? "<size=20>공석</size>   보강 가능"
                     : $"<size=20>{slot.Name}</size>  {slot.TermText}\n{slot.EffectText}");
             }
         }
@@ -369,31 +463,34 @@ namespace Baseball.Presentation.Owner
 
         private void ApplyRoleFilter()
         {
+            if (_model == null) return;
             if (_selectedSlotIndex >= _model.Slots.Count) _selectedSlotIndex = -1;
-            int count = 0;
-            int first = -1;
-            bool selectedVisible = false;
-            for (int index = 0; index < _model.Offers.Count; index++)
+            List<int> matches = _model.FindOffers(_selectedSlotIndex, _search.text, _qualityFilter.value + 1,
+                _availabilityFilter.value == 1, _termFilter.value, _sortFilter.value);
+            int count = matches.Count;
+            for (int index = 0; index < _offerButtons.Count; index++)
+                _offerButtons[index].gameObject.SetActive(false);
+            for (int position = 0; position < matches.Count; position++)
             {
-                bool visible = _selectedSlotIndex < 0 || _model.GetCurrentSlot(_model.Offers[index])?.Role == _model.Slots[_selectedSlotIndex].Role;
-                _offerButtons[index].gameObject.SetActive(visible);
-                if (!visible) continue;
-                count++;
-                if (first < 0) first = index;
-                if (index == _selectedOfferIndex) selectedVisible = true;
+                int index = matches[position];
+                _offerButtons[index].gameObject.SetActive(true);
+                _offerButtons[index].transform.SetSiblingIndex(position);
             }
-            if (!selectedVisible) _selectedOfferIndex = first;
+            if (!matches.Contains(_selectedOfferIndex)) _selectedOfferIndex = count > 0 ? matches[0] : -1;
             for (int index = 0; index < _slotButtons.Count; index++)
+            {
                 UIClubOfficeStyle.Select(_slotButtons[index], index == _selectedSlotIndex);
+                OwnerDashboardStyle.SetDataText(_slotLabels[index]);
+            }
             string role = _selectedSlotIndex < 0 ? "전체 역할" : _model.Slots[_selectedSlotIndex].RoleText;
-            _marketSummaryText.text = $"{role} · 영입 후보 {count}명\n후보를 선택해 현재 담당자와 비교하세요.";
+            _marketSummaryText.text = $"{role} · 후보 {count}명 · 매주 갱신";
             bool ready = _model.Snapshot.ContentState.Kind == UiContentStateKind.Ready;
             _allRolesButton.interactable = ready;
             if (ready)
             {
                 _contentStateText.gameObject.SetActive(count == 0);
-                _contentStateText.text = _selectedSlotIndex < 0 ? "현재 영입 후보가 없습니다.\n다음 시장 기간에 다시 확인하세요."
-                    : "이 역할의 영입 후보가 없습니다.\n전체 후보 보기로 다른 역할을 확인하세요.";
+                _contentStateText.text = _model.Offers.Count == 0 ? "현재 영입 후보가 없습니다.\n다음 주에 다시 확인하세요."
+                    : "조건에 맞는 후보가 없습니다.\n필터 초기화로 전체 후보를 확인하세요.";
             }
             RenderSelectedOffer();
         }

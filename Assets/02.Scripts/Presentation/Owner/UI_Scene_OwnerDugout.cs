@@ -107,11 +107,14 @@ namespace Baseball.Presentation.Owner
         private void Build(RectTransform host)
         {
             _root = OwnerWorkspaceUiFactory.CreateRoot(host, "OwnerDugoutWorkspace", false);
-            UIOwnerFrontOfficePanel.ApplyWorkspace(_root);
-            _root.offsetMin = Vector2.one * CareerUiTheme.Space4;
-            _root.offsetMax = -Vector2.one * CareerUiTheme.Space4;
+            // 프레임 바깥 여백과 PNG의 투명 부분으로 뒤쪽의 밝은 작업면이 드러나지 않게 한다.
+            Surface(_root, OwnerDashboardStyle.Ink);
             _root.gameObject.AddComponent<CareerUiPreserveTextColor>();
-            var body = Rect(_root, "DugoutBody", 0f, 0f, 1f, 1f);
+            var workspace = Rect(_root, "DugoutSurface", 0f, 0f, 1f, 1f);
+            workspace.offsetMin = Vector2.one * CareerUiTheme.Space4;
+            workspace.offsetMax = -Vector2.one * CareerUiTheme.Space4;
+            UIOwnerFrontOfficePanel.ApplyWorkspace(workspace);
+            var body = Rect(workspace, "DugoutBody", 0f, 0f, 1f, 1f);
             _workspaceInput = body.gameObject.AddComponent<CanvasGroup>();
             Label(body, "Title", "우리 팀의 승부를 설계하세요", .01f, .91f, .60f, 1f, 27, Ink, TextAnchor.MiddleLeft);
             Label(body, "Subtitle", "코칭스태프 선택  →  작전 조정  →  다음 경기 적용", .60f, .91f, .99f, 1f, 17, MutedInk, TextAnchor.MiddleRight);

@@ -39,7 +39,68 @@ foreach (var state in new[] { UiContentStateModel.CreateLoading("불러오는 �
     var empty = OwnerStaffOfficePresentationBuilder.Build(new OwnerStaffOfficeSnapshot(state, null, null, null, null, null));
     Check(empty.Offers.Count == 0 && empty.Slots.Count == 0, state.Kind + " 빈 데이터 안전 처리");
 }
-Console.WriteLine($"스태프 운영실 콘솔 검증 {passed}/{passed} 통과");
+Check(model.FindOffers(-1, "이후보", 5, false, 0, 0).Count == 1, "이름·최소 등급 검색");
+Check(model.FindOffers(-1, "컨택", 1, false, 0, 0).Count == 1, "전문 분야 검색");
+Check(model.FindOffers(-1, "", 1, true, 0, 0).Count == 0, "자금 부족 후보 필터");
+Check(model.FindOffers(-1, "", 1, false, 2, 0).Count == 0, "장기 계약 제외");
+Check(model.FindOffers(1, "", 1, false, 0, 0).Count == 0, "다른 역할 제외");
+var comparisonOffers = new[] {
+    new OwnerStaffMarketOfferSnapshot(offer, true, "", "훈련 효율 상승"),
+    new OwnerStaffMarketOfferSnapshot(new StaffMarketOffer("cheap", "old", "team", "period", StaffMarketKind.Offseason,
+        1, 80_000_000L, 8_000_000L), true, "", "훈련 효율 상승") };
+var comparisonModel = OwnerStaffOfficePresentationBuilder.Build(new OwnerStaffOfficeSnapshot(UiContentStateModel.Ready,
+    catalog, Array.Empty<StaffContractState>(), vacant, effects.Resolve(catalog, Array.Empty<StaffContractState>(), vacant, balance), comparisonOffers));
+Check(comparisonModel.FindOffers(-1, "", 1, false, 0, 1).SequenceEqual(new[] { 1, 0 }), "연봉 오름차순은 실제 금액 비교");
+Check(comparisonModel.FindOffers(-1, "", 1, false, 0, 2).SequenceEqual(new[] { 0, 1 }), "연봉 내림차순");
+Check(comparisonModel.FindOffers(-1, "", 1, false, 0, 0).SequenceEqual(new[] { 0, 1 }), "등급 내림차순");
+
+var names = new StaffNameCatalog(Enumerable.Range(0, 100).Select(index => "김" + (char)('가' + index / 10) + (char)('가' + index % 10)).ToArray());
+var generator = new StaffCatalogGenerator();
+var market = new StaffMarketResolver();
+double previousQuality = 0;
+double previousSalary = 0;
+foreach (LeagueGrade grade in Enum.GetValues<LeagueGrade>())
+{
+    long salaryTotal = 0;
+    int qualityTotal = 0, highTier = 0, total = 0;
+    for (ulong seed = 1; seed <= 1000; seed++)
+    {
+        var pool = generator.Generate(names, 20, seed, balance);
+        for (int week = 0; week < 5; week++)
+        {
+            var offers = market.CreateOffers(pool, Array.Empty<StaffContractState>(), "team", "week" + week,
+                StaffMarketKind.MidseasonReplacement, grade, seed, balance);
+            if (offers.Count != 15 || offers.Select(value => value.StaffId).Distinct().Count() != 15)
+                throw new InvalidOperationException("후보 수·중복 오류");
+            foreach (StaffRole role in Enum.GetValues<StaffRole>())
+                if (offers.Count(value => pool.Get(value.StaffId).Role == role) != 3)
+                    throw new InvalidOperationException("역할별 선택 폭 불일치");
+            if (week == 0)
+            {
+                var again = market.CreateOffers(pool, Array.Empty<StaffContractState>(), "team", "week" + week,
+                    StaffMarketKind.MidseasonReplacement, grade, seed, balance);
+                if (!offers.Select(value => (value.OfferId, value.AnnualSalary)).SequenceEqual(
+                    again.Select(value => (value.OfferId, value.AnnualSalary))))
+                    throw new InvalidOperationException("시장 결정론 실패");
+            }
+            foreach (var value in offers)
+            {
+                int quality = pool.Get(value.StaffId).QualityTier;
+                qualityTotal += quality;
+                salaryTotal += value.AnnualSalary;
+                highTier += quality >= 4 ? 1 : 0;
+                total++;
+            }
+        }
+    }
+    double averageQuality = (double)qualityTotal / total;
+    double averageSalary = (double)salaryTotal / total;
+    Check(averageQuality > previousQuality && averageSalary > previousSalary, grade + " 품질·연봉 상승");
+    previousQuality = averageQuality;
+    previousSalary = averageSalary;
+    Console.WriteLine($"시장 통계 {grade}: 후보 {total:N0}, 평균 등급 {averageQuality:F3}, 4~5등급 {100d * highTier / total:F2}%, 평균 연봉 {averageSalary:N0}원");
+}
+Console.WriteLine($"스태프 운영실 콘솔 검증 {passed}/{passed} 통과 / 50,000시장·750,000제안");
 
 StaffSigningResult Preview(long money) => service.TrySign(new StaffSigningCommand("proposal", "payment", "team", 1, money), offer, catalog, contracts, assignment, balance);
 static StaffDefinition Staff(string id, string name, int quality) => new(id, name, StaffRole.HittingCoach,

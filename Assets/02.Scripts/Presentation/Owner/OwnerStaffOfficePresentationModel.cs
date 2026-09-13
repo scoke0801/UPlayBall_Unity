@@ -208,6 +208,34 @@ namespace Baseball.Presentation.Owner
         public IReadOnlyList<OwnerStaffSlotModel> Slots { get; }
         public IReadOnlyList<OwnerStaffMarketOfferModel> Offers { get; }
 
+        /// <summary>표시 문자열을 숫자로 역변환하지 않고 원본 조건으로 후보를 필터링·정렬한다.</summary>
+        public List<int> FindOffers(int slotIndex, string query, int minimumQuality, bool canSignOnly, int maximumYears, int sort)
+        {
+            var result = new List<int>();
+            query = (query ?? string.Empty).Trim();
+            for (int index = 0; index < Offers.Count; index++)
+            {
+                var offer = Offers[index];
+                var staff = Snapshot.Catalog.Get(offer.StaffId);
+                if (slotIndex >= 0 && slotIndex < Slots.Count && staff.Role != Slots[slotIndex].Role) continue;
+                if (staff.QualityTier < minimumQuality || (canSignOnly && !offer.CanSign)) continue;
+                if (maximumYears > 0 && Snapshot.Offers[index].Offer.ContractYears > maximumYears) continue;
+                if (query.Length > 0 && offer.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0 &&
+                    offer.SpecialtyText.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0 &&
+                    offer.PhilosophyText.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                result.Add(index);
+            }
+            result.Sort((left, right) =>
+            {
+                int comparison = sort == 1
+                    ? Snapshot.Offers[left].Offer.AnnualSalary.CompareTo(Snapshot.Offers[right].Offer.AnnualSalary)
+                    : sort == 2 ? Snapshot.Offers[right].Offer.AnnualSalary.CompareTo(Snapshot.Offers[left].Offer.AnnualSalary)
+                    : Snapshot.Catalog.Get(Offers[right].StaffId).QualityTier.CompareTo(Snapshot.Catalog.Get(Offers[left].StaffId).QualityTier);
+                return comparison != 0 ? comparison : string.CompareOrdinal(Offers[left].OfferId, Offers[right].OfferId);
+            });
+            return result;
+        }
+
         /// <summary>후보와 같은 역할의 현재 담당자를 안정된 Staff ID로 찾는다.</summary>
         public OwnerStaffSlotModel GetCurrentSlot(OwnerStaffMarketOfferModel offer)
         {
@@ -382,7 +410,7 @@ namespace Baseball.Presentation.Owner
         {
             return value switch
             {
-                StaffSpecialtyTag.ContactTraining => "컨택 훈련",
+                StaffSpecialtyTag.ContactTraining => "교타력 훈련",
                 StaffSpecialtyTag.PowerTraining => "장타 훈련",
                 StaffSpecialtyTag.PlateDiscipline => "선구안 훈련",
                 StaffSpecialtyTag.PitchCommand => "제구 훈련",

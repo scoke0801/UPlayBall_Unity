@@ -1179,8 +1179,8 @@ namespace Baseball.Core.Historical
                 new StaffPhilosophyBalance(StaffPhilosophyTag.PlayerCentered, new[] { 0.002d, 0.002d, 0.005d, 0.005d, 0d })
             };
             var market = new StaffMarketBalance(
-                10,
-                5,
+                20,
+                15,
                 1,
                 3,
                 new[] { 1, 2, 3 },
@@ -1190,7 +1190,7 @@ namespace Baseball.Core.Historical
                 1.08d,
                 0.10d,
                 0.25d,
-                0.025d,
+                0.18d,
                 MoneyAmount.FromTenThousandWon(100L));
             var ai = new AiStaffBalance(
                 new[] { 0.010d, 0.015d, 0.020d, 0.025d, 0.030d, 0.035d, 0.040d, 0.045d, 0.050d, 0.055d },
