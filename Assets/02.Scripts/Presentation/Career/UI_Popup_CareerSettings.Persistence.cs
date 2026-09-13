@@ -293,7 +293,8 @@ namespace Baseball.Presentation.Career
                     }
                     catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
                     {
-                        _persistenceMessage = exception.Message;
+                        Debug.LogException(exception);
+                        _persistenceMessage = "새 구단을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.";
                         Render();
                     }
                 });
@@ -308,16 +309,19 @@ namespace Baseball.Presentation.Career
 
             string availability = isBusy ? "시즌 자동 진행이 끝난 뒤 저장하거나 불러올 수 있습니다."
                 : manager.HasActiveRuntime
-                ? $"홈·구단 운영 저장 대상: 슬롯 {manager.ActiveSaveSlot}. 다른 슬롯에 저장하면 이후 저장 대상도 바뀝니다."
-                : "현재 구단주 진행이 없어 저장할 수 없습니다. 저장된 슬롯은 불러올 수 있습니다.";
+                ? $"현재 진행은 슬롯 {manager.ActiveSaveSlot}에 저장됩니다. 별도로 남기려면 다른 슬롯에 저장하세요."
+                : "이어서 할 슬롯을 선택한 뒤 저장 불러오기를 누르세요.";
             CreateText("Availability", body, availability, 15, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(790f, 44f), new Vector2(0f, -182f), SecondaryTextColor);
             CreateText("BackupGuide", body,
-                "슬롯마다 구단·리그·시즌 진행을 별도로 보관합니다. 구단주 모드 자동 백업은 지원하지 않습니다.",
+                "진행 상황은 직접 저장해 주세요. 덮어쓰기 전 기록은 다른 슬롯에 남겨 둘 수 있습니다.",
                 14, FontStyle.Normal, TextAnchor.MiddleCenter,
                 new Vector2(790f, 40f), new Vector2(0f, -239f), MutedTextColor);
 
-            CreateText("Feedback", body, string.IsNullOrEmpty(_persistenceMessage) ? slot.Message : _persistenceMessage, 15, FontStyle.Bold,
+            string feedback = !string.IsNullOrEmpty(_persistenceMessage) ? _persistenceMessage
+                : slot.Status is CareerSaveSlotStatus.Incompatible or CareerSaveSlotStatus.Damaged
+                    ? "이 저장은 불러올 수 없습니다. 다른 슬롯을 선택해 주세요." : string.Empty;
+            CreateText("Feedback", body, feedback, 15, FontStyle.Bold,
                 TextAnchor.MiddleCenter, new Vector2(790f, 54f), new Vector2(0f, -307f),
                 _persistenceMessage.Contains("저장했습니다") ||
                 _persistenceMessage.Contains("불러왔습니다") ||
@@ -442,7 +446,8 @@ namespace Baseball.Presentation.Career
             }
             catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
             {
-                return CareerSaveCommandResult.Failure(exception.Message);
+                Debug.LogException(exception);
+                return CareerSaveCommandResult.Failure("진행 상황을 저장하지 못했습니다. 저장 공간을 확인하고 다시 시도해 주세요.");
             }
         }
 
@@ -455,7 +460,11 @@ namespace Baseball.Presentation.Career
             }
             catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
             {
-                return CareerSaveCommandResult.Failure(exception.Message);
+                Debug.LogException(exception);
+                return CareerSaveCommandResult.Failure(
+                    exception is System.IO.IOException || exception is UnauthorizedAccessException
+                        ? "저장 파일을 읽지 못했습니다. 잠시 후 다시 시도해 주세요."
+                        : "저장 내용을 불러오지 못했습니다. 다른 슬롯을 선택해 주세요.");
             }
         }
 
@@ -474,10 +483,9 @@ namespace Baseball.Presentation.Career
             }
             catch (Exception exception) when (IsExpectedOwnerPersistenceException(exception))
             {
+                Debug.LogException(exception);
                 return CareerSaveCommandResult.Failure(
-                    string.IsNullOrWhiteSpace(exception.Message)
-                        ? "구단주 모드 저장 데이터를 삭제하지 못했습니다."
-                        : exception.Message);
+                    "저장 데이터를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.");
             }
         }
 

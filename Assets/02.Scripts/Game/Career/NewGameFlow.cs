@@ -15,7 +15,7 @@ namespace Baseball.Game.Career
     /// </summary>
     public sealed class NewGameFlow
     {
-        public const int CurrentSaveVersion = 20;
+        public const int CurrentSaveVersion = 21;
         public const int MyPlayerId = 1_000_001;
 
         private readonly NewGameConfiguration _configuration;
