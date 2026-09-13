@@ -46,6 +46,7 @@ namespace Baseball.Presentation.Owner
         private readonly Text[] _seriesScores = new Text[4];
         private OwnerSeasonReviewSnapshot _snapshot;
         private Func<string, string> _teamName;
+        private string _ownerName;
         private int _page;
 
         public event Action PostseasonRequested;
@@ -62,10 +63,12 @@ namespace Baseball.Presentation.Owner
             return view;
         }
 
-        public void Bind(OwnerSeasonReviewSnapshot snapshot, Func<string, string> teamNameResolver, int initialPage)
+        public void Bind(OwnerSeasonReviewSnapshot snapshot, Func<string, string> teamNameResolver, int initialPage,
+            string ownerName = null)
         {
             _snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
             _teamName = teamNameResolver ?? throw new ArgumentNullException(nameof(teamNameResolver));
+            _ownerName = string.IsNullOrWhiteSpace(ownerName) ? "미등록" : ownerName.Trim();
             SetPage(Mathf.Clamp(initialPage, 0, snapshot.IsPostseasonCompleted ? 2 : 1));
         }
 
@@ -242,6 +245,7 @@ namespace Baseball.Presentation.Owner
                 Muted, new Vector2(42f, 18f), new Vector2(790f, 82f));
             _hint.alignment = TextAnchor.MiddleLeft;
             BuildBracketMotion();
+            BuildRecapReport();
             FitModal();
         }
 
@@ -270,6 +274,7 @@ namespace Baseball.Presentation.Owner
             if (page == 0) BindPennantRace();
             else if (page == 1) BindPostseason();
             else BindRecap();
+            SetRecapVisible(page == 2);
             ConfigureNavigation();
             if (gameObject.activeInHierarchy) PlayBracketReveal();
         }
@@ -288,6 +293,7 @@ namespace Baseball.Presentation.Owner
             _primary.navigation = new Navigation { mode = Navigation.Mode.Explicit,
                 selectOnLeft = _tabs[_page], selectOnRight = _close,
                 selectOnUp = _tabs[_page], selectOnDown = _close };
+            ConfigureRecapNavigation();
         }
 
         private void BindPennantRace()
@@ -426,20 +432,10 @@ namespace Baseball.Presentation.Owner
         private void BindRecap()
         {
             _title.text = $"시즌 {_snapshot.SeasonNumber} 결산";
-            _summary.text = _snapshot.PostseasonResult == OwnerTeamPostseasonResult.Champion
-                ? "포스트시즌 우승" : $"정규시즌 {_snapshot.Rank}위 · {FormatPostseasonResult(_snapshot.PostseasonResult)}";
-            _status.text = FormatLeagueMovement();
-            _detailsCaption.text = "이번 시즌 기록";
-            _details.text = $"정규시즌  {_snapshot.Wins}승 {_snapshot.Draws}무 {_snapshot.Losses}패  ·  승률 {_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture)}\n" +
-                $"팀 득점 {_snapshot.Runs:N0}  ·  팀 실점 {_snapshot.RunsAllowed:N0}  ·  득실차 {FormatSigned(_snapshot.RunDifferential)}";
-            SetMetrics($"{_snapshot.WinningPercentage.ToString(".000", CultureInfo.InvariantCulture)}", "정규시즌 승률",
-                FormatPostseasonResult(_snapshot.PostseasonResult), "포스트시즌",
-                FormatNextGrade(), "다음 시즌 등급");
-            _insightTitle.text = "다음 시즌 준비";
-            _insightBody.text = "보유 선수와 1군 등록은\n다음 시즌에도 유지됩니다.";
-            _hint.text = "구단 홈에서 다음 시즌을 진행하세요.";
+            _hint.text = "보유 선수와 1군 등록은 유지됩니다. 구단 홈에서 다음 시즌을 준비하세요.";
             _primaryLabel.text = "구단 홈으로";
             _primary.interactable = true;
+            BindRecapReport();
         }
 
         private void HandlePrimary()

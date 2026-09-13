@@ -26,7 +26,7 @@ namespace Baseball.Game.Historical
             int runs, int runsAllowed, bool isPostseasonInitialized, bool isPlayerPostseasonCompleted,
             bool isPostseasonCompleted, int completedPostseasonGroups, int totalPostseasonGroups,
             bool isQualified, OwnerTeamPostseasonResult? postseasonResult, string championTeamSeasonKey,
-            IReadOnlyList<OwnerPostseasonSeriesReview> series)
+            IReadOnlyList<OwnerPostseasonSeriesReview> series, OwnerSeasonHonorsReview honors = null)
         {
             SeasonNumber = seasonNumber;
             CurrentGrade = currentGrade;
@@ -48,7 +48,9 @@ namespace Baseball.Game.Historical
             PostseasonResult = postseasonResult;
             ChampionTeamSeasonKey = championTeamSeasonKey ?? string.Empty;
             Series = series ?? Array.Empty<OwnerPostseasonSeriesReview>();
+            Honors = honors;
         }
+        public OwnerSeasonHonorsReview Honors { get; }
         public int SeasonNumber { get; }
         public LeagueGrade CurrentGrade { get; }
         public LeagueGrade? NextGrade { get; }
@@ -196,7 +198,8 @@ namespace Baseball.Game.Historical
                 runtime.PlayerTeamSeasonKey, rank, ranking.Length, player.Wins, player.Losses, Math.Max(0, draws),
                 runs, allowed, postseason != null, postseason?.IsCompleted == true,
                 runtime.LeagueWorld.IsPostseasonCompleted, completedGroups, runtime.LeagueWorld.Groups.Count,
-                postseason?.IsQualified(group.Season.PlayerTeamId) == true, result, championKey, series);
+                postseason?.IsQualified(group.Season.PlayerTeamId) == true, result, championKey, series,
+                OwnerSeasonHonorsReview.Create(group.Season));
         }
     }
 }
