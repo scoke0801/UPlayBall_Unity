@@ -199,11 +199,11 @@ namespace Baseball.Presentation.Career
                     row,
                     block.ShapeCells,
                     0,
-                    GetSkillCategoryColor(block.Category),
+                    block.Rarity,
                     new Vector2(-167f, 0f),
                     new Vector2(70f, 34f),
                     17f,
-                    "Shape");
+                    "Shape", SkillBlockVisual.GetCategoryColor(block.Category));
                 const float skillNameRight = 88f;
                 float skillNameLeft = shapeVisual != null
                     ? shapeVisual.anchoredPosition.x + shapeVisual.rect.width * 0.5f + 12f
@@ -350,11 +350,11 @@ namespace Baseball.Presentation.Career
                     card,
                     block.ShapeCells,
                     0,
-                    GetSkillCategoryColor(block.Category),
+                    block.Rarity,
                     new Vector2(-242f, 0f),
                     new Vector2(94f, 82f),
                     23f,
-                    "Shape");
+                    "Shape", SkillBlockVisual.GetCategoryColor(block.Category));
                 CreateText("Name", card, GetSkillCategoryLabel(block.Category) + " 블록", 18, FontStyle.Bold,
                     TextAnchor.MiddleLeft, new Vector2(300f, 34f), new Vector2(-50f, 25f), PrimaryTextColor);
                 CreateText("Rarity", card, GetRarityLabel(block.Rarity), 14, FontStyle.Bold,
@@ -398,18 +398,19 @@ namespace Baseball.Presentation.Career
                     parent,
                     block.ShapeCells,
                     placement.RotationQuarterTurns,
-                    GetSkillCategoryColor(block.Category),
+                    block.Rarity,
                     new Vector2(centerX, centerY),
                     new Vector2(widthInCells * cellPitch, heightInCells * cellPitch),
                     cellPitch,
-                    namePrefix + "Block_" + block.InstanceId);
-                Image image = visual != null ? visual.GetComponent<Image>() : null;
-                if (image == null)
-                    continue;
-                Outline outline = image.gameObject.AddComponent<Outline>();
-                outline.effectColor = GetRarityColor(block.Rarity);
-                outline.effectDistance = new Vector2(2f, -2f);
-                outline.useGraphicAlpha = true;
+                    namePrefix + "Block_" + block.InstanceId, SkillBlockVisual.GetCategoryColor(block.Category));
+                if (visual == null) continue;
+                foreach (RawImage image in visual.GetComponentsInChildren<RawImage>())
+                {
+                    Outline outline = image.gameObject.AddComponent<Outline>();
+                    outline.effectColor = GetRarityColor(block.Rarity);
+                    outline.effectDistance = new Vector2(2f, -2f);
+                    outline.useGraphicAlpha = true;
+                }
             }
         }
 

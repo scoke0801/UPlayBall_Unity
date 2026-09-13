@@ -31,12 +31,14 @@ namespace Baseball.Presentation.Shop
 
             DefinitionId = definition.BlockId;
             Rarity = definition.Rarity;
+            Category = definition.Category;
             ShapeCells = new BoardCell[definition.ShapeCells.Length];
             Array.Copy(definition.ShapeCells, ShapeCells, ShapeCells.Length);
         }
 
         public string DefinitionId { get; }
         public SkillBlockRarity Rarity { get; }
+        public SkillBlockCategory Category { get; }
         public BoardCell[] ShapeCells { get; }
     }
 

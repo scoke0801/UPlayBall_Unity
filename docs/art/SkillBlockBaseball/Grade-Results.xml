@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="6" result="Passed" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.9051485">
+  <test-suite type="TestSuite" id="1000" name="UnityProject" fullname="UnityProject" runstate="Runnable" testcasecount="2138" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.905149" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="3058" name="Baseball.Presentation.Tests.dll" fullname="C:/UsingProject/UnityProject/UPlayBall_Unity/output/skill-block-ux-validation/UnityProject/Library/ScriptAssemblies/Baseball.Presentation.Tests.dll" runstate="Runnable" testcasecount="957" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.867760" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="26212" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="3059" name="Baseball" fullname="Baseball" runstate="Runnable" testcasecount="957" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.853463" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="3062" name="Tests" fullname="Baseball.Tests" runstate="Runnable" testcasecount="914" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.840037" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="3065" name="EditMode" fullname="Baseball.Tests.EditMode" runstate="Runnable" testcasecount="906" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.828852" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="3066" name="Presentation" fullname="Baseball.Tests.EditMode.Presentation" runstate="Runnable" testcasecount="906" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.816963" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="3068" name="Owner" fullname="Baseball.Tests.EditMode.Presentation.Owner" runstate="Runnable" testcasecount="496" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.800527" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="2914" name="SkillBlockBaseballPresentationTests" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-09-13 06:51:57Z" end-time="2026-09-13 06:52:01Z" duration="3.788987" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="2920" name="Grade_재사용과회전에도문자는정방향이고타입색은등급과독립이다" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Grade_재사용과회전에도문자는정방향이고타입색은등급과독립이다" methodname="Grade_재사용과회전에도문자는정방향이고타입색은등급과독립이다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" seed="1449984386" result="Passed" start-time="2026-09-13 06:51:58Z" end-time="2026-09-13 06:51:58Z" duration="0.157412" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2921" name="Visual_모든등급과타입을실제칸크기로출력한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Visual_모든등급과타입을실제칸크기로출력한다" methodname="Visual_모든등급과타입을실제칸크기로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" seed="931338479" result="Passed" start-time="2026-09-13 06:51:58Z" end-time="2026-09-13 06:51:58Z" duration="0.236539" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-suite type="ParameterizedMethod" id="2919" name="Visual_현재스택목록의성장화면을출력한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Visual_현재스택목록의성장화면을출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-13 06:51:58Z" end-time="2026-09-13 06:52:01Z" duration="3.381018" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                    <properties />
+                    <test-case id="2915" name="Visual_현재스택목록의성장화면을출력한다(1280,720)" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Visual_현재스택목록의성장화면을출력한다(1280,720)" methodname="Visual_현재스택목록의성장화면을출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" seed="1647362813" result="Passed" start-time="2026-09-13 06:51:58Z" end-time="2026-09-13 06:51:59Z" duration="0.988236" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                    </test-case>
+                    <test-case id="2916" name="Visual_현재스택목록의성장화면을출력한다(1920,1080)" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Visual_현재스택목록의성장화면을출력한다(1920,1080)" methodname="Visual_현재스택목록의성장화면을출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" seed="1376872946" result="Passed" start-time="2026-09-13 06:51:59Z" end-time="2026-09-13 06:52:00Z" duration="0.675164" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                    </test-case>
+                    <test-case id="2917" name="Visual_현재스택목록의성장화면을출력한다(2560,1440)" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Visual_현재스택목록의성장화면을출력한다(2560,1440)" methodname="Visual_현재스택목록의성장화면을출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" seed="2107307157" result="Passed" start-time="2026-09-13 06:52:00Z" end-time="2026-09-13 06:52:00Z" duration="0.848787" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                    </test-case>
+                    <test-case id="2918" name="Visual_현재스택목록의성장화면을출력한다(3440,1440)" fullname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests.Visual_현재스택목록의성장화면을출력한다(3440,1440)" methodname="Visual_현재스택목록의성장화면을출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.SkillBlockBaseballPresentationTests" runstate="Runnable" seed="198042279" result="Passed" start-time="2026-09-13 06:52:00Z" end-time="2026-09-13 06:52:01Z" duration="0.863238" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <output><![CDATA[Saving results to: C:/Users/scoke/AppData/LocalLow/DefaultCompany/UnityProject\TestResults.xml
+]]></output>
+                    </test-case>
+                  </test-suite>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

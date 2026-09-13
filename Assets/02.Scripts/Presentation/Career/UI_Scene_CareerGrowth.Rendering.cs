@@ -487,7 +487,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(-30f, 5f),
                 new Vector2(50f, 48f),
                 13f,
-                "Shape");
+                "Shape", block.Rarity);
             CreateText(
                 "Rarity", button.transform, GetRarityCode(block.Rarity), 12,
                 FontStyle.Bold, TextAnchor.MiddleCenter, new Vector2(40f, 22f),
@@ -515,7 +515,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(-286f, -7f),
                     new Vector2(84f, 70f),
                     17f,
-                    "SelectedShape");
+                    "SelectedShape", block.Rarity);
                 CreateText(
                     "Name", panel, $"{GetCategoryLabel(block.Category)} · {GetRarityLabel(block.Rarity)}",
                     16, FontStyle.Bold, TextAnchor.MiddleLeft,
@@ -549,7 +549,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(-286f, -7f),
                     new Vector2(84f, 70f),
                     17f,
-                    "PlacedShape");
+                    "PlacedShape", placed.Rarity);
                 CreateText(
                     "Name", panel, GetCategoryLabel(placed.Category) + " 블록 장착 중", 16,
                     FontStyle.Bold, TextAnchor.MiddleLeft, new Vector2(300f, 30f),
@@ -668,8 +668,8 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "Pity", panel,
                 $"엘리트 보장 {growth.ElitePityCount}/{growth.ElitePityTarget} · " +
-                $"유니크 {growth.UniquePityCount}/{growth.UniquePityTarget}\n" +
-                $"레전더리 {growth.LegendaryPityCount}/{growth.LegendaryPityTarget}",
+                $"S {growth.UniquePityCount}/{growth.UniquePityTarget}\n" +
+                $"SS {growth.LegendaryPityCount}/{growth.LegendaryPityTarget}",
                 9, FontStyle.Normal, TextAnchor.MiddleRight,
                 new Vector2(200f, 38f), new Vector2(200f, -177f), GoldColor);
         }
@@ -1023,17 +1023,26 @@ namespace Baseball.Presentation.Career
             Vector2 position,
             Vector2 bounds,
             float maxCellSize,
-            string namePrefix)
+            string namePrefix, SkillBlockRarity? rarity = null)
         {
-            return SkillBlockVisual.Create(
+            RectTransform visual = SkillBlockVisual.Create(
                 parent,
                 shapeCells,
                 rotationQuarterTurns,
-                color,
+                rarity ?? SkillBlockRarity.Normal,
                 position,
                 bounds,
                 maxCellSize,
-                namePrefix);
+                namePrefix, color);
+            if (visual != null)
+            {
+                foreach (RawImage tile in visual.GetComponentsInChildren<RawImage>())
+                    tile.color = new Color(1f, 1f, 1f, color.a);
+                // 계통 상점의 모양 예시는 추첨 전이므로 확정 등급처럼 표시하지 않는다.
+                if (!rarity.HasValue)
+                    foreach (Text label in visual.GetComponentsInChildren<Text>()) label.text = string.Empty;
+            }
+            return visual;
         }
 
         private static void GetRotatedCoordinates(

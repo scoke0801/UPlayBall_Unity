@@ -1,0 +1,20 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\OwnerPowerUp\\SkillBaseball\\Plate.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  1723,
+        "Partial":  1447,
+        "Opaque":  62366,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\OwnerPowerUp\\SkillBaseball\\Ball.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  14681,
+        "Partial":  1131,
+        "Opaque":  49724,
+        "TransparentCorners":  true
+    }
+]

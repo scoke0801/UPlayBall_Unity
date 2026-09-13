@@ -12,21 +12,7 @@ namespace Baseball.Presentation.Career
     {
         private static Color GetSkillCategoryColor(SkillBlockCategory category)
         {
-            return category switch
-            {
-                SkillBlockCategory.Contact => new Color(0.15f, 0.48f, 0.82f, 1f),
-                SkillBlockCategory.Power => new Color(0.82f, 0.48f, 0.12f, 1f),
-                SkillBlockCategory.Baserunning => new Color(0.24f, 0.66f, 0.31f, 1f),
-                SkillBlockCategory.Defense => new Color(0.18f, 0.56f, 0.58f, 1f),
-                SkillBlockCategory.BatterMental => new Color(0.49f, 0.38f, 0.77f, 1f),
-                SkillBlockCategory.Velocity => new Color(0.78f, 0.26f, 0.22f, 1f),
-                SkillBlockCategory.Control => new Color(0.16f, 0.46f, 0.76f, 1f),
-                SkillBlockCategory.Breaking => new Color(0.45f, 0.34f, 0.73f, 1f),
-                SkillBlockCategory.PitcherPhysical => new Color(0.64f, 0.45f, 0.16f, 1f),
-                SkillBlockCategory.Bunt => new Color(0.70f, 0.42f, 0.16f, 1f),
-                SkillBlockCategory.Stuff => new Color(0.60f, 0.24f, 0.24f, 1f),
-                _ => new Color(0.24f, 0.58f, 0.52f, 1f)
-            };
+            return Baseball.Presentation.UI.SkillBlockVisual.GetCategoryColor(category);
         }
 
         private static string GetSkillCategoryLabel(SkillBlockCategory category)
@@ -48,41 +34,11 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetRarityCode(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Legendary => "전설",
-                SkillBlockRarity.Unique => "유일",
-                SkillBlockRarity.Elite => "특급",
-                SkillBlockRarity.Rare => "희귀",
-                _ => "일반"
-            };
-        }
+        private static string GetRarityCode(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
-        private static string GetRarityLabel(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Legendary => "레전더리",
-                SkillBlockRarity.Unique => "유니크",
-                SkillBlockRarity.Elite => "엘리트",
-                SkillBlockRarity.Rare => "레어",
-                _ => "노멀"
-            };
-        }
+        private static string GetRarityLabel(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
-        private static Color GetRarityColor(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Legendary => new Color(1f, 0.58f, 0.12f, 1f),
-                SkillBlockRarity.Unique => new Color(0.77f, 0.39f, 0.95f, 1f),
-                SkillBlockRarity.Elite => GoldColor,
-                SkillBlockRarity.Rare => RoleColor,
-                _ => SecondaryTextColor
-            };
-        }
+        private static Color GetRarityColor(SkillBlockRarity rarity) => Baseball.Presentation.UI.SkillBlockVisual.GetRarityColor(rarity);
 
         private static string FormatAbilityBonuses(AbilityChange[] bonuses)
         {

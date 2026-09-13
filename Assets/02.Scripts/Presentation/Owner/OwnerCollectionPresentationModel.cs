@@ -94,7 +94,8 @@ namespace Baseball.Presentation.Owner
             int originX,
             int originY,
             int rotationQuarterTurns,
-            SkillBlockRarity rarity = SkillBlockRarity.Normal)
+            SkillBlockRarity rarity = SkillBlockRarity.Normal,
+            SkillBlockCategory category = SkillBlockCategory.Contact, string displayName = "")
         {
             if (shapeCells == null || shapeCells.Count == 0)
                 throw new ArgumentException("스킬 블록 모양이 필요합니다.", nameof(shapeCells));
@@ -106,12 +107,16 @@ namespace Baseball.Presentation.Owner
             OriginY = originY;
             RotationQuarterTurns = rotationQuarterTurns;
             Rarity = rarity;
+            Category = category;
+            DisplayName = displayName ?? string.Empty;
         }
 
         public int OriginX { get; }
         public int OriginY { get; }
         public int RotationQuarterTurns { get; }
         public SkillBlockRarity Rarity { get; }
+        public SkillBlockCategory Category { get; }
+        public string DisplayName { get; }
         public BoardCell[] CreateShapeCells() => (BoardCell[])_shapeCells.Clone();
     }
 

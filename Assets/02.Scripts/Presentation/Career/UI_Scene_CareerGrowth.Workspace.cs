@@ -697,7 +697,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(-16f, 8f),
                 new Vector2(76f, 64f),
                 19f,
-                "InventoryShape");
+                "InventoryShape", block.Rarity);
             CreateText(
                 "Badge",
                 card.transform,
@@ -788,7 +788,7 @@ namespace Baseball.Presentation.Career
                 new Vector2(-305f, 0f),
                 new Vector2(120f, 116f),
                 27f,
-                "SelectedShape");
+                "SelectedShape", block.Rarity);
             CreateText(
                 "Name",
                 detail,
@@ -1320,14 +1320,15 @@ namespace Baseball.Presentation.Career
             int index)
         {
             GrowthGachaOfferView offer = FindGachaOffer(growth, tier);
-            float x = -464f + index * 232f;
+            float pitch = 1160f / SkillBlockGradeCatalog.Count;
+            float x = -580f + pitch * (index + 0.5f);
             bool selected = tier == _selectedGachaTier;
             Color frame = GetRarityFrameColor(offer.MinimumRarity);
             Button card = CreateButton(
                 "GachaTier_" + tier,
                 panel,
                 string.Empty,
-                new Vector2(212f, 175f),
+                new Vector2(pitch - 12f, 175f),
                 new Vector2(x, 205f),
                 selected ? Color.Lerp(PanelDarkColor, frame, 0.34f) : PanelDarkColor,
                 out _);
@@ -1344,7 +1345,7 @@ namespace Baseball.Presentation.Career
                 15,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                new Vector2(180f, 30f),
+                new Vector2(pitch - 28f, 30f),
                 new Vector2(0f, 52f),
                 PrimaryTextColor);
             CreateText(
@@ -1354,7 +1355,7 @@ namespace Baseball.Presentation.Career
                 16,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                new Vector2(180f, 32f),
+                new Vector2(pitch - 28f, 32f),
                 new Vector2(0f, 8f),
                 GoldColor);
             string status;
@@ -1389,7 +1390,7 @@ namespace Baseball.Presentation.Career
                 11,
                 FontStyle.Bold,
                 TextAnchor.MiddleCenter,
-                new Vector2(180f, 24f),
+                new Vector2(pitch - 28f, 24f),
                 new Vector2(0f, -38f),
                 statusColor);
             string limit = offer.MaxPurchasesPerOffseason > 0
@@ -1402,7 +1403,7 @@ namespace Baseball.Presentation.Career
                 10,
                 FontStyle.Normal,
                 TextAnchor.MiddleCenter,
-                new Vector2(190f, 22f),
+                new Vector2(pitch - 28f, 22f),
                 new Vector2(0f, -67f),
                 SecondaryTextColor);
         }
@@ -1480,7 +1481,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(-31f, 5f),
                     new Vector2(62f, 58f),
                     15f,
-                    "PoolShape");
+                    "PoolShape", item.Rarity);
                 CreateText(
                     "Category",
                     card,
@@ -1907,25 +1908,23 @@ namespace Baseball.Presentation.Career
                     new Vector2(centerX, centerY),
                     new Vector2(widthInCells * cellPitch, heightInCells * cellPitch),
                     cellPitch,
-                    "DraftPlacementPreview");
+                    "DraftPlacementPreview", block.Rarity);
             }
             else
             {
                 _draftPlacementPreviewVisual.anchoredPosition = new Vector2(centerX, centerY);
                 _draftPlacementPreviewVisual.gameObject.SetActive(true);
             }
-            Image previewGraphic = _draftPlacementPreviewVisual != null
-                ? _draftPlacementPreviewVisual.GetComponent<Image>()
-                : null;
-            if (previewGraphic == null)
-                return;
-            previewGraphic.color = color;
-            Outline outline = previewGraphic.GetComponent<Outline>();
-            if (outline == null)
-                outline = previewGraphic.gameObject.AddComponent<Outline>();
-            outline.effectColor = preview.CanPlace ? GreenColor : ErrorColor;
-            outline.effectDistance = new Vector2(3f, -3f);
-            outline.useGraphicAlpha = true;
+            if (_draftPlacementPreviewVisual == null) return;
+            foreach (RawImage tile in _draftPlacementPreviewVisual.GetComponentsInChildren<RawImage>())
+            {
+                tile.color = preview.CanPlace ? new Color(1f, 1f, 1f, color.a) : color;
+                Outline outline = tile.GetComponent<Outline>();
+                if (outline == null) outline = tile.gameObject.AddComponent<Outline>();
+                outline.effectColor = preview.CanPlace ? GreenColor : ErrorColor;
+                outline.effectDistance = new Vector2(3f, -3f);
+                outline.useGraphicAlpha = true;
+            }
         }
 
         private static BoardCell[] BuildOccupiedCells(
@@ -2034,7 +2033,7 @@ namespace Baseball.Presentation.Career
                     new Vector2(centerX, centerY),
                     new Vector2(widthInCells * cellPitch, heightInCells * cellPitch),
                     cellPitch,
-                    "DraftBlock_" + block.InstanceId);
+                    "DraftBlock_" + block.InstanceId, block.Rarity);
                 if (visual != null)
                     visual.SetSiblingIndex(Mathf.Min(index + 1, board.childCount - 1));
             }
@@ -2234,17 +2233,7 @@ namespace Baseball.Presentation.Career
                 };
         }
 
-        private static SkillBlockRarity[] GetRarities()
-        {
-            return new[]
-            {
-                SkillBlockRarity.Normal,
-                SkillBlockRarity.Rare,
-                SkillBlockRarity.Elite,
-                SkillBlockRarity.Unique,
-                SkillBlockRarity.Legendary
-            };
-        }
+        private static SkillBlockRarity[] GetRarities() => (SkillBlockRarity[])Enum.GetValues(typeof(SkillBlockRarity));
 
         private static SkillGachaPurchaseTier[] GetGachaTiers()
         {
@@ -2254,7 +2243,8 @@ namespace Baseball.Presentation.Career
                 SkillGachaPurchaseTier.Rare,
                 SkillGachaPurchaseTier.Elite,
                 SkillGachaPurchaseTier.Unique,
-                SkillGachaPurchaseTier.Legendary
+                SkillGachaPurchaseTier.Legendary,
+                SkillGachaPurchaseTier.Mythic
             };
         }
 
@@ -2262,27 +2252,17 @@ namespace Baseball.Presentation.Career
         {
             return tier switch
             {
-                SkillGachaPurchaseTier.Normal => "일반 뽑기",
-                SkillGachaPurchaseTier.Rare => "희귀 뽑기",
-                SkillGachaPurchaseTier.Elite => "엘리트 뽑기",
-                SkillGachaPurchaseTier.Unique => "유니크 뽑기",
-                SkillGachaPurchaseTier.Legendary => "레전더리 뽑기",
+                SkillGachaPurchaseTier.Normal => "C 등급 뽑기",
+                SkillGachaPurchaseTier.Rare => "B 등급 뽑기",
+                SkillGachaPurchaseTier.Elite => "A 등급 뽑기",
+                SkillGachaPurchaseTier.Unique => "S 등급 뽑기",
+                SkillGachaPurchaseTier.Legendary => "SS 등급 뽑기",
+                SkillGachaPurchaseTier.Mythic => "SSS 등급 뽑기",
                 _ => "등급 미정 뽑기"
             };
         }
 
-        private static Color GetRarityFrameColor(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => new Color(0.55f, 0.62f, 0.69f, 1f),
-                SkillBlockRarity.Rare => new Color(0.18f, 0.65f, 1f, 1f),
-                SkillBlockRarity.Elite => new Color(0.77f, 0.38f, 0.95f, 1f),
-                SkillBlockRarity.Unique => new Color(1f, 0.72f, 0.13f, 1f),
-                SkillBlockRarity.Legendary => new Color(1f, 0.26f, 0.26f, 1f),
-                _ => SecondaryTextColor
-            };
-        }
+        private static Color GetRarityFrameColor(SkillBlockRarity rarity) => Baseball.Presentation.UI.SkillBlockVisual.GetRarityColor(rarity);
 
         private static string FormatBoardBonuses(int[] bonuses, PlayerType playerType)
         {

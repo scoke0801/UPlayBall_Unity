@@ -134,11 +134,11 @@ namespace Baseball.Presentation.Shop
                 shapePanel.rectTransform,
                 skillBlock.ShapeCells,
                 0,
-                GetSkillBlockTint(skillBlock.Rarity),
+                skillBlock.Rarity,
                 Vector2.zero,
                 new Vector2(150f, 160f),
                 46f,
-                "RevealShape");
+                "RevealShape", SkillBlockVisual.GetCategoryColor(skillBlock.Category));
 
             Text hint = OwnerRuntimeUiFactory.CreateText(
                 "FlipHint", root, "다시 클릭해 앞면 보기", 11, FontStyle.Bold,
@@ -425,17 +425,7 @@ namespace Baseball.Presentation.Shop
             return null;
         }
 
-        private static Color GetSkillBlockTint(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => new Color32(99, 165, 68, 255),
-                SkillBlockRarity.Rare => new Color32(61, 139, 210, 255),
-                SkillBlockRarity.Elite => new Color32(177, 83, 185, 255),
-                SkillBlockRarity.Unique => new Color32(224, 160, 44, 255),
-                _ => new Color32(217, 79, 102, 255)
-            };
-        }
+        private static Color GetSkillBlockTint(SkillBlockRarity rarity) => SkillBlockVisual.GetRarityColor(rarity);
 
         private void HandlePlayerCardDetailsRequested(PlayerMiniCardModel model)
         {

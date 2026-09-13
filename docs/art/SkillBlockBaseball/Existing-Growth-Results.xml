@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="27" result="Failed(Child)" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="23.0560344">
+  <test-suite type="TestSuite" id="1000" name="UnityProject" fullname="UnityProject" runstate="Runnable" testcasecount="2132" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="23.056034" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="3050" name="Baseball.Presentation.Tests.dll" fullname="C:/UsingProject/UnityProject/UPlayBall_Unity/output/skill-block-ux-validation/UnityProject/Library/ScriptAssemblies/Baseball.Presentation.Tests.dll" runstate="Runnable" testcasecount="951" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.954431" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="36752" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="3051" name="Baseball" fullname="Baseball" runstate="Runnable" testcasecount="951" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.942662" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="3054" name="Tests" fullname="Baseball.Tests" runstate="Runnable" testcasecount="908" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.911113" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="3057" name="EditMode" fullname="Baseball.Tests.EditMode" runstate="Runnable" testcasecount="900" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.856542" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestSuite" id="3058" name="Presentation" fullname="Baseball.Tests.EditMode.Presentation" runstate="Runnable" testcasecount="900" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.842859" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-suite type="TestSuite" id="3060" name="Owner" fullname="Baseball.Tests.EditMode.Presentation.Owner" runstate="Runnable" testcasecount="490" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.812413" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <failure>
+                  <message><![CDATA[One or more child tests had errors]]></message>
+                </failure>
+                <test-suite type="TestFixture" id="2459" name="OwnerGrowthPresentationTests" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" testcasecount="27" result="Failed" site="Child" start-time="2026-09-13 06:44:25Z" end-time="2026-09-13 06:44:48Z" duration="22.777585" total="27" passed="9" failed="18" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <failure>
+                    <message><![CDATA[One or more child tests had errors]]></message>
+                  </failure>
+                  <test-case id="2479" name="Empty_카드와블록이없어도두화면에안내를표시한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Empty_카드와블록이없어도두화면에안내를표시한다" methodname="Empty_카드와블록이없어도두화면에안내를표시한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1386329540" result="Passed" start-time="2026-09-13 06:44:26Z" end-time="2026-09-13 06:44:28Z" duration="2.197565" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2467" name="Skills_다른카드에장착된블록은중복배치할수없다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_다른카드에장착된블록은중복배치할수없다" methodname="Skills_다른카드에장착된블록은중복배치할수없다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="231567577" result="Failed" start-time="2026-09-13 06:44:28Z" end-time="2026-09-13 06:44:29Z" duration="0.986770" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                      <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_다른카드에장착된블록은중복배치할수없다 () [0x00079] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:249
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-case id="2476" name="Skills_보관고코스트선수가장착선수보다먼저표시된다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_보관고코스트선수가장착선수보다먼저표시된다" methodname="Skills_보관고코스트선수가장착선수보다먼저표시된다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1657684929" result="Passed" start-time="2026-09-13 06:44:29Z" end-time="2026-09-13 06:44:30Z" duration="1.018804" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2470" name="Skills_선수단장착카드를우선노출하고검색과필터를적용한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_선수단장착카드를우선노출하고검색과필터를적용한다" methodname="Skills_선수단장착카드를우선노출하고검색과필터를적용한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="694224594" result="Failed" start-time="2026-09-13 06:44:30Z" end-time="2026-09-13 06:44:31Z" duration="1.003384" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[  Expected string length 4 but was 3. Strings differ at index 0.
+  Expected: "장착선수"
+  But was:  "김민준"
+  -----------^
+]]></message>
+                      <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_선수단장착카드를우선노출하고검색과필터를적용한다 () [0x00142] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:345
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-case id="2466" name="Skills_선수모드원점역산으로가리킨칸에즉시배치한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_선수모드원점역산으로가리킨칸에즉시배치한다" methodname="Skills_선수모드원점역산으로가리킨칸에즉시배치한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1286244462" result="Failed" start-time="2026-09-13 06:44:31Z" end-time="2026-09-13 06:44:31Z" duration="0.436587" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                      <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_선수모드원점역산으로가리킨칸에즉시배치한다 () [0x00018] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:223
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-case id="2468" name="Skills_선수유형에맞는블록만노출하고표시개수를맞춘다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_선수유형에맞는블록만노출하고표시개수를맞춘다" methodname="Skills_선수유형에맞는블록만노출하고표시개수를맞춘다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1067407731" result="Failed" start-time="2026-09-13 06:44:31Z" end-time="2026-09-13 06:44:32Z" duration="0.769933" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[  Expected: not null
+  But was:  null
+]]></message>
+                      <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_선수유형에맞는블록만노출하고표시개수를맞춘다 () [0x001b2] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:289
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-suite type="ParameterizedMethod" id="2475" name="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" testcasecount="3" result="Failed" site="Child" start-time="2026-09-13 06:44:32Z" end-time="2026-09-13 06:44:34Z" duration="1.802963" total="3" passed="0" failed="3" inconclusive="0" skipped="0" asserts="0">
+                    <properties />
+                    <failure>
+                      <message><![CDATA[One or more child tests had errors]]></message>
+                    </failure>
+                    <test-case id="2472" name="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(0.0f)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(0.0f)" methodname="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1570995719" result="Failed" start-time="2026-09-13 06:44:32Z" end-time="2026-09-13 06:44:33Z" duration="0.591149" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_10]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다 (System.Single position) [0x0002c] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:392
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2473" name="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(0.35f)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(0.35f)" methodname="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1483411311" result="Failed" start-time="2026-09-13 06:44:33Z" end-time="2026-09-13 06:44:33Z" duration="0.613452" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_10]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다 (System.Single position) [0x0002c] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:392
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2474" name="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(0.7f)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다(0.7f)" methodname="Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="639655277" result="Failed" start-time="2026-09-13 06:44:33Z" end-time="2026-09-13 06:44:34Z" duration="0.582876" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_10]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_스크롤후블록선택과데이터갱신에도목록위치를유지한다 (System.Single position) [0x0002c] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:392
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                  </test-suite>
+                  <test-case id="2469" name="Skills_작은선수카드는이름을상단에표시한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_작은선수카드는이름을상단에표시한다" methodname="Skills_작은선수카드는이름을상단에표시한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="884426316" result="Failed" start-time="2026-09-13 06:44:34Z" end-time="2026-09-13 06:44:34Z" duration="0.384364" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[  Expected: greater than or equal to 0.889999986f
+  But was:  0.149074987f
+]]></message>
+                      <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_작은선수카드는이름을상단에표시한다 () [0x0006c] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:311
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-case id="2471" name="Skills_회전시슬롯과목록을유지하고네번회전후같은배치를보낸다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_회전시슬롯과목록을유지하고네번회전후같은배치를보낸다" methodname="Skills_회전시슬롯과목록을유지하고네번회전후같은배치를보낸다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="148241027" result="Failed" start-time="2026-09-13 06:44:34Z" end-time="2026-09-13 06:44:35Z" duration="0.455838" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                      <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Skills_회전시슬롯과목록을유지하고네번회전후같은배치를보낸다 () [0x00007] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:362
+]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-case id="2465" name="Study_기본과정과진행형과정의해금계약을구분한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_기본과정과진행형과정의해금계약을구분한다" methodname="Study_기본과정과진행형과정의해금계약을구분한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1897825801" result="Passed" start-time="2026-09-13 06:44:35Z" end-time="2026-09-13 06:44:35Z" duration="0.488773" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2463" name="Study_모든목적지를선택해도비행기가지도안에있고선수변경을계속할수있다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_모든목적지를선택해도비행기가지도안에있고선수변경을계속할수있다" methodname="Study_모든목적지를선택해도비행기가지도안에있고선수변경을계속할수있다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="2084879394" result="Passed" start-time="2026-09-13 06:44:35Z" end-time="2026-09-13 06:44:43Z" duration="7.616921" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2477" name="Study_비용확인후확정해야명령을전달하고취소하면확인을폐기한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_비용확인후확정해야명령을전달하고취소하면확인을폐기한다" methodname="Study_비용확인후확정해야명령을전달하고취소하면확인을폐기한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1497470447" result="Passed" start-time="2026-09-13 06:44:43Z" end-time="2026-09-13 06:44:43Z" duration="0.552083" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2462" name="Study_비행기아이콘으로목적지를열고같은버튼과지도빈곳으로닫는다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_비행기아이콘으로목적지를열고같은버튼과지도빈곳으로닫는다" methodname="Study_비행기아이콘으로목적지를열고같은버튼과지도빈곳으로닫는다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1094990939" result="Failed" label="Error" start-time="2026-09-13 06:44:43Z" end-time="2026-09-13 06:44:44Z" duration="0.324003" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <failure>
+                      <message><![CDATA[System.NullReferenceException : Object reference not set to an instance of an object]]></message>
+                      <stack-trace><![CDATA[  at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_비행기아이콘으로목적지를열고같은버튼과지도빈곳으로닫는다 () [0x001b8] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:147 
+  at (wrapper managed-to-native) System.Reflection.RuntimeMethodInfo.InternalInvoke(System.Reflection.RuntimeMethodInfo,object,object[],System.Exception&)
+  at System.Reflection.RuntimeMethodInfo.Invoke (System.Object obj, System.Reflection.BindingFlags invokeAttr, System.Reflection.Binder binder, System.Object[] parameters, System.Globalization.CultureInfo culture) [0x0006a] in <41d29b352f6a475ab1bf7c6628b82790>:0 ]]></stack-trace>
+                    </failure>
+                  </test-case>
+                  <test-suite type="ParameterizedMethod" id="2489" name="Study_여덟목적지이름표가다른핀의입력을가리지않는다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_여덟목적지이름표가다른핀의입력을가리지않는다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" testcasecount="2" result="Failed" site="Child" start-time="2026-09-13 06:44:44Z" end-time="2026-09-13 06:44:44Z" duration="0.554952" total="2" passed="0" failed="2" inconclusive="0" skipped="0" asserts="0">
+                    <properties />
+                    <failure>
+                      <message><![CDATA[One or more child tests had errors]]></message>
+                    </failure>
+                    <test-case id="2487" name="Study_여덟목적지이름표가다른핀의입력을가리지않는다(False)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_여덟목적지이름표가다른핀의입력을가리지않는다(False)" methodname="Study_여덟목적지이름표가다른핀의입력을가리지않는다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="706214363" result="Failed" start-time="2026-09-13 06:44:44Z" end-time="2026-09-13 06:44:44Z" duration="0.260491" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[  StudyPinLabel_study_defense / StudyPin_study_power_focus
+  Expected: False
+  But was:  True
+]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_여덟목적지이름표가다른핀의입력을가리지않는다 (System.Boolean pitcher) [0x000d7] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:600
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2488" name="Study_여덟목적지이름표가다른핀의입력을가리지않는다(True)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_여덟목적지이름표가다른핀의입력을가리지않는다(True)" methodname="Study_여덟목적지이름표가다른핀의입력을가리지않는다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1835147420" result="Failed" start-time="2026-09-13 06:44:44Z" end-time="2026-09-13 06:44:44Z" duration="0.277590" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[  StudyPinLabel_study_pitcher_mental / StudyPin_study_pitch_mix
+  Expected: False
+  But was:  True
+]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_여덟목적지이름표가다른핀의입력을가리지않는다 (System.Boolean pitcher) [0x000d7] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:600
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                  </test-suite>
+                  <test-case id="2464" name="Study_진행조건이잠긴목적지도선택해조건을확인할수있다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_진행조건이잠긴목적지도선택해조건을확인할수있다" methodname="Study_진행조건이잠긴목적지도선택해조건을확인할수있다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="345703687" result="Passed" start-time="2026-09-13 06:44:44Z" end-time="2026-09-13 06:44:45Z" duration="0.545424" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2478" name="Study_차단사유를표시하고신청버튼을잠근다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_차단사유를표시하고신청버튼을잠근다" methodname="Study_차단사유를표시하고신청버튼을잠근다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="2082532334" result="Passed" start-time="2026-09-13 06:44:45Z" end-time="2026-09-13 06:44:45Z" duration="0.596292" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2460" name="Study_천장검색도선택선수만조회하고취소와확정을구분한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_천장검색도선택선수만조회하고취소와확정을구분한다" methodname="Study_천장검색도선택선수만조회하고취소와확정을구분한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="2106204123" result="Passed" start-time="2026-09-13 06:44:45Z" end-time="2026-09-13 06:44:46Z" duration="0.776934" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[유학 보유 1,000장 진입 Bind+Show: 60.21 ms
+]]></output>
+                  </test-case>
+                  <test-case id="2461" name="Study_필터조합과빈결과에서도선택을보존하고초기화한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Study_필터조합과빈결과에서도선택을보존하고초기화한다" methodname="Study_필터조합과빈결과에서도선택을보존하고초기화한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1572665328" result="Passed" start-time="2026-09-13 06:44:46Z" end-time="2026-09-13 06:44:47Z" duration="0.763149" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-suite type="ParameterizedMethod" id="2486" name="Visual_실제런타임UI를두해상도로출력한다" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" testcasecount="6" result="Failed" site="Child" start-time="2026-09-13 06:44:47Z" end-time="2026-09-13 06:44:48Z" duration="1.452955" total="6" passed="0" failed="6" inconclusive="0" skipped="0" asserts="0">
+                    <properties />
+                    <failure>
+                      <message><![CDATA[One or more child tests had errors]]></message>
+                    </failure>
+                    <test-case id="2480" name="Visual_실제런타임UI를두해상도로출력한다(1100,560)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다(1100,560)" methodname="Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="249258131" result="Failed" start-time="2026-09-13 06:44:47Z" end-time="2026-09-13 06:44:47Z" duration="0.264585" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다 (System.Int32 width, System.Int32 height) [0x00152] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:499
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2481" name="Visual_실제런타임UI를두해상도로출력한다(1600,900)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다(1600,900)" methodname="Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="127984414" result="Failed" start-time="2026-09-13 06:44:47Z" end-time="2026-09-13 06:44:47Z" duration="0.243761" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다 (System.Int32 width, System.Int32 height) [0x00152] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:499
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2482" name="Visual_실제런타임UI를두해상도로출력한다(1280,720)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다(1280,720)" methodname="Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="1035405417" result="Failed" start-time="2026-09-13 06:44:47Z" end-time="2026-09-13 06:44:48Z" duration="0.234999" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다 (System.Int32 width, System.Int32 height) [0x00152] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:499
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2483" name="Visual_실제런타임UI를두해상도로출력한다(1920,1080)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다(1920,1080)" methodname="Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="246175554" result="Failed" start-time="2026-09-13 06:44:48Z" end-time="2026-09-13 06:44:48Z" duration="0.230144" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다 (System.Int32 width, System.Int32 height) [0x00152] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:499
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2484" name="Visual_실제런타임UI를두해상도로출력한다(2560,1440)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다(2560,1440)" methodname="Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="196763012" result="Failed" start-time="2026-09-13 06:44:48Z" end-time="2026-09-13 06:44:48Z" duration="0.230784" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다 (System.Int32 width, System.Int32 height) [0x00152] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:499
+]]></stack-trace>
+                      </failure>
+                    </test-case>
+                    <test-case id="2485" name="Visual_실제런타임UI를두해상도로출력한다(3440,1440)" fullname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다(3440,1440)" methodname="Visual_실제런타임UI를두해상도로출력한다" classname="Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests" runstate="Runnable" seed="805521874" result="Failed" start-time="2026-09-13 06:44:48Z" end-time="2026-09-13 06:44:48Z" duration="0.238201" asserts="0">
+                      <properties>
+                        <property name="retryIteration" value="0" />
+                        <property name="repeatIteration" value="0" />
+                      </properties>
+                      <failure>
+                        <message><![CDATA[UI 요소를 찾을 수 없습니다: Block_1]]></message>
+                        <stack-trace><![CDATA[at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Find[T] (System.String name) [0x0001d] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:539
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Click (System.String name) [0x00000] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:533
+at Baseball.Tests.EditMode.Presentation.Owner.OwnerGrowthPresentationTests.Visual_실제런타임UI를두해상도로출력한다 (System.Int32 width, System.Int32 height) [0x00152] in C:\UsingProject\UnityProject\UPlayBall_Unity\output\skill-block-ux-validation\UnityProject\Assets\Tests\EditMode\Presentation\Owner\OwnerGrowthPresentationTests.cs:499
+]]></stack-trace>
+                      </failure>
+                      <output><![CDATA[Saving results to: C:/Users/scoke/AppData/LocalLow/DefaultCompany/UnityProject\TestResults.xml
+]]></output>
+                    </test-case>
+                  </test-suite>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

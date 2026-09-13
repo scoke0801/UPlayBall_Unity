@@ -318,22 +318,7 @@ namespace Baseball.Presentation.Career
 
         private static Color GetCategoryColor(SkillBlockCategory category)
         {
-            return category switch
-            {
-                SkillBlockCategory.Contact => new Color(0.08f, 0.43f, 0.78f, 1f),
-                SkillBlockCategory.Power => new Color(0.57f, 0.18f, 0.75f, 1f),
-                SkillBlockCategory.Defense => new Color(0.16f, 0.55f, 0.17f, 1f),
-                SkillBlockCategory.BatterMental => new Color(0.76f, 0.52f, 0.08f, 1f),
-                SkillBlockCategory.Velocity => new Color(0.72f, 0.20f, 0.18f, 1f),
-                SkillBlockCategory.Control => new Color(0.08f, 0.47f, 0.73f, 1f),
-                SkillBlockCategory.Breaking => new Color(0.48f, 0.22f, 0.72f, 1f),
-                SkillBlockCategory.PitcherMental => new Color(0.76f, 0.52f, 0.08f, 1f),
-                SkillBlockCategory.Baserunning => new Color(0.13f, 0.62f, 0.55f, 1f),
-                SkillBlockCategory.Bunt => new Color(0.70f, 0.42f, 0.16f, 1f),
-                SkillBlockCategory.PitcherPhysical => new Color(0.64f, 0.45f, 0.16f, 1f),
-                SkillBlockCategory.Stuff => new Color(0.60f, 0.24f, 0.24f, 1f),
-                _ => AccentColor
-            };
+            return Baseball.Presentation.UI.SkillBlockVisual.GetCategoryColor(category);
         }
 
         private static Color GetAbilityColor(PlayerAbility ability)
@@ -356,18 +341,7 @@ namespace Baseball.Presentation.Career
             };
         }
 
-        private static string GetRarityCode(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => "일반",
-                SkillBlockRarity.Rare => "희귀",
-                SkillBlockRarity.Elite => "특급",
-                SkillBlockRarity.Unique => "유일",
-                SkillBlockRarity.Legendary => "전설",
-                _ => "?"
-            };
-        }
+        private static string GetRarityCode(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
         private static GrowthGachaOfferView FindGachaOffer(
             CareerGrowthView growth,
@@ -383,23 +357,12 @@ namespace Baseball.Presentation.Career
 
         private static string FormatGachaProbability(GrowthGachaOfferView offer)
         {
-            return $"일반 {offer.NormalProbability:P0} · 희귀 {offer.RareProbability:P0} · " +
-                   $"특급 {offer.EliteProbability:P0} · 유일 {offer.UniqueProbability:P0} · " +
-                   $"전설 {offer.LegendaryProbability:P0}";
+            return $"C {offer.NormalProbability:P0} · B {offer.RareProbability:P0} · " +
+                   $"A {offer.EliteProbability:P0} · S {offer.UniqueProbability:P0} · " +
+                   $"SS {offer.LegendaryProbability:P0} · SSS {offer.MythicProbability:P0}";
         }
 
-        private static string GetRarityLabel(SkillBlockRarity rarity)
-        {
-            return rarity switch
-            {
-                SkillBlockRarity.Normal => "일반",
-                SkillBlockRarity.Rare => "희귀",
-                SkillBlockRarity.Elite => "특급",
-                SkillBlockRarity.Unique => "유일",
-                SkillBlockRarity.Legendary => "전설",
-                _ => "등급 정보 없음"
-            };
-        }
+        private static string GetRarityLabel(SkillBlockRarity rarity) => SkillBlockGradeCatalog.GetLabel(rarity);
 
         private static string FormatAbilityChanges(AbilityChange[] changes)
         {
