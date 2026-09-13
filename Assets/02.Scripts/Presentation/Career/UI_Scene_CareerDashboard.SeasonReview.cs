@@ -867,21 +867,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetAbilityLabel(PlayerAbility ability)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "교타력",
-                PlayerAbility.Power => "장타력",
-                PlayerAbility.Speed => "주력",
-                PlayerAbility.Bunt => "번트",
-                PlayerAbility.Defense => "수비력",
-                PlayerAbility.BatterMental or PlayerAbility.PitcherMental => "정신력",
-                PlayerAbility.Stamina => "체력",
-                PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위",
-                PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구력",
-                _ => "능력치 미정"
-            };
+            return PlayerAbilityCatalog.GetDisplayName(ability);
         }
     }
 }

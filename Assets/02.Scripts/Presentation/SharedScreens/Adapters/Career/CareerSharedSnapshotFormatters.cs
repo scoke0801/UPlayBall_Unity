@@ -108,22 +108,7 @@ namespace Baseball.Presentation.SharedScreens
 
         public static string FormatAbility(PlayerAbility ability)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "컨택",
-                PlayerAbility.Power => "장타",
-                PlayerAbility.Speed => "주루",
-                PlayerAbility.Bunt => "번트",
-                PlayerAbility.Defense => "수비",
-                PlayerAbility.BatterMental => "정신력",
-                PlayerAbility.Stamina => "체력",
-                PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위",
-                PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구",
-                PlayerAbility.PitcherMental => "위기관리",
-                _ => "-"
-            };
+            return PlayerAbilityCatalog.GetDisplayName(ability);
         }
 
         public static string FormatWorkEthic(WorkEthicGrade grade)

@@ -79,11 +79,11 @@ namespace Baseball.Presentation.Owner
             _radar = radarRect.gameObject.AddComponent<UIOpponentRadar>();
             _radar.raycastTarget = false;
             _radar.SetPalette(OwnBlue, OpponentRed, OwnerDashboardStyle.Line);
-            Label(chart, "Contact", "정확", 10, .37f, .76f, .63f, .9f, TextAnchor.MiddleCenter);
-            Label(chart, "Power", "장타", 10, .76f, .51f, 1, .68f, TextAnchor.MiddleCenter);
+            Label(chart, "Contact", "교타력", 10, .37f, .76f, .63f, .9f, TextAnchor.MiddleCenter);
+            Label(chart, "Power", "장타력", 10, .76f, .51f, 1, .68f, TextAnchor.MiddleCenter);
             Label(chart, "Speed", "주력", 10, .63f, .03f, .90f, .20f, TextAnchor.MiddleCenter);
-            Label(chart, "Defense", "수비", 10, .10f, .03f, .37f, .20f, TextAnchor.MiddleCenter);
-            Label(chart, "Control", "제구", 10, 0, .51f, .24f, .68f, TextAnchor.MiddleCenter);
+            Label(chart, "Defense", "수비력", 10, .10f, .03f, .37f, .20f, TextAnchor.MiddleCenter);
+            Label(chart, "Control", "제구력", 10, 0, .51f, .24f, .68f, TextAnchor.MiddleCenter);
             _analysisIntel = Label(board, "Confidence", "", 10, .3f, .567f, .7f, .615f, TextAnchor.MiddleCenter);
             Surface(board, "StarterRule", Rule, .02f, .555f, .98f, .558f);
             _ownStarter = CreateStarter(board, "OwnStarter", .02f, .465f, OwnBlue, 0);

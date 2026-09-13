@@ -497,13 +497,7 @@ namespace Baseball.Presentation.Owner
             card.Position == Baseball.Core.Players.PlayerPosition.StartingPitcher ||
             card.Position == Baseball.Core.Players.PlayerPosition.ReliefPitcher;
 
-        private static string DescribeAbility(PlayerAbility ability) => ability switch
-        {
-            PlayerAbility.Contact => "교타력", PlayerAbility.Power => "장타력", PlayerAbility.Speed => "주력",
-            PlayerAbility.Bunt => "번트력", PlayerAbility.Defense => "수비력", PlayerAbility.BatterMental => "타자 정신력",
-            PlayerAbility.Stamina => "체력", PlayerAbility.Velocity => "구속", PlayerAbility.Stuff => "구위",
-            PlayerAbility.Breaking => "변화구", PlayerAbility.Control => "제구력", _ => "투수 정신력"
-        };
+        private static string DescribeAbility(PlayerAbility ability) => PlayerAbilityCatalog.GetDisplayName(ability);
 
         private static string DescribeStudy(string id) =>
             Baseball.Core.Historical.OwnerCardGrowthBalanceTable.CreateDefault().GetStudyProgram(id).DisplayName;

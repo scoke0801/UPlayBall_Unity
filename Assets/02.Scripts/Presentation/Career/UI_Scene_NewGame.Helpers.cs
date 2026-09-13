@@ -162,7 +162,7 @@ namespace Baseball.Presentation.Career
             }
             if (_manager.PlayerType == PlayerType.Pitcher)
                 return new[] { "파워 피처", "제구형", "변화구형", "이닝이터" }[highest];
-            return new[] { "교타자", "장타자", "선구안형", "호타준족", "수비형", "강한 어깨" }[highest];
+            return new[] { "교타자", "장타자", "선구안형", "호타준족", "수비형", "번트형" }[highest];
         }
 
         private string GetRoleSuitabilityLabel()
@@ -247,9 +247,9 @@ namespace Baseball.Presentation.Career
         private string GetCreationAttributeSummary(int[] values)
         {
             if (_manager.PlayerType == PlayerType.Pitcher)
-                return $"구위 {values[0]}     제구 {values[1]}     변화 {values[2]}     체력 {values[3]}";
-            return $"컨택 {values[0]}     파워 {values[1]}     선구안 {values[2]}\n" +
-                   $"주루 {values[3]}     수비 {values[4]}     송구 {values[5]}";
+                return $"구위 {values[0]}     제구력 {values[1]}     변화구 {values[2]}     체력 {values[3]}";
+            return $"교타력 {values[0]}     장타력 {values[1]}     정신력 {values[2]}\n" +
+                   $"주력 {values[3]}     수비력 {values[4]}     번트 {values[5]}";
         }
 
         private string GetCreationDetailSummary(CareerCreationDraft draft)
@@ -358,7 +358,7 @@ namespace Baseball.Presentation.Career
             return style switch
             {
                 BatterStyle.Contact => "정확한 타격과 인플레이를 중시합니다.",
-                BatterStyle.Power => "파워를 활용해 장타를 노립니다.",
+                BatterStyle.Power => "장타력을 활용해 장타를 노립니다.",
                 BatterStyle.Patient => "볼을 골라 유리한 카운트를 만듭니다.",
                 BatterStyle.Aggressive => "빠른 카운트부터 과감하게 타격합니다.",
                 _ => "상황에 따라 치우치지 않게 대응합니다."

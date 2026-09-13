@@ -614,15 +614,7 @@ namespace Baseball.Presentation.Owner
         /// <summary>PlayerAbility를 플레이어용 한국어 이름으로 변환한다.</summary>
         public static string DescribeAbility(PlayerAbility ability)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "교타력", PlayerAbility.Power => "장타력",
-                PlayerAbility.Speed => "주력", PlayerAbility.Bunt => "번트력",
-                PlayerAbility.Defense => "수비력", PlayerAbility.BatterMental => "타자 정신력",
-                PlayerAbility.Stamina => "체력", PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위", PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구력", _ => "투수 정신력"
-            };
+            return PlayerAbilityCatalog.GetDisplayName(ability);
         }
 
         private static bool IsPitcher(OwnerCollectionCardSnapshot card) =>

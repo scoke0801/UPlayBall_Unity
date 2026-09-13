@@ -228,8 +228,8 @@ namespace Baseball.Presentation.Career
             EnsureAttributeDraft();
             CareerAttributeAllocationRule rule = _manager.CurrentCreationAttributeRule;
             string[] names = _manager.PlayerType == PlayerType.Pitcher
-                ? new[] { "구위", "제구", "변화구", "체력" }
-                : new[] { "컨택", "장타", "선구안", "주루", "수비", "번트" };
+                ? new[] { "구위", "제구력", "변화구", "체력" }
+                : new[] { "교타력", "장타력", "정신력", "주력", "수비력", "번트" };
             int remaining = rule.BonusPoints - GetSpentPoints(rule);
             CreateText(
                 "Remaining", _body,
@@ -535,12 +535,12 @@ namespace Baseball.Presentation.Career
             if (_manager.BatterAttributes.HasValue)
             {
                 BatterAttributes value = _manager.BatterAttributes.Value;
-                return $"컨택 {value.Contact}     장타 {value.Power}     주루 {value.Speed}\n\n" +
-                       $"번트 {value.Bunt}     수비 {value.Defense}     정신력 {value.Mental}";
+                return $"교타력 {value.Contact}     장타력 {value.Power}     주력 {value.Speed}\n\n" +
+                       $"번트 {value.Bunt}     수비력 {value.Defense}     정신력 {value.Mental}";
             }
             PitcherAttributes pitcher = _manager.PitcherAttributes.Value;
             return $"체력 {pitcher.Stamina}     구속 {pitcher.Velocity}     구위 {pitcher.Stuff}\n\n" +
-                   $"변화구 {pitcher.Breaking}     제구 {pitcher.Control}     정신력 {pitcher.Mental}";
+                   $"변화구 {pitcher.Breaking}     제구력 {pitcher.Control}     정신력 {pitcher.Mental}";
         }
 
         private static string GetProgressText(NewGameStep step)

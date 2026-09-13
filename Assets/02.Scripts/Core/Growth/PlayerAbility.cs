@@ -94,6 +94,24 @@ namespace Baseball.Core.Growth
     /// </summary>
     public static class PlayerAbilityCatalog
     {
+        /// <summary>타자·투수 카드가 기준으로 사용하는 한국어 능력치 명칭을 반환한다.</summary>
+        public static string GetDisplayName(PlayerAbility ability) => ability switch
+        {
+            PlayerAbility.Contact => "교타력",
+            PlayerAbility.Power => "장타력",
+            PlayerAbility.Speed => "주력",
+            PlayerAbility.Bunt => "번트",
+            PlayerAbility.Defense => "수비력",
+            PlayerAbility.BatterMental => "정신력",
+            PlayerAbility.Stamina => "체력",
+            PlayerAbility.Velocity => "구속",
+            PlayerAbility.Stuff => "구위",
+            PlayerAbility.Breaking => "변화구",
+            PlayerAbility.Control => "제구력",
+            PlayerAbility.PitcherMental => "정신력",
+            _ => "능력치"
+        };
+
         public static int AbilityCount => (int)PlayerAbility.Count;
 
         public static AbilityFamily GetFamily(PlayerAbility ability)

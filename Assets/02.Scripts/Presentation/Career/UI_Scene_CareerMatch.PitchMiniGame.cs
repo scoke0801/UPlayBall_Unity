@@ -212,7 +212,7 @@ namespace Baseball.Presentation.Career
             CreateText(
                 "PitchCommandGuide",
                 panel,
-                "예상 제구 범위 · Control · 숙련도 · 구종 난이도 반영",
+                "예상 제구 범위 · 제구력 · 숙련도 · 구종 난이도 반영",
                 12,
                 FontStyle.Normal,
                 TextAnchor.MiddleCenter,

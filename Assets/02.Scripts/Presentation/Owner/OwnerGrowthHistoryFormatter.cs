@@ -30,14 +30,7 @@ namespace Baseball.Presentation.Owner
             }
             return text.Length == 0 ? "아직 완료한 성장 과정이 없습니다." : text.ToString();
         }
-        public static string GetAbilityName(PlayerAbility ability) => ability switch
-        {
-            PlayerAbility.Contact => "정확", PlayerAbility.Power => "장타", PlayerAbility.Speed => "주력",
-            PlayerAbility.Defense => "수비", PlayerAbility.Bunt => "번트", PlayerAbility.BatterMental => "타격 정신",
-            PlayerAbility.Velocity => "구속", PlayerAbility.Stuff => "구위", PlayerAbility.Control => "제구",
-            PlayerAbility.Breaking => "변화", PlayerAbility.Stamina => "체력", PlayerAbility.PitcherMental => "투구 정신",
-            _ => "능력치"
-        };
+        public static string GetAbilityName(PlayerAbility ability) => PlayerAbilityCatalog.GetDisplayName(ability);
         /// <summary>장착 블록과 현재 인접 세트도 영구 성장 기록과 함께 조회한다.</summary>
         public static string Format(OwnedPlayerCardState owned, Baseball.Core.Balance.GrowthBalanceTable growth)
         {

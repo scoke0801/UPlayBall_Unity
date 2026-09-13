@@ -42,22 +42,7 @@ namespace Baseball.Presentation.Career
 
         private static string GetAbilityLabel(PlayerAbility ability)
         {
-            return ability switch
-            {
-                PlayerAbility.Contact => "컨택",
-                PlayerAbility.Power => "파워",
-                PlayerAbility.Speed => "주루",
-                PlayerAbility.Bunt => "번트",
-                PlayerAbility.Defense => "수비",
-                PlayerAbility.BatterMental => "선구",
-                PlayerAbility.Stamina => "체력",
-                PlayerAbility.Velocity => "구속",
-                PlayerAbility.Stuff => "구위",
-                PlayerAbility.Breaking => "변화구",
-                PlayerAbility.Control => "제구",
-                PlayerAbility.PitcherMental => "위기관리",
-                _ => "능력치 미정"
-            };
+            return PlayerAbilityCatalog.GetDisplayName(ability);
         }
 
         private static string GetPositionLabel(PlayerPosition position)

@@ -37,7 +37,7 @@ MonoBehaviour:
     _category: 0
     _tier: 0
     _referenceBehavior: "1~3\uD68C \uACF5\uACA9 \uC9D1\uC911"
-    _projectBalanceValue: Contact +2, Power +1
+    _projectBalanceValue: 교타력 +2, 장타력 +1
     _triggers:
     - _field: 0
       _comparison: 4
@@ -58,7 +58,7 @@ MonoBehaviour:
     _tier: 0
     _referenceBehavior: "\uC811\uC804\uC5D0\uC11C \uD22C\uC218 \uC9D1\uC911\uB825
       \uBCF4\uC870"
-    _projectBalanceValue: Control +2, Mental +1
+    _projectBalanceValue: 제구력 +2, 정신력 +1
     _triggers:
     - _field: 2
       _comparison: 2
@@ -78,7 +78,7 @@ MonoBehaviour:
     _category: 0
     _tier: 1
     _referenceBehavior: "7\uD68C \uACF5\uACA9 \uAC15\uD654"
-    _projectBalanceValue: Contact +3, Power +2
+    _projectBalanceValue: 교타력 +3, 장타력 +2
     _triggers:
     - _field: 0
       _comparison: 0
@@ -98,7 +98,7 @@ MonoBehaviour:
     _category: 0
     _tier: 2
     _referenceBehavior: "8\uD68C \uC5F4\uC138 \uACF5\uACA9 \uAC15\uD654"
-    _projectBalanceValue: Contact +6, Power +6, Mental +8
+    _projectBalanceValue: 교타력 +6, 장타력 +6, 정신력 +8
     _triggers:
     - _field: 0
       _comparison: 0
@@ -124,7 +124,7 @@ MonoBehaviour:
     _category: 0
     _tier: 2
     _referenceBehavior: "9\uD68C \uC5F4\uC138 \uACF5\uACA9 \uAC15\uD654"
-    _projectBalanceValue: Contact +5, Mental +7
+    _projectBalanceValue: 교타력 +5, 정신력 +7
     _triggers:
     - _field: 0
       _comparison: 0
@@ -148,7 +148,7 @@ MonoBehaviour:
     _category: 0
     _tier: 1
     _referenceBehavior: "3~5\uBC88 \uD0C0\uC790 \uC7A5\uD0C0 \uAC15\uD654"
-    _projectBalanceValue: Power +4
+    _projectBalanceValue: 장타력 +4
     _triggers:
     - _field: 3
       _comparison: 4
@@ -166,7 +166,7 @@ MonoBehaviour:
     _category: 0
     _tier: 1
     _referenceBehavior: "\uD6C4\uBC18 \uB300\uD0C0\uC758 \uC9D1\uC911\uB825 \uAC15\uD654"
-    _projectBalanceValue: Contact +4, Mental +4
+    _projectBalanceValue: 교타력 +4, 정신력 +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -186,7 +186,7 @@ MonoBehaviour:
     _category: 1
     _tier: 1
     _referenceBehavior: "\uC120\uBC1C\uC758 \uC911\uBC18 \uC6B4\uC601 \uBCF4\uC870"
-    _projectBalanceValue: Stamina +4, Control +2
+    _projectBalanceValue: 체력 +4, 제구력 +2
     _triggers:
     - _field: 0
       _comparison: 4
@@ -206,7 +206,7 @@ MonoBehaviour:
     _category: 1
     _tier: 2
     _referenceBehavior: "\uD6C4\uBC18 \uC120\uBC1C \uD22C\uC218 \uC720\uC9C0"
-    _projectBalanceValue: Stamina +6, Mental +4
+    _projectBalanceValue: 체력 +6, 정신력 +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -227,7 +227,7 @@ MonoBehaviour:
     _category: 1
     _tier: 2
     _referenceBehavior: "\uD6C4\uBC18 \uBD88\uD39C \uC804\uB825 \uAC15\uD654"
-    _projectBalanceValue: Stuff +4, Control +4
+    _projectBalanceValue: 구위 +4, 제구력 +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -248,7 +248,7 @@ MonoBehaviour:
     _category: 1
     _tier: 2
     _referenceBehavior: "9\uD68C \uB9AC\uB4DC \uB9C8\uBB34\uB9AC \uAC15\uD654"
-    _projectBalanceValue: Stuff +5, Mental +5
+    _projectBalanceValue: 구위 +5, 정신력 +5
     _triggers:
     - _field: 0
       _comparison: 3
@@ -272,7 +272,7 @@ MonoBehaviour:
     _category: 1
     _tier: 1
     _referenceBehavior: "\uB4DD\uC810\uAD8C \uC704\uAE30 \uC81C\uAD6C \uAC15\uD654"
-    _projectBalanceValue: Control +4
+    _projectBalanceValue: 제구력 +4
     _triggers:
     - _field: 4
       _comparison: 0
@@ -290,7 +290,7 @@ MonoBehaviour:
     _category: 2
     _tier: 0
     _referenceBehavior: "\uCD08\uBC18 \uC0C1\uB300 \uC120\uBC1C \uACF5\uB7B5"
-    _projectBalanceValue: Contact +2
+    _projectBalanceValue: 교타력 +2
     _triggers:
     - _field: 0
       _comparison: 4
@@ -308,7 +308,7 @@ MonoBehaviour:
     _category: 2
     _tier: 0
     _referenceBehavior: "\uD6C4\uBC18 \uD0C0\uC790\uC758 \uC9D1\uC911\uB825 \uAC15\uD654"
-    _projectBalanceValue: Contact +2, Mental +2
+    _projectBalanceValue: 교타력 +2, 정신력 +2
     _triggers:
     - _field: 0
       _comparison: 3
@@ -329,7 +329,7 @@ MonoBehaviour:
     _category: 2
     _tier: 1
     _referenceBehavior: "\uD6C4\uBC18 \uC0C1\uB300 \uBD88\uD39C\uC744 \uD754\uB4E0\uB2E4"
-    _projectBalanceValue: Opponent Control -3
+    _projectBalanceValue: 상대 제구력 -3
     _triggers:
     - _field: 0
       _comparison: 3
@@ -349,7 +349,7 @@ MonoBehaviour:
     _tier: 3
     _referenceBehavior: "3\uC5F0\uD328 \uB4A4 \uACBD\uAE30\uC758 \uC9D1\uC911\uB825
       \uAC15\uD654"
-    _projectBalanceValue: Mental +5
+    _projectBalanceValue: 정신력 +5
     _triggers: []
     _target: 2
     _statModifiers:
@@ -364,7 +364,7 @@ MonoBehaviour:
     _tier: 0
     _referenceBehavior: "\uD6C4\uBC18 \uC811\uC804\uC5D0\uC11C \uD0C0\uC120 \uC9D1\uC911\uB825\uC744
       \uB04C\uC5B4\uC62C\uB9B0\uB2E4"
-    _projectBalanceValue: Batter Mental +2
+    _projectBalanceValue: 정신력 +2
     _triggers:
     - _field: 0
       _comparison: 3
@@ -387,7 +387,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uD6C4\uBC18 \uC5F4\uC138\uC5D0\uC11C \uCD9C\uB8E8\uC640
       \uC9D1\uC911\uB825\uC744 \uD568\uAED8 \uBCF4\uAC15\uD55C\uB2E4"
-    _projectBalanceValue: Contact +2, Batter Mental +3
+    _projectBalanceValue: 교타력 +2, 정신력 +3
     _triggers:
     - _field: 0
       _comparison: 3
@@ -412,7 +412,7 @@ MonoBehaviour:
     _tier: 0
     _referenceBehavior: "\uACBD\uAE30 \uCD08\uBC18 \uD0C0\uC120\uC758 \uCD9C\uB8E8
       \uC9D1\uC911\uB825\uC744 \uBCF4\uAC15\uD55C\uB2E4"
-    _projectBalanceValue: Contact +2
+    _projectBalanceValue: 교타력 +2
     _triggers:
     - _field: 0
       _comparison: 2
@@ -431,7 +431,7 @@ MonoBehaviour:
     _tier: 0
     _referenceBehavior: "\uB450 \uC810 \uC774\uB0B4 \uC811\uC804\uC5D0\uC11C \uD0C0\uC120\uC758
       \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Batter Mental +2
+    _projectBalanceValue: 정신력 +2
     _triggers:
     - _field: 2
       _comparison: 2
@@ -450,7 +450,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uB3D9\uC810 \uB610\uB294 \uC5F4\uC138\uC5D0\uC11C \uD0C0\uC120\uC758
       \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Batter Mental +3
+    _projectBalanceValue: 정신력 +3
     _triggers:
     - _field: 1
       _comparison: 2
@@ -469,7 +469,7 @@ MonoBehaviour:
     _tier: 0
     _referenceBehavior: "\uB4DD\uC810\uAD8C\uC5D0\uC11C \uD604\uC7AC \uD0C0\uC790\uC758
       \uC7A5\uD0C0\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Power +3
+    _projectBalanceValue: 장타력 +3
     _triggers:
     - _field: 4
       _comparison: 0
@@ -486,9 +486,9 @@ MonoBehaviour:
     _name: "\uAC81\uC5C6\uB294 \uC2E0\uC778"
     _category: 0
     _tier: 0
-    _referenceBehavior: "\uCD08\uBC18 \uD0C0\uC790\uC758 \uCEE8\uD0DD\uACFC \uC9D1\uC911\uB825\uC744
+    _referenceBehavior: "\uCD08\uBC18 \uD0C0\uC790\uC758 \uAD50\uD0C0\uB825\uACFC \uC9D1\uC911\uB825\uC744
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Contact +2, Batter Mental +2
+    _projectBalanceValue: 교타력 +2, 정신력 +2
     _triggers:
     - _field: 0
       _comparison: 2
@@ -509,7 +509,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uD6C4\uBC18 \uD0C0\uC120\uC758 \uC9D1\uC911\uB825\uC744
       \uD06C\uAC8C \uB192\uC778\uB2E4"
-    _projectBalanceValue: Batter Mental +4
+    _projectBalanceValue: 정신력 +4
     _triggers:
     - _field: 0
       _comparison: 3
@@ -526,9 +526,9 @@ MonoBehaviour:
     _name: "\uBBFF\uC74C\uC758 \uC57C\uAD6C"
     _category: 0
     _tier: 0
-    _referenceBehavior: "\uC911\uC2EC \uD0C0\uC120\uC758 \uCEE8\uD0DD\uACFC \uC9D1\uC911\uB825\uC744
+    _referenceBehavior: "\uC911\uC2EC \uD0C0\uC120\uC758 \uAD50\uD0C0\uB825\uACFC \uC9D1\uC911\uB825\uC744
       \uBCF4\uAC15\uD55C\uB2E4"
-    _projectBalanceValue: Contact +2, Batter Mental +1
+    _projectBalanceValue: 교타력 +2, 정신력 +1
     _triggers:
     - _field: 3
       _comparison: 4
@@ -549,7 +549,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "4\uBC88 \uD0C0\uC790\uC758 \uC7A5\uD0C0\uB825\uACFC \uC9D1\uC911\uB825\uC744
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Power +4, Batter Mental +2
+    _projectBalanceValue: 장타력 +4, 정신력 +2
     _triggers:
     - _field: 3
       _comparison: 0
@@ -568,9 +568,9 @@ MonoBehaviour:
     _name: "\uC2B9\uB9AC\uC758 \uAC01\uC624"
     _category: 0
     _tier: 1
-    _referenceBehavior: "\uC5F4\uC138\uC5D0\uC11C \uD0C0\uC120\uC758 \uCEE8\uD0DD\uACFC
+    _referenceBehavior: "\uC5F4\uC138\uC5D0\uC11C \uD0C0\uC120\uC758 \uAD50\uD0C0\uB825\uACFC
       \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Contact +3, Batter Mental +3
+    _projectBalanceValue: 교타력 +3, 정신력 +3
     _triggers:
     - _field: 1
       _comparison: 2
@@ -590,8 +590,8 @@ MonoBehaviour:
     _category: 0
     _tier: 0
     _referenceBehavior: "\uB4DD\uC810\uAD8C\uC5D0\uC11C \uD604\uC7AC \uD0C0\uC790\uC758
-      \uCEE8\uD0DD\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Contact +3
+      \uAD50\uD0C0\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: 교타력 +3
     _triggers:
     - _field: 4
       _comparison: 0
@@ -609,8 +609,8 @@ MonoBehaviour:
     _category: 0
     _tier: 1
     _referenceBehavior: "\uC88C\uC644 \uD22C\uC218\uB97C \uC0C1\uB300\uD558\uB294
-      \uD0C0\uC790\uC758 \uCEE8\uD0DD\uACFC \uC7A5\uD0C0\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Contact +3, Power +2
+      \uD0C0\uC790\uC758 \uAD50\uD0C0\uB825\uACFC \uC7A5\uD0C0\uB825\uC744 \uB192\uC778\uB2E4"
+    _projectBalanceValue: 교타력 +3, 장타력 +2
     _triggers:
     - _field: 5
       _comparison: 0
@@ -629,9 +629,9 @@ MonoBehaviour:
     _name: "\uCD08\uC804\uBC15\uC0B4"
     _category: 0
     _tier: 1
-    _referenceBehavior: "1\uD68C \uD0C0\uC120\uC758 \uCEE8\uD0DD\uACFC \uC7A5\uD0C0\uB825\uC744
+    _referenceBehavior: "1\uD68C \uD0C0\uC120\uC758 \uAD50\uD0C0\uB825\uACFC \uC7A5\uD0C0\uB825\uC744
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Contact +3, Power +2
+    _projectBalanceValue: 교타력 +3, 장타력 +2
     _triggers:
     - _field: 0
       _comparison: 0
@@ -650,9 +650,9 @@ MonoBehaviour:
     _name: "\uD558\uC704\uD0C0\uC120 \uC5F0\uACB0"
     _category: 0
     _tier: 0
-    _referenceBehavior: "7~9\uBC88 \uD0C0\uC790\uC758 \uCEE8\uD0DD\uACFC \uC8FC\uB8E8\uB97C
+    _referenceBehavior: "7~9\uBC88 \uD0C0\uC790\uC758 \uAD50\uD0C0\uB825\uACFC \uC8FC\uB8E8\uB97C
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Contact +3, Speed +2
+    _projectBalanceValue: 교타력 +3, 주력 +2
     _triggers:
     - _field: 3
       _comparison: 4
@@ -672,7 +672,7 @@ MonoBehaviour:
     _category: 1
     _tier: 0
     _referenceBehavior: "\uBD88\uD39C \uD22C\uC218\uC758 \uAD6C\uC704\uB97C \uB192\uC778\uB2E4"
-    _projectBalanceValue: Stuff +3
+    _projectBalanceValue: 구위 +3
     _triggers:
     - _field: 6
       _comparison: 1
@@ -690,7 +690,7 @@ MonoBehaviour:
     _category: 1
     _tier: 0
     _referenceBehavior: "\uC120\uBC1C \uD22C\uC218\uC758 \uC81C\uAD6C\uB97C \uB192\uC778\uB2E4"
-    _projectBalanceValue: Control +3
+    _projectBalanceValue: 제구력 +3
     _triggers:
     - _field: 6
       _comparison: 0
@@ -709,7 +709,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uC911\uAC04 \uACC4\uD22C\uC9C4\uC758 \uAD6C\uC704\uC640
       \uC81C\uAD6C\uB97C \uB192\uC778\uB2E4"
-    _projectBalanceValue: Stuff +3, Control +2
+    _projectBalanceValue: 구위 +3, 제구력 +2
     _triggers:
     - _field: 6
       _comparison: 4
@@ -730,7 +730,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uD604\uC7AC \uD22C\uC218\uC758 \uC9D1\uC911\uB825\uC744
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Pitcher Mental +4
+    _projectBalanceValue: 정신력 +4
     _triggers: []
     _target: 1
     _statModifiers:
@@ -745,7 +745,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uD55C \uC810 \uCC28 \uC774\uB0B4\uC5D0\uC11C \uAD6C\uC704\uC640
       \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Stuff +3, Pitcher Mental +3
+    _projectBalanceValue: 구위 +3, 정신력 +3
     _triggers:
     - _field: 2
       _comparison: 2
@@ -766,7 +766,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uC14B\uC5C5 \uD22C\uC218\uC758 \uAD6C\uC704\uC640 \uC81C\uAD6C\uB97C
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Stuff +4, Control +2
+    _projectBalanceValue: 구위 +4, 제구력 +2
     _triggers:
     - _field: 6
       _comparison: 0
@@ -787,7 +787,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uB9C8\uBB34\uB9AC \uD22C\uC218\uC758 \uC81C\uAD6C\uC640
       \uC9D1\uC911\uB825\uC744 \uB192\uC778\uB2E4"
-    _projectBalanceValue: Control +3, Pitcher Mental +4
+    _projectBalanceValue: 제구력 +3, 정신력 +4
     _triggers:
     - _field: 6
       _comparison: 0
@@ -808,7 +808,7 @@ MonoBehaviour:
     _tier: 0
     _referenceBehavior: "6~9\uBC88 \uD0C0\uC790\uB97C \uC0C1\uB300\uB85C \uC81C\uAD6C\uB97C
       \uB192\uC778\uB2E4"
-    _projectBalanceValue: Control +3
+    _projectBalanceValue: 제구력 +3
     _triggers:
     - _field: 3
       _comparison: 4
@@ -825,9 +825,9 @@ MonoBehaviour:
     _name: "\uB04A\uC784\uC5C6\uB294 \uD30C\uC6B8\uD301"
     _category: 1
     _tier: 2
-    _referenceBehavior: "\uD6C4\uBC18 \uC0C1\uB300 \uD0C0\uC120\uC758 \uCEE8\uD0DD\uC744
+    _referenceBehavior: "\uD6C4\uBC18 \uC0C1\uB300 \uD0C0\uC120\uC758 \uAD50\uD0C0\uB825\uC744
       \uB5A8\uC5B4\uB728\uB9B0\uB2E4"
-    _projectBalanceValue: Opponent Contact -3
+    _projectBalanceValue: 상대 교타력 -3
     _triggers:
     - _field: 0
       _comparison: 3
@@ -846,7 +846,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uCD08\uBC18 \uC0C1\uB300 \uC120\uBC1C\uC758 \uC9D1\uC911\uB825\uC744
       \uB5A8\uC5B4\uB728\uB9B0\uB2E4"
-    _projectBalanceValue: Opponent Pitcher Mental -3
+    _projectBalanceValue: 상대 정신력 -3
     _triggers:
     - _field: 0
       _comparison: 2
@@ -869,7 +869,7 @@ MonoBehaviour:
     _tier: 1
     _referenceBehavior: "\uB4DD\uC810\uAD8C\uC5D0\uC11C \uC0C1\uB300 \uD0C0\uC790\uC758
       \uC9D1\uC911\uB825\uC744 \uB5A8\uC5B4\uB728\uB9B0\uB2E4"
-    _projectBalanceValue: Opponent Batter Mental -3
+    _projectBalanceValue: 상대 정신력 -3
     _triggers:
     - _field: 4
       _comparison: 0
