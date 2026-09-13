@@ -55,7 +55,7 @@ namespace Baseball.Game.Historical
         {
             try
             {
-                while (!_session.IsCompleted && Volatile.Read(ref _stopRequested) == 0)
+                while (!_session.IsCompleted && !_session.IsStopped && Volatile.Read(ref _stopRequested) == 0)
                 {
                     ManagerRegularSeasonSimulationStepResult step = _session.AdvanceNextStep();
                     if (step.MatchResult != null)

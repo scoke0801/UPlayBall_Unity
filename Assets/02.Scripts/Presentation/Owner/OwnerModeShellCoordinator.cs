@@ -188,7 +188,7 @@ namespace Baseball.Presentation.Owner
 
         private void ShowHome(OwnerHomePresentationModel home)
         {
-            _practiceView?.gameObject.SetActive(false);
+            HidePracticeMenu();
             if (_navigationState != null && !string.Equals(ActiveRouteId, HomeRouteId, StringComparison.Ordinal))
                 _navigationState.Navigate(HomeRouteId);
             _expansionWorkspace.HideAll();
@@ -370,6 +370,11 @@ namespace Baseball.Presentation.Owner
                 if (Application.isPlaying) Destroy(_seasonSimulationPopup.gameObject);
                 else DestroyImmediate(_seasonSimulationPopup.gameObject);
             }
+            if (_seasonAdvancePopup != null)
+            {
+                if (Application.isPlaying) Destroy(_seasonAdvancePopup.gameObject);
+                else DestroyImmediate(_seasonAdvancePopup.gameObject);
+            }
             if (_seasonReviewPopup != null)
             {
                 _seasonReviewPopup.PostseasonRequested -= HandlePostseasonRequested;
@@ -488,8 +493,8 @@ namespace Baseball.Presentation.Owner
 
         private void HandleBackRequested()
         {
+            if (_seasonAdvancePopup != null) { _seasonAdvancePopup.Close(); return; }
             if (_isPracticeMatchActive || _isPreparingPractice) return;
-            if (_practiceView != null && _practiceView.gameObject.activeInHierarchy && _practiceView.TryGoBack()) return;
             if (TryCloseFrontManagerPopup()) return;
             if (_shell == null || !_shell.gameObject.activeInHierarchy ||
                 _isOwnerMatchVisible || _isTransitioningToOwnerMatch)
@@ -498,6 +503,13 @@ namespace Baseball.Presentation.Owner
             if (_isSeasonSimulationVisible)
             {
                 HandleStopSeasonSimulationRequested();
+                return;
+            }
+
+            // 연습경기 헤더의 '홈으로'는 내부 상세 화면이나 방문 기록과 관계없이 홈으로 이동한다.
+            if (_navigationState?.ActiveRouteId == OwnerNavigationRoutes.LegendaryPractice)
+            {
+                HandleNavigationRequested(HomeRouteId);
                 return;
             }
 
@@ -523,6 +535,8 @@ namespace Baseball.Presentation.Owner
         private void HandleCancelRequested()
         {
             if (_supportLossPopup != null) { _cancelSupportLoss?.Invoke(); return; }
+            if (_isPracticeMatchActive || _isPreparingPractice) return;
+            if (_practiceView != null && _practiceView.gameObject.activeInHierarchy && _practiceView.TryGoBack()) return;
             if (!IsGuideHidden && _ownerGuide != null && _ownerGuide.TryGoBack()) return;
             if (TryCloseFrontManagerPopup()) return;
             if (_celebrationPopup != null && _celebrationPopup.gameObject.activeInHierarchy)
@@ -750,11 +764,20 @@ namespace Baseball.Presentation.Owner
             StartOwnerMatchSpectator();
         }
 
+        private UI_Popup_OwnerSeasonAdvance _seasonAdvancePopup;
+
         private void HandleCompleteSeasonRequested()
+        {
+            if (_isSeasonSimulationVisible || _seasonAdvancePopup != null) return;
+            _seasonAdvancePopup = UI_Popup_OwnerSeasonAdvance.Show(_shell.PopupHost,
+                _manager.Runtime.ManagerMode.LiveSeason, StartSeasonSimulation);
+        }
+
+        private void StartSeasonSimulation(int weeks)
         {
             if (_isSeasonSimulationVisible)
                 return;
-            if (!_manager.BeginRegularSeasonSimulationInBackground())
+            if (!_manager.BeginRegularSeasonSimulationInBackground(weeks))
             {
                 ReportSeasonProgressError("시즌 진행을 시작하지 못했습니다. 선수 배치와 남은 일정을 확인해 주세요.");
                 return;
@@ -827,6 +850,11 @@ namespace Baseball.Presentation.Owner
                 return;
             }
 
+            if (_manager.RegularSeasonSimulationProgress.Status == ManagerRegularSeasonSimulationStatus.ReachedTarget)
+            {
+                ShowFeedback($"선택한 기간의 진행을 마쳤습니다. 내 구단 {_manager.RegularSeasonSimulationProgress.PlayerGamesSimulated}경기 결과가 반영됐습니다.", false);
+                return;
+            }
             ReportSeasonProgressError("시즌 진행이 중단됐습니다. 일정·결과에서 완료된 경기를 확인해 주세요.");
         }
 
@@ -1214,6 +1242,14 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.DugoutConfigurationConfirmed += HandleDugoutConfigurationConfirmed;
             _expansionWorkspace.TeamColorSelectionConfirmed += HandleTeamColorSelectionConfirmed;
             _expansionWorkspace.TacticSelectionConfirmed += HandleTacticSelectionConfirmed;
+            _expansionWorkspace.AutomaticTacticPreview = options => _manager.PreviewAutomaticTactics(options);
+            _expansionWorkspace.AutomaticTacticApply = plans =>
+            {
+                _manager.ConfigureAutomaticTactics(plans);
+                int changed = 0;
+                foreach (var plan in plans) if (plan.HasChanges) changed++;
+                ShowFeedback($"{changed}경기의 작전 카드를 자동 설정했습니다.", false);
+            };
             _expansionWorkspace.CardTrainingRequested += HandleCardTrainingRequested;
             _expansionWorkspace.CardStudyRequested += HandleCardStudyRequested;
             _expansionWorkspace.CardSkillPlacementRequested += HandleSkillPlacementRequested;
@@ -1307,6 +1343,8 @@ namespace Baseball.Presentation.Owner
             _expansionWorkspace.DugoutConfigurationConfirmed -= HandleDugoutConfigurationConfirmed;
             _expansionWorkspace.TeamColorSelectionConfirmed -= HandleTeamColorSelectionConfirmed;
             _expansionWorkspace.TacticSelectionConfirmed -= HandleTacticSelectionConfirmed;
+            _expansionWorkspace.AutomaticTacticPreview = null;
+            _expansionWorkspace.AutomaticTacticApply = null;
             _expansionWorkspace.CardTrainingRequested -= HandleCardTrainingRequested;
             _expansionWorkspace.CardStudyRequested -= HandleCardStudyRequested;
             _expansionWorkspace.CardSkillPlacementRequested -= HandleSkillPlacementRequested;
@@ -1388,7 +1426,7 @@ namespace Baseball.Presentation.Owner
                     season.OriginYear.ToString(), "Cost " + season.Cost,
                     item.GradeLabel, item.IsNew ? "신규 영입" : "중복 획득",
                 portraitAssetKey: season.PlayerSeasonId, isInteractable: false, frameEdition: card.Edition, cost: season.Cost,
-                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth, _manager.TraitBalance));
+                growthBadges: OwnerCardGrowthBadgeBuilder.Build(_manager.Runtime, card.CardId, _manager.Balance.Growth, _manager.TraitBalance, _manager.Balance.OwnerCardGrowth));
             }
             return models;
         }
@@ -1452,6 +1490,16 @@ namespace Baseball.Presentation.Owner
             ExecuteOperation(() =>
             {
                 CardEnhancementResult result = _manager.EnhanceOwnedCard(cardId);
+                if (result == CardEnhancementResult.Enhanced)
+                {
+                    var collection = _snapshotFactory.CreateCollectionSummary(_manager);
+                    for (int index = 0; index < collection.Cards.Count; index++)
+                    {
+                        if (!string.Equals(collection.Cards[index].CardId, cardId, StringComparison.Ordinal)) continue;
+                        UI_Popup_OwnerCardSynthesis.Show(_shell.PopupHost, collection.Cards[index]);
+                        break;
+                    }
+                }
                 ShowFeedback(result switch
                 {
                     CardEnhancementResult.Enhanced => "중복 카드 1장을 사용해 강화했습니다.",

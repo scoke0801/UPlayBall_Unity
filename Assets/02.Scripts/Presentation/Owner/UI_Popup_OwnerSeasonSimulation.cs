@@ -6,6 +6,138 @@ using UnityEngine.UI;
 
 namespace Baseball.Presentation.Owner
 {
+    /// <summary>일정 라운드 기준 진행 기간과 예상 경기 수를 확인한 후 자동 진행을 요청한다.</summary>
+    public sealed class UI_Popup_OwnerSeasonAdvance : MonoBehaviour, IUiCancelHandler,
+        UnityEngine.EventSystems.ICancelHandler
+    {
+        private static readonly int[] Durations = { 1, 3, 10, 0 };
+        private readonly Button[] _choices = new Button[4];
+        private RectTransform _frame;
+        private Text _preview;
+        private Button _confirm;
+        private ManagerLiveSeasonState _season;
+        private Action<int> _start;
+        private GameObject _previousFocus;
+        private int _selected;
+        private bool _isClosing;
+
+        /// <summary>기본 1주 선택 상태로 팝업을 열고 실행 전 범위를 보여 준다.</summary>
+        public static UI_Popup_OwnerSeasonAdvance Show(RectTransform host, ManagerLiveSeasonState season, Action<int> start)
+        {
+            var root = OwnerWorkspaceUiFactory.CreateRoot(host, nameof(UI_Popup_OwnerSeasonAdvance), false);
+            var blocker = root.gameObject.AddComponent<Image>();
+            blocker.color = CareerUiTheme.InputBlocker;
+            root.gameObject.AddComponent<CareerUiVisualElement>().Initialize(CareerUiVisualRole.InputBlocker);
+            var view = root.gameObject.AddComponent<UI_Popup_OwnerSeasonAdvance>();
+            view._season = season;
+            view._start = start;
+            view._previousFocus = UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject;
+            view.Build();
+            return view;
+        }
+
+        private void Build()
+        {
+            var panel = OwnerWorkspaceUiFactory.CreatePanel(transform, "SeasonAdvancePanel", "시즌 진행");
+            _frame = panel.Root;
+            _frame.anchorMin = _frame.anchorMax = _frame.pivot = new Vector2(.5f, .5f);
+            _frame.anchoredPosition = Vector2.zero;
+            UIOwnerFrontOfficePanel.ApplyFramedSurface(_frame);
+            var body = panel.Content;
+            Label(body, "Heading", "얼마나 진행할까요?", .04f, .83f, .96f, .97f, 24);
+            Label(body, "Description", "현재 편성과 작전으로 경기를 자동 진행합니다.", .04f, .73f, .96f, .83f, 16);
+            for (int i = 0; i < _choices.Length; i++)
+            {
+                int index = i;
+                float left = .04f + i * .235f;
+                _choices[i] = OwnerDugoutDetailUiFactory.CreateButton(body, "Duration" + i,
+                    i == 3 ? "전체" : Durations[i] + "주", left, .49f, left + .215f, .69f,
+                    () => SelectDuration(index));
+            }
+            _preview = Label(body, "Preview", "", .04f, .29f, .96f, .46f, 18);
+            Label(body, "Scope", $"1주 = 내 구단 {ManagerLiveSeasonState.GamesPerOperationWeek}경기 · 전체는 정규시즌 종료까지\n배치한 작전카드가 사용되며, 중단해도 완료한 경기 결과는 유지됩니다.",
+                .04f, .13f, .96f, .28f, 14);
+            var cancel = OwnerDugoutDetailUiFactory.CreateButton(body, "Cancel", "취소", .45f, .01f, .63f, .12f, Close);
+            _confirm = OwnerDugoutDetailUiFactory.CreateButton(body, "Start", "1주 진행", .65f, .01f, .96f, .12f, Confirm);
+            OwnerUiButtonSkin.Apply(cancel, OwnerButtonRole.Secondary);
+            OwnerUiButtonSkin.Apply(_confirm, OwnerButtonRole.Primary);
+            var sequence = new UnityEngine.UI.Selectable[] { _choices[0], _choices[1], _choices[2], _choices[3], _confirm, cancel };
+            for (int i = 0; i < sequence.Length; i++)
+                sequence[i].navigation = new Navigation { mode = Navigation.Mode.Explicit,
+                    selectOnLeft = sequence[(i + sequence.Length - 1) % sequence.Length],
+                    selectOnUp = sequence[(i + sequence.Length - 1) % sequence.Length],
+                    selectOnRight = sequence[(i + 1) % sequence.Length],
+                    selectOnDown = sequence[(i + 1) % sequence.Length] };
+            Resize();
+            SelectDuration(0);
+            _choices[0].Select();
+        }
+
+        private void SelectDuration(int index)
+        {
+            _selected = index;
+            for (int i = 0; i < _choices.Length; i++)
+            {
+                string caption = i == 3 ? "전체" : Durations[i] + "주";
+                _choices[i].GetComponentInChildren<Text>().text = i == index ? caption + " · 선택" : caption;
+                OwnerUiButtonSkin.Apply(_choices[i], i == index ? OwnerButtonRole.Secondary : OwnerButtonRole.Quiet);
+                OwnerUiButtonSkin.SetSelected(_choices[i], i == index);
+            }
+            int first = _season.NextPlayerGame?.Round ?? 0;
+            int last = ManagerRegularSeasonSimulationSession.ResolveThroughRound(_season, Durations[index]);
+            int count = 0, end = first;
+            foreach (var game in _season.Schedule.Games)
+            {
+                if (game.IsCompleted || !game.IncludesTeam(_season.PlayerTeamId) || game.Round > last) continue;
+                count++;
+                end = Math.Max(end, game.Round);
+            }
+            _preview.text = count > 0 ? $"내 구단 {count}경기 예정  ·  {first}~{end}라운드" +
+                (last == int.MaxValue ? "\n정규시즌 종료까지 진행합니다." : string.Empty)
+                : "내 구단 일정 완료 · 다른 리그의 남은 일정을 마감합니다.";
+            _confirm.GetComponentInChildren<Text>().text = index == 3 ? "정규시즌 끝까지 진행" : Durations[index] + "주 진행";
+        }
+
+        private void Confirm()
+        {
+            if (_isClosing) return;
+            var start = _start;
+            int weeks = Durations[_selected];
+            Close();
+            start?.Invoke(weeks);
+        }
+
+        private void LateUpdate() => Resize();
+        private void Resize()
+        {
+            if (_frame == null) return;
+            var bounds = ((RectTransform)transform).rect;
+            _frame.sizeDelta = new Vector2(Mathf.Min(760, bounds.width - 32), Mathf.Min(460, bounds.height - 32));
+        }
+
+        /// <summary>실행하지 않고 닫으며 진입 버튼의 입력 포커스를 복원한다.</summary>
+        public void Close()
+        {
+            if (_isClosing) return;
+            _isClosing = true;
+            gameObject.SetActive(false);
+            if (_previousFocus != null && _previousFocus.activeInHierarchy)
+                UnityEngine.EventSystems.EventSystem.current?.SetSelectedGameObject(_previousFocus);
+            Destroy(gameObject);
+        }
+
+        public bool TryHandleCancel() { Close(); return true; }
+        public void OnCancel(UnityEngine.EventSystems.BaseEventData eventData) { Close(); eventData.Use(); }
+
+        private static Text Label(Transform parent, string name, string value, float left, float bottom, float right, float top, int size)
+        {
+            var text = OwnerDugoutDetailUiFactory.CreateLabel(parent, name, value, left, bottom, right, top, size);
+            OwnerDashboardStyle.SetDataText(text);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            return text;
+        }
+    }
+
     /// <summary>구단주 정규시즌 자동 진행의 현재 라운드·대진·처리량을 Owner Skin으로 표시한다.</summary>
     [DisallowMultipleComponent]
     public sealed class UI_Popup_OwnerSeasonSimulation : MonoBehaviour, UnityEngine.EventSystems.ICancelHandler

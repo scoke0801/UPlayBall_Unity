@@ -11,7 +11,8 @@ namespace Baseball.Game.Historical
         Completed = 2,
         Faulted = 3,
         StoppedByUser = 4,
-        AbortedBySceneUnload = 5
+        AbortedBySceneUnload = 5,
+        ReachedTarget = 6
     }
 
     /// <summary>구단주 정규시즌 자동 진행 팝업이 Runtime을 직접 읽지 않도록 안전 단위 진행값을 복사한다.</summary>
@@ -71,7 +72,7 @@ namespace Baseball.Game.Historical
         public int SeasonRank { get; }
         public bool IsCompleted => Status == ManagerRegularSeasonSimulationStatus.Completed;
         public bool IsStopped => Status is ManagerRegularSeasonSimulationStatus.StoppedByUser or
-            ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload;
+            ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload or ManagerRegularSeasonSimulationStatus.ReachedTarget;
     }
 
     /// <summary>한 프레임에서 확정한 플레이어 경기와 갱신된 시즌 진행값을 함께 반환한다.</summary>
@@ -99,6 +100,7 @@ namespace Baseball.Game.Historical
         private readonly ManagerLiveSeasonState _season;
         private readonly int _completedLeagueGamesBefore;
         private readonly int _totalPlayerGames;
+        private readonly int _throughRound;
         private readonly int _totalLeagueGames;
         private readonly int _completedPlayerLeagueGamesBefore;
         private readonly int _totalPlayerLeagueGames;
@@ -117,7 +119,7 @@ namespace Baseball.Game.Historical
 
         public ManagerRegularSeasonSimulationSession(
             ManagerHistoricalRuntimeState runtime,
-            ManagerModeMatchService matchService)
+            ManagerModeMatchService matchService, int weeks = 0)
         {
             _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
             _matchService = matchService ?? throw new ArgumentNullException(nameof(matchService));
@@ -126,6 +128,7 @@ namespace Baseball.Game.Historical
 
             _season = runtime.ManagerMode.LiveSeason;
             _nextPlayerGame = _season.NextPlayerGame;
+            _throughRound = ResolveThroughRound(_season, weeks);
             ResolvePlayerSeasonRecord(_season, out _seasonWins, out _seasonLosses, out _seasonDraws);
             _playerIds = ManagerModeMatchService.PlayerIdMap.Create(runtime);
             _aiScheduleCursor = ManagerModeMatchService.AiScheduleCursor.Create(runtime);
@@ -134,16 +137,41 @@ namespace Baseball.Game.Historical
             _completedPlayerLeagueGamesBefore = CountCompletedGames(_season.Schedule.Games);
             _totalPlayerLeagueGames = _season.Schedule.Games.Count - _completedPlayerLeagueGamesBefore;
             _totalLeagueGames = CountWorldGames(runtime, completedOnly: false) - _completedLeagueGamesBefore;
+            if (_throughRound != int.MaxValue)
+            {
+                _totalPlayerGames = CountRemainingThroughRound(_season, _throughRound, true);
+                _totalPlayerLeagueGames = CountRemainingThroughRound(_season, _throughRound, false);
+                _totalLeagueGames = 0;
+                if (runtime.LeagueWorld == null) _totalLeagueGames = _totalPlayerLeagueGames;
+                else foreach (var group in runtime.LeagueWorld.Groups)
+                    _totalLeagueGames += CountRemainingThroughRound(group.Season, _throughRound, false);
+            }
             _status = _totalLeagueGames == 0
                 ? ManagerRegularSeasonSimulationStatus.Completed
                 : ManagerRegularSeasonSimulationStatus.Ready;
         }
 
         public ManagerRegularSeasonSimulationStatus Status => _status;
+
+        /// <summary>운영 주당 구단 경기 수를 기준으로 미리보기와 실행이 동일한 종료 라운드를 사용한다. 0주는 전체다.</summary>
+        public static int ResolveThroughRound(ManagerLiveSeasonState season, int weeks)
+        {
+            if (season == null) throw new ArgumentNullException(nameof(season));
+            if (weeks < 0) throw new ArgumentOutOfRangeException(nameof(weeks));
+            if (weeks == 0) return int.MaxValue;
+            int targetGames = checked(weeks * ManagerLiveSeasonState.GamesPerOperationWeek);
+            // 휴식 라운드가 있는 일정도 정확히 구단 경기 수만큼 진행한다.
+            var rounds = new List<int>();
+            foreach (var game in season.Schedule.Games)
+                if (!game.IsCompleted && game.IncludesTeam(season.PlayerTeamId)) rounds.Add(game.Round);
+            rounds.Sort();
+            // 마지막 경기까지 선택하면 다른 조의 잔여 일정도 마감해 기존 시즌 결산으로 이어진다.
+            return rounds.Count <= targetGames ? int.MaxValue : rounds[targetGames - 1];
+        }
         public Exception Fault => _fault;
         public bool IsCompleted => _status == ManagerRegularSeasonSimulationStatus.Completed;
         public bool IsStopped => _status is ManagerRegularSeasonSimulationStatus.StoppedByUser or
-            ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload;
+            ManagerRegularSeasonSimulationStatus.AbortedBySceneUnload or ManagerRegularSeasonSimulationStatus.ReachedTarget;
 
         /// <summary>UI가 매 프레임 양보할 수 있도록 Detailed 경기를 최대 한 건만 확정한다.</summary>
         public ManagerRegularSeasonSimulationStepResult AdvanceNextStep()
@@ -161,7 +189,7 @@ namespace Baseball.Game.Historical
                 ScheduledGameState nextGame = _nextPlayerGame;
                 ManagerModeMatchResult matchResult = null;
                 bool didAdvanceGame = false;
-                int aiThroughRound = nextGame == null ? int.MaxValue : nextGame.Round - 1;
+                int aiThroughRound = Math.Min(_throughRound, nextGame == null ? int.MaxValue : nextGame.Round - 1);
                 if (_matchService.TrySimulateNextAiGameThrough(
                     _runtime, _playerIds, _aiScheduleCursor, aiThroughRound, out int completedAiRound,
                     out bool isPlayerLeagueGame))
@@ -171,7 +199,7 @@ namespace Baseball.Game.Historical
                     _leagueGamesSimulated++;
                     if (isPlayerLeagueGame) _playerLeagueGamesSimulated++;
                 }
-                else if (nextGame != null)
+                else if (nextGame != null && nextGame.Round <= _throughRound)
                 {
                     int completedRound = nextGame.Round;
                     matchResult = _matchService.PlayNextPlayerGameForSeasonSimulation(_runtime, _playerIds);
@@ -183,6 +211,16 @@ namespace Baseball.Game.Historical
                     _playerLeagueGamesSimulated++;
                     didAdvanceGame = true;
                     _leagueGamesSimulated++;
+                }
+
+                // 다른 조도 선택한 라운드까지 확정하고 다음 라운드 계산 전에 종료한다.
+                if (!didAdvanceGame && _throughRound != int.MaxValue)
+                {
+                    _status = _season.IsCompleted &&
+                        (_runtime.LeagueWorld == null || _runtime.LeagueWorld.IsRegularSeasonCompleted)
+                        ? ManagerRegularSeasonSimulationStatus.Completed
+                        : ManagerRegularSeasonSimulationStatus.ReachedTarget;
+                    return new ManagerRegularSeasonSimulationStepResult(CreateProgressSnapshot(), matchResult);
                 }
 
                 if (_nextPlayerGame == null && !didAdvanceGame)
@@ -295,6 +333,15 @@ namespace Baseball.Game.Historical
             IReadOnlyList<ScheduledGameState> games = season.Schedule.Games;
             for (int index = 0; index < games.Count; index++)
                 if (!games[index].IsCompleted && games[index].IncludesTeam(season.PlayerTeamId)) count++;
+            return count;
+        }
+
+        private static int CountRemainingThroughRound(ManagerLiveSeasonState season, int throughRound, bool playerOnly)
+        {
+            int count = 0;
+            foreach (var game in season.Schedule.Games)
+                if (!game.IsCompleted && game.Round <= throughRound &&
+                    (!playerOnly || game.IncludesTeam(season.PlayerTeamId))) count++;
             return count;
         }
 

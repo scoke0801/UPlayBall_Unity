@@ -21,7 +21,6 @@ namespace Baseball.Presentation.Owner
         private Text _leagueText;
         private Text _seasonText;
         private Text _recordText;
-        private Text _rosterText;
         private Text _evaluationText;
         private Text _nextMatchText;
         private Text _opponentText;
@@ -87,7 +86,6 @@ namespace Baseball.Presentation.Owner
             _leagueText.text = snapshot.LeagueText;
             _seasonText.text = snapshot.SeasonText + "  ·  " + snapshot.DateText;
             _recordText.text = string.IsNullOrWhiteSpace(snapshot.RankText) ? "시즌 성적 집계 전" : snapshot.RankText;
-            _rosterText.text = model.RosterCountText + "  ·  " + model.RosterCompositionText;
             _evaluationText.text = model.StrengthText + "  /  " + model.CostText;
             _nextMatchText.text = canPlayNextGame && !string.IsNullOrWhiteSpace(snapshot.NextMatchText)
                 ? snapshot.NextMatchText : "남은 일정 없음";
@@ -108,7 +106,7 @@ namespace Baseball.Presentation.Owner
             _isSeasonReviewAcknowledged = isSeasonReviewAcknowledged;
             _isSeasonActionArmed = false;
             _completeSeasonButton.interactable = !canPlayNextGame || snapshot.IsRosterValid;
-            _completeSeasonButtonText.text = canPlayNextGame ? "시즌 완료"
+            _completeSeasonButtonText.text = canPlayNextGame ? "시즌 진행"
                 : !isRegularSeasonCompleted ? "정규시즌 정리"
                 : !isPostseasonCompleted ? isPlayerPostseasonCompleted ? "남은 리그 마감" : "포스트시즌"
                 : !isSeasonReviewAcknowledged ? "시즌 결산"
@@ -160,7 +158,6 @@ namespace Baseball.Presentation.Owner
             _dashboardBackplate.anchorMin = _dashboardBackplate.anchorMax = new Vector2(1f, 0f);
             _dashboardBackplate.pivot = new Vector2(1f, 0f);
             _matchPanel = Surface(_dashboardBackplate, "NextMatchPanel", OwnerDashboardStyle.Surface, 0, 0, DockWidth, 320);
-            BuildMatchDiamond(_matchPanel);
             UIOwnerFrontOfficePanel.Apply(_matchPanel, "MainDashboard");
             OwnerDashboardStyle.Rule(_matchPanel, "MatchAccent", Vector2.zero, Vector2.zero,
                 new Vector2(24, 279), new Vector2(58, 282), OwnerDashboardStyle.Gold);
@@ -178,7 +175,7 @@ namespace Baseball.Presentation.Owner
                 () => MatchPreparationRequested?.Invoke(), new Vector2(392, 24), new Vector2(552, 92));
             _opponentAnalysisButton = CreateAction(_matchPanel, "OpponentAnalysisButton", "상대 분석",
                 () => OpponentAnalysisRequested?.Invoke(), new Vector2(560, 24), new Vector2(720, 92));
-            _completeSeasonButton = CreateAction(_matchPanel, "CompleteSeasonButton", "시즌 완료",
+            _completeSeasonButton = CreateAction(_matchPanel, "CompleteSeasonButton", "시즌 진행",
                 HandleSeasonActionRequested, new Vector2(572, 24), new Vector2(720, 92));
             _completeSeasonButtonText = _completeSeasonButton.transform.Find("Label").GetComponent<Text>();
             _guideHost = OwnerWorkspaceUiFactory.CreateRoot(_dashboardBackplate, "ManagerHost", false);
@@ -198,10 +195,8 @@ namespace Baseball.Presentation.Owner
                 new Vector2(24, 90), new Vector2(430, 126));
             _recordText = Label(_seasonPanel, "Record", "", 22, FontStyle.Normal, CareerUiTheme.TextPrimary,
                 new Vector2(440, 90), new Vector2(720, 126));
-            _rosterText = Label(_seasonPanel, "Roster", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
-                new Vector2(24, 50), new Vector2(720, 86));
             _evaluationText = Label(_seasonPanel, "Evaluation", "", 22, FontStyle.Normal, CareerUiTheme.TextSecondary,
-                new Vector2(24, 10), new Vector2(720, 46));
+                new Vector2(24, 50), new Vector2(720, 86));
             SetDashboardState(0);
         }
 
@@ -224,7 +219,6 @@ namespace Baseball.Presentation.Owner
             _matchStateText.gameObject.SetActive(!reports);
             _matchPanel.Find("MatchHeading").gameObject.SetActive(!reports);
             _matchPanel.Find("MatchAccent").gameObject.SetActive(!reports);
-            _matchPanel.Find("BaseballDiamond").gameObject.SetActive(!reports);
             _opponentText.gameObject.SetActive(!reports);
             _matchPreparationButton.gameObject.SetActive(!reports);
             _opponentAnalysisButton.gameObject.SetActive(!reports);
@@ -247,25 +241,15 @@ namespace Baseball.Presentation.Owner
             _playNextGameButton.gameObject.SetActive(_hasRemainingGames);
             _matchPreparationButton.gameObject.SetActive(_hasRemainingGames && _dashboardState != 2);
             _opponentAnalysisButton.gameObject.SetActive(_hasRemainingGames && _dashboardState != 2);
+            bool isHeaderAction = _hasRemainingGames && _dashboardState != 2;
+            // 시즌 일괄 진행은 제목 줄 안의 보조 행동으로 배치해 상단 프레임 여백을 확보한다.
             SetRect((RectTransform)_completeSeasonButton.transform,
-                new Vector2(_hasRemainingGames ? 540 : 24, _hasRemainingGames && _dashboardState != 2 ? 248 : 24),
-                new Vector2(_hasRemainingGames ? 720 : 384, _hasRemainingGames && _dashboardState != 2 ? 316 : 92));
+                new Vector2(_hasRemainingGames ? (isHeaderAction ? 572 : 540) : 24, isHeaderAction ? 260 : 24),
+                new Vector2(_hasRemainingGames ? 720 : 384, isHeaderAction ? 304 : 92));
             OwnerUiButtonSkin.Apply(_completeSeasonButton, _hasRemainingGames ? OwnerButtonRole.Quiet : OwnerButtonRole.Primary);
         }
 
         private void LateUpdate() => ResizeDashboard();
-
-        private static void BuildMatchDiamond(RectTransform panel)
-        {
-            var diamond = OwnerWorkspaceUiFactory.CreateRoot(panel, "BaseballDiamond", false);
-            SetRect(diamond, new Vector2(530, 140), new Vector2(674, 284));
-            diamond.localRotation = Quaternion.Euler(0, 0, 45);
-            Color line = new Color32(218, 187, 123, 16);
-            OwnerDashboardStyle.Rule(diamond, "FirstBaseLine", Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 2), line);
-            OwnerDashboardStyle.Rule(diamond, "ThirdBaseLine", Vector2.zero, new Vector2(0, 1), Vector2.zero, new Vector2(2, 0), line);
-            OwnerDashboardStyle.Rule(diamond, "RightFieldLine", new Vector2(1, 0), Vector2.one, new Vector2(-2, 0), Vector2.zero, line);
-            OwnerDashboardStyle.Rule(diamond, "LeftFieldLine", new Vector2(0, 1), Vector2.one, new Vector2(0, -2), Vector2.zero, line);
-        }
 
         private void ResizeDashboard()
         {
@@ -326,13 +310,17 @@ namespace Baseball.Presentation.Owner
 
         private void HandleSeasonActionRequested()
         {
+            // 기간 선택 팝업에서 실행을 확인하므로 홈 안내를 한 단계 더 거치지 않는다.
+            if (_hasRemainingGames)
+            {
+                CompleteSeasonRequested?.Invoke();
+                return;
+            }
             if (!_isSeasonActionArmed)
             {
                 _isSeasonActionArmed = true;
                 _completeSeasonButtonText.text = "진행 확인";
-                string message = _hasRemainingGames
-                    ? "남은 모든 경기를 진행합니다. 미리 배치한 작전카드는 해당 경기마다 사용됩니다. 한 번 더 누르면 시작합니다."
-                    : !_isRegularSeasonCompleted
+                string message = !_isRegularSeasonCompleted
                     ? "다른 조의 남은 정규시즌을 진행합니다. 한 번 더 누르면 시작합니다."
                         : !_isPostseasonCompleted
                             ? _isPlayerPostseasonCompleted
@@ -346,8 +334,7 @@ namespace Baseball.Presentation.Owner
             }
 
             _isSeasonActionArmed = false;
-            if (_hasRemainingGames) CompleteSeasonRequested?.Invoke();
-            else AdvanceSeasonRequested?.Invoke();
+            AdvanceSeasonRequested?.Invoke();
         }
 
         private static void SetRect(RectTransform rect, Vector2 min, Vector2 max)

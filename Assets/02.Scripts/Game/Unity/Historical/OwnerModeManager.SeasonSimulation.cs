@@ -19,7 +19,7 @@ namespace Baseball.Game.Historical
             _lastRegularSeasonCompletion;
 
         /// <summary>독립된 Runtime 복사본을 단일 Worker에서 계산하고 기존 UI 상태는 유지한다.</summary>
-        public bool BeginRegularSeasonSimulationInBackground()
+        public bool BeginRegularSeasonSimulationInBackground(int weeks = 0)
         {
             if (!BeginRegularSeasonSimulation()) return false;
             try
@@ -29,7 +29,8 @@ namespace Baseball.Game.Historical
                 var service = new ManagerModeMatchService(_contentProvider.Load(), _balance,
                     teamColors: _teamColors, tacticCards: _tacticCards, dugoutCatalog: _dugoutCatalog);
                 _regularSeasonSimulationCopy = copy;
-                _regularSeasonSimulationSession = new ManagerRegularSeasonSimulationSession(copy, service);
+                _regularSeasonSimulationSession = new ManagerRegularSeasonSimulationSession(copy, service, weeks);
+                _regularSeasonSimulationProgress = _regularSeasonSimulationSession.CreateProgressSnapshot();
                 _regularSeasonSimulationWorker = new ManagerRegularSeasonSimulationWorker(
                     _regularSeasonSimulationSession,
                     _ => OwnerMatchAchievementResolver.TryUnlockLosingStreakSignature(copy));
