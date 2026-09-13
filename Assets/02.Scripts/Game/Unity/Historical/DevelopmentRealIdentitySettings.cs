@@ -16,6 +16,7 @@ namespace Baseball.Game.Historical
         private static Dictionary<string, string> _playerNamesById;
         private static Dictionary<string, string> _franchiseNamesById;
         private static Dictionary<string, string> _franchiseHistoryNamesById;
+        private static Dictionary<string, string> _franchiseFilterKeys;
         private static Dictionary<string, string> _teamSeasonNamesByKey;
         private static bool _isInitialized;
         private static bool _isEnabled;
@@ -123,6 +124,33 @@ namespace Baseball.Game.Historical
                     CreateFranchiseHistoryName(team, catalog.teamSeasons));
             }
 
+            // 원본 Franchise ID가 달라도 게임에서 정의한 계보는 같은 필터로 검색한다.
+            TextAsset lineageAsset = Resources.Load<TextAsset>("DevelopmentKboIdentities/FranchiseLineages");
+            if (lineageAsset == null)
+                throw new InvalidOperationException("구단 필터 계보 카탈로그가 없습니다.");
+            LineageCatalog lineageCatalog = JsonUtility.FromJson<LineageCatalog>(lineageAsset.text);
+            var filterKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (LineageEntry lineage in lineageCatalog.lineages)
+            {
+                var names = new List<string>();
+                foreach (string franchiseId in lineage.franchises)
+                {
+                    filterKeys.Add(franchiseId, lineage.franchises[0]);
+                    foreach (string name in franchiseHistoryNames[franchiseId].Split(new[] { " & " }, StringSplitOptions.None))
+                        if (!names.Contains(name)) names.Add(name);
+                }
+                // 긴 계보도 드롭다운 안에서 읽을 수 있도록 브랜드명으로 통일한다.
+                if (names.Count > 2)
+                    for (int index = 0; index < names.Count; index++)
+                    {
+                        int separator = names[index].IndexOf(' ');
+                        if (separator > 0) names[index] = names[index].Substring(0, separator);
+                    }
+                foreach (string franchiseId in lineage.franchises)
+                    franchiseHistoryNames[franchiseId] = string.Join(" & ", names);
+            }
+            _franchiseFilterKeys = filterKeys;
+
             // 현재 구단 별칭이 과거 정식 구단명과 같으면 당시의 정식 엠블렘을 우선한다.
             foreach (KeyValuePair<string, string> alias in emblemAliases)
                 emblemResources.TryAdd(alias.Key, alias.Value);
@@ -217,6 +245,22 @@ namespace Baseball.Game.Historical
             string franchiseId)
         {
             return ResolveFranchiseHistoryName(registry, franchiseId);
+        }
+
+        /// <summary>표시 계보와 검색 범위가 일치하도록 구단 필터의 공통 키를 반환한다.</summary>
+        public static string GetFranchiseFilterKey(string franchiseId)
+        {
+            Initialize();
+            return IsEnabled && franchiseId != null && _franchiseFilterKeys.TryGetValue(franchiseId, out string key)
+                ? key : franchiseId ?? string.Empty;
+        }
+
+        /// <summary>계보 드롭다운에 표시할 이름을 구단 ID로 조회한다.</summary>
+        public static string GetFranchiseFilterName(string franchiseId, string fallback)
+        {
+            Initialize();
+            return IsEnabled && franchiseId != null && _franchiseHistoryNamesById.TryGetValue(franchiseId, out string name)
+                ? name : fallback;
         }
 
         /// <summary>실제 표시에서는 최신 Franchise명이 아니라 원본 연도의 TeamSeason명을 사용한다.</summary>
@@ -350,6 +394,18 @@ namespace Baseball.Game.Historical
                 return;
             }
             destination.Add(normalizedKey, normalizedValue);
+        }
+
+        [Serializable]
+        private sealed class LineageCatalog
+        {
+            public LineageEntry[] lineages;
+        }
+
+        [Serializable]
+        private sealed class LineageEntry
+        {
+            public string[] franchises;
         }
 
         [Serializable]

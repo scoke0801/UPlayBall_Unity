@@ -1,4 +1,5 @@
 using System;
+using Baseball.Game.Historical;
 using System.Collections.Generic;
 using Baseball.Core.Shop;
 using Baseball.Presentation.Owner;
@@ -115,9 +116,10 @@ namespace Baseball.Presentation.Shop
                 {
                     ShopProductTileSnapshot tile = playerTab.Tiles[index];
                     if (tile.TargetFranchiseId.Length > 0 &&
-                        !franchiseNames.ContainsKey(tile.TargetFranchiseId))
+                        !franchiseNames.ContainsKey(DevelopmentRealIdentitySettings.GetFranchiseFilterKey(tile.TargetFranchiseId)))
                     {
-                        franchiseNames.Add(tile.TargetFranchiseId, tile.TargetFranchiseName);
+                        franchiseNames.Add(DevelopmentRealIdentitySettings.GetFranchiseFilterKey(tile.TargetFranchiseId),
+                            DevelopmentRealIdentitySettings.GetFranchiseFilterName(tile.TargetFranchiseId, tile.TargetFranchiseName));
                     }
                     if (tile.TargetYear.HasValue && !years.Contains(tile.TargetYear.Value))
                         years.Add(tile.TargetYear.Value);
@@ -225,6 +227,7 @@ namespace Baseball.Presentation.Shop
                 OwnerDashboardStyle.SetDataText(arrow);
                 toggle.graphic.color = OwnerDashboardStyle.Gold;
             }
+            if (name == "FranchiseFilter") OwnerCardFilters.ExpandFranchiseOptions(dropdown);
             return dropdown;
         }
 
@@ -469,7 +472,7 @@ namespace Baseball.Presentation.Shop
                 return 0;
             int specificity = 0;
             if (_playerCardFranchiseFilter.Length > 0 &&
-                string.Equals(tile.TargetFranchiseId, _playerCardFranchiseFilter, StringComparison.Ordinal))
+                string.Equals(DevelopmentRealIdentitySettings.GetFranchiseFilterKey(tile.TargetFranchiseId), _playerCardFranchiseFilter, StringComparison.Ordinal))
                 specificity++;
             if (_playerCardYearFilter.HasValue && tile.TargetYear == _playerCardYearFilter)
                 specificity++;
@@ -521,7 +524,7 @@ namespace Baseball.Presentation.Shop
                 return _playerCardFranchiseFilter.Length > 0 &&
                     _playerCardYearFilter.HasValue &&
                     string.Equals(
-                        tile.TargetFranchiseId,
+                        DevelopmentRealIdentitySettings.GetFranchiseFilterKey(tile.TargetFranchiseId),
                         _playerCardFranchiseFilter,
                         StringComparison.Ordinal) &&
                     tile.TargetYear.Value == _playerCardYearFilter.Value;
@@ -532,7 +535,7 @@ namespace Baseball.Presentation.Shop
                     return false;
                 return _playerCardFranchiseFilter.Length == 0 ||
                     string.Equals(
-                        tile.TargetFranchiseId,
+                        DevelopmentRealIdentitySettings.GetFranchiseFilterKey(tile.TargetFranchiseId),
                         _playerCardFranchiseFilter,
                         StringComparison.Ordinal);
             }

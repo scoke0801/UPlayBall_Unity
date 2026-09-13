@@ -1,4 +1,5 @@
 using System;
+using Baseball.Game.Historical;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -78,7 +79,9 @@ namespace Baseball.Presentation.Owner
             var years = new SortedSet<int>();
             foreach (OwnerScoutProductSnapshot product in screen.Products)
             {
-                if (product.TargetFranchiseId.Length > 0) teams[product.TargetFranchiseId] = product.TargetFranchiseName;
+                if (product.TargetFranchiseId.Length > 0)
+                    teams[DevelopmentRealIdentitySettings.GetFranchiseFilterKey(product.TargetFranchiseId)] =
+                        DevelopmentRealIdentitySettings.GetFranchiseFilterName(product.TargetFranchiseId, product.TargetFranchiseName);
                 if (product.TargetYear.HasValue) years.Add(product.TargetYear.Value);
             }
             _scoutTeamIds.Clear();
@@ -102,6 +105,7 @@ namespace Baseball.Presentation.Owner
             var yearLabels = new List<string> { "전체 연도" };
             foreach (int year in _scoutYears) yearLabels.Add(year + "년");
             SetScoutFilterOptions(_scoutTeamFilter, teamLabels, _scoutTeamIds.IndexOf(previousTeam) + 1);
+            OwnerCardFilters.ExpandFranchiseOptions(_scoutTeamFilter);
             SetScoutFilterOptions(_scoutYearFilter, yearLabels, _scoutYears.IndexOf(previousYear) + 1);
         }
 
@@ -142,7 +146,7 @@ namespace Baseball.Presentation.Owner
             foreach (OwnerScoutProductSnapshot product in screen.Products)
             {
                 if (!MatchesScoutStaff(product)) continue;
-                if (teamId.Length > 0 && product.TargetFranchiseId != teamId) continue;
+                if (teamId.Length > 0 && DevelopmentRealIdentitySettings.GetFranchiseFilterKey(product.TargetFranchiseId) != teamId) continue;
                 if (year != 0 && product.TargetYear != year) continue;
                 if (!MatchesScoutQuery(product, _scoutScopeSearch.text)) continue;
                 if (seen.Add(product.Scope)) _scoutScopes.Add(product);
@@ -186,7 +190,7 @@ namespace Baseball.Presentation.Owner
             if (selected == null) return;
             BindScoutScopeFilterOptions(_snapshot.Scout);
             _scoutScopeSearch.SetTextWithoutNotify(string.Empty);
-            _scoutTeamFilter.SetValueWithoutNotify(_scoutTeamIds.IndexOf(selected.TargetFranchiseId) + 1);
+            _scoutTeamFilter.SetValueWithoutNotify(_scoutTeamIds.IndexOf(DevelopmentRealIdentitySettings.GetFranchiseFilterKey(selected.TargetFranchiseId)) + 1);
             _scoutYearFilter.SetValueWithoutNotify(selected.TargetYear.HasValue ? _scoutYears.IndexOf(selected.TargetYear.Value) + 1 : 0);
             CollectScoutScopes(_snapshot.Scout);
             int index = _scoutScopes.FindIndex(product => product.Scope == selected.Scope);

@@ -1,4 +1,5 @@
 using System;
+using Baseball.Game.Historical;
 using System.Collections.Generic;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.UI;
@@ -28,15 +29,16 @@ namespace Baseball.Presentation.Encyclopedia
             _search.SetTextWithoutNotify(_filter.Search);
             _lastImeComposition = string.Empty;
             _search.onValueChanged.AddListener(text => { _filter.Search = text; Refresh(); });
-            StringFilter(first, "Franchise", "전체 구단", entry => entry.FranchiseId, entry => entry.FranchiseDisplayName,
-                _filter.FranchiseId, valueId => _filter.FranchiseId = valueId);
+            StringFilter(first, "Franchise", "전체 구단", entry => DevelopmentRealIdentitySettings.GetFranchiseFilterKey(entry.FranchiseId),
+                entry => string.IsNullOrWhiteSpace(entry.FranchiseHistoryDisplayName) ? entry.FranchiseDisplayName : entry.FranchiseHistoryDisplayName,
+                _filter.FranchiseId, valueId => _filter.FranchiseId = valueId, sortByLabel: true);
             StringFilter(first, "Year", "전체 연도", entry => entry.OriginYear.ToString(), entry => entry.OriginYear + "년",
                 _filter.OriginYear == 0 ? "" : _filter.OriginYear.ToString(), valueId => _filter.OriginYear = Parse(valueId));
             StringFilter(first, "Position", "전체 포지션", entry => entry.Position, entry => entry.Position,
                 _filter.Position, valueId => _filter.Position = valueId);
             ListFilter(first, "Cost", new List<string> { "전체 Cost", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, _filter.Cost, valueId => _filter.Cost = valueId);
             RectTransform second = Row(_filterRoot, "SecondaryFilters", 38, 32);
-            StringFilter(second, "Edition", "전체 Edition", entry => entry.EditionId, entry => entry.EditionDisplayName,
+            StringFilter(second, "Edition", "전체 종류", entry => entry.EditionId, entry => entry.EditionDisplayName,
                 _filter.EditionId, valueId => { _filter.EditionId = valueId; if (valueId.Length > 0) _tab = 1; });
             if (!_snapshot.IsReadOnly)
                 ListFilter(second, "CollectionState", new List<string> { "전체 수집 상태", "현재 보유", "획득 · 현재 미보유", "미획득", "위시", "위시 아님" }, _filter.CollectionState, valueId => _filter.CollectionState = valueId);
@@ -61,14 +63,21 @@ namespace Baseball.Presentation.Encyclopedia
         }
 
         private void StringFilter(RectTransform parent, string name, string all, Func<EncyclopediaScreenEntry, string> key,
-            Func<EncyclopediaScreenEntry, string> label, string selected, Action<string> changed)
+            Func<EncyclopediaScreenEntry, string> label, string selected, Action<string> changed, bool sortByLabel = false)
         {
             var values = new SortedDictionary<string, string>(StringComparer.Ordinal);
             foreach (var entry in _snapshot.Cards) if (!string.IsNullOrEmpty(key(entry))) values[key(entry)] = label(entry);
             foreach (var entry in _snapshot.Seasons) if (!string.IsNullOrEmpty(key(entry))) values[key(entry)] = label(entry);
             var ids = new List<string> { string.Empty };
             var labels = new List<string> { all };
-            foreach (var value in values) { ids.Add(value.Key); labels.Add(value.Value); }
+            var options = new List<KeyValuePair<string, string>>(values);
+            if (sortByLabel)
+                options.Sort((left, right) =>
+                {
+                    int comparison = StringComparer.CurrentCulture.Compare(left.Value, right.Value);
+                    return comparison != 0 ? comparison : StringComparer.Ordinal.Compare(left.Key, right.Key);
+                });
+            foreach (var value in options) { ids.Add(value.Key); labels.Add(value.Value); }
             int index = Math.Max(0, ids.IndexOf(selected));
             ListFilter(parent, name, labels, index, i => changed(ids[i]));
         }
@@ -76,7 +85,7 @@ namespace Baseball.Presentation.Encyclopedia
         private void ListFilter(RectTransform parent, string name, List<string> labels, int selected, Action<int> changed)
         {
             Dropdown dropdown = OwnerCardFilters.CreateDropdown(parent, name, labels, selected);
-            OwnerDashboardStyle.SetDataDropdown(dropdown);
+            if (name != "Franchise") OwnerDashboardStyle.SetDataDropdown(dropdown);
             LayoutElement layout = dropdown.GetComponent<LayoutElement>();
             layout.minWidth = 74; layout.preferredWidth = 120;
             dropdown.onValueChanged.AddListener(index => { changed(index); Refresh(); });

@@ -1,4 +1,5 @@
 using System;
+using Baseball.Game.Historical;
 using System.Collections.Generic;
 using Baseball.Presentation.UI;
 using UnityEngine;
@@ -61,7 +62,7 @@ namespace Baseball.Presentation.Owner
         private static string GetFranchiseKey(OwnerCollectionCardSnapshot card) =>
             string.IsNullOrWhiteSpace(card.OriginFranchiseId)
                 ? card.TeamDisplayName
-                : card.OriginFranchiseId;
+                : DevelopmentRealIdentitySettings.GetFranchiseFilterKey(card.OriginFranchiseId);
 
         private static string GetFranchiseLabel(OwnerCollectionCardSnapshot card) =>
             string.IsNullOrWhiteSpace(card.FranchiseHistoryDisplayName)
@@ -106,7 +107,19 @@ namespace Baseball.Presentation.Owner
             Toggle toggle = dropdown.itemText.GetComponentInParent<Toggle>(true);
             toggle.targetGraphic.color = new Color32(215, 225, 235, 255);
             toggle.graphic.color = new Color32(40, 82, 126, 255);
+            if (name == "TeamFilter" || name == "ScoutTeamFilter" || name == "Franchise")
+                ExpandFranchiseOptions(dropdown);
             return dropdown;
+        }
+
+        /// <summary>여러 브랜드를 포함한 계보는 펼친 목록에서 생략 없이 읽을 수 있게 한다.</summary>
+        internal static void ExpandFranchiseOptions(Dropdown dropdown)
+        {
+            RectTransform template = dropdown.template;
+            template.anchorMin = new Vector2(0, template.anchorMin.y);
+            template.anchorMax = new Vector2(0, template.anchorMax.y);
+            template.pivot = new Vector2(0, template.pivot.y);
+            template.sizeDelta = new Vector2(440, template.sizeDelta.y);
         }
     }
 }

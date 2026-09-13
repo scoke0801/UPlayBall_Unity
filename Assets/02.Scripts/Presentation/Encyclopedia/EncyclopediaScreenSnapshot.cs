@@ -1,4 +1,5 @@
 using System;
+using Baseball.Game.Historical;
 using System.Collections.Generic;
 using Baseball.Presentation.Owner;
 using Baseball.Presentation.SharedUI;
@@ -21,6 +22,8 @@ namespace Baseball.Presentation.Encyclopedia
         public string PlayerPersonId { get; set; } = string.Empty;
         public string FranchiseId { get; set; } = string.Empty;
         public string FranchiseDisplayName { get; set; } = string.Empty;
+        /// <summary>구단 필터에서 사용하는 연도 없는 구단 계보명이다.</summary>
+        public string FranchiseHistoryDisplayName { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         public int OriginYear { get; set; }
         public int Cost { get; set; }
@@ -127,7 +130,7 @@ namespace Baseball.Presentation.Encyclopedia
         public bool Matches(EncyclopediaScreenEntry entry, bool isReadOnly)
         {
             if (!string.IsNullOrWhiteSpace(Search) && entry.DisplayName.IndexOf(Search.Trim(), StringComparison.OrdinalIgnoreCase) < 0) return false;
-            if (FranchiseId.Length > 0 && entry.FranchiseId != FranchiseId) return false;
+            if (FranchiseId.Length > 0 && DevelopmentRealIdentitySettings.GetFranchiseFilterKey(entry.FranchiseId) != FranchiseId) return false;
             if (OriginYear != 0 && entry.OriginYear != OriginYear) return false;
             if (Decade != 0 && entry.OriginYear / 10 * 10 != Decade) return false;
             if (Position.Length > 0 && entry.Position != Position) return false;
