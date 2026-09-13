@@ -39,7 +39,7 @@ namespace Baseball.Presentation.Owner
             Surface(_content, "StudyTitleRule", 753, 119, 315, 1, Border);
             OwnerDashboardStyle.ApplyInset(Surface(_content, "StudyProgramSummary", 753, 124, 315, 172, OwnerDashboardStyle.InsetSurface));
             StudyLabel(_content, "StudyName", option?.Program.DisplayName ?? "목적지를 선택하세요", 16, 757, 126, 305, 28);
-            StudyLabel(_content, "StudyDestination", option == null ? "" : "목적지  " + option.Program.DestinationName,
+            StudyLabel(_content, "StudyDestination", option == null ? "" : "목적지  " + option.Program.DestinationName + " · " + option.Program.Rank + " 등급",
                 12, 757, 153, 305, 22);
             Text unlock = StudyLabel(_content, "StudyUnlock", option?.UnlockText ?? "", 11, 757, 174, 305, 32);
             unlock.color = option?.IsUnlocked == false ? Baseball.Presentation.UI.CareerUiTheme.Error : OwnerDashboardStyle.Gold;
@@ -50,11 +50,28 @@ namespace Baseball.Presentation.Owner
                 $"유학 비용    {option.CostText}\n유학 기간    {option.Program.DurationWeeks}주",
                 12, 757, 258, 305, 38);
             Surface(_content, "StudyCardRule", 753, 300, 315, 1, Border);
+            string reason = option?.BlockedReason ?? "보유 선수를 선택하세요.";
+            bool isPending = option != null && _pendingStudy == _cardId + ":" + _programId;
+            float statusTop = 425f;
+            if (option != null)
+            {
+                Text status = StudyLabel(_content, "StudyBlockedReason", isPending
+                    ? $"{card.Card.DisplayName} · {option.Program.DurationWeeks}주 · {option.CostText} 사용. 확정하면 시작합니다."
+                    : reason.Length == 0 ? "시즌당 한 번 참가할 수 있습니다." : reason, 11, 757, 425, 305, 34);
+                status.alignment = TextAnchor.UpperLeft;
+                status.horizontalOverflow = HorizontalWrapMode.Wrap;
+                status.color = reason.Length == 0 ? OwnerDashboardStyle.Ivory : Baseball.Presentation.UI.CareerUiTheme.Error;
+                // 실제 서체의 줄 높이를 확보하고 확정 버튼 위에 고정해 긴 비활성 사유도 끝까지 읽게 한다.
+                float statusHeight = Mathf.Max(40f, Mathf.Ceil(status.preferredHeight) + 4f);
+                statusTop = 463f - 8f - statusHeight;
+                Place(status.rectTransform, 757, statusTop, 305, statusHeight);
+            }
             if (card != null)
             {
                 PlayerMiniCardView selected = PlayerMiniCardView.CreateRuntime(_content, "StudyPlayerCard");
                 selected.UseLineupSlotLayout();
-                Place(selected.GetComponent<RectTransform>(), 758, 309, 82, 112);
+                float cardHeight = Mathf.Min(112f, statusTop - 8f - 309f);
+                Place(selected.GetComponent<RectTransform>(), 758, 309, 82f * cardHeight / 112f, cardHeight);
                 selected.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(card.DetailCard, false));
                 selected.SetPortrait(Baseball.Presentation.UI.PlayerPortraitSprites.GetDefault(card.Card.Position));
                 FitCompactCardText(selected);
@@ -73,20 +90,13 @@ namespace Baseball.Presentation.Owner
                 _pendingStudy = string.Empty;
                 Render();
                 FocusRosterControl("StudySearch");
-            }, false, 850, 374, 205, 30);
+            }, false, 850, Mathf.Min(374f, statusTop - 8f - 30f), 205, 30);
             OwnerUiButtonSkin.Apply(choosePlayer, OwnerButtonRole.Secondary);
             if (option == null)
             {
                 if (_isChoosingStudyPlayer) RenderStudyPlayerPicker();
                 return;
             }
-            string reason = option?.BlockedReason ?? "보유 선수를 선택하세요.";
-            bool isPending = option != null && _pendingStudy == _cardId + ":" + _programId;
-            Text status = StudyLabel(_content, "StudyBlockedReason", isPending
-                ? $"{card.Card.DisplayName} · {option.Program.DurationWeeks}주 · {option.CostText} 사용. 확정하면 시작합니다."
-                : reason.Length == 0 ? "시즌당 한 번 참가할 수 있습니다." : reason, 11, 757, 425, 305, 34);
-            status.alignment = TextAnchor.UpperLeft;
-            status.color = reason.Length == 0 ? OwnerDashboardStyle.Ivory : Baseball.Presentation.UI.CareerUiTheme.Error;
             Button start = Tab(_content, "StartStudy", isPending ? "유학 확정" : "유학지 결정", () =>
             {
                 if (isPending)
@@ -128,11 +138,14 @@ namespace Baseball.Presentation.Owner
             pin.raycastTarget = false;
             if (study.IsUnlocked)
             {
-                var airplane = new GameObject("StudyAirplane", typeof(RectTransform), typeof(RawImage))
-                    .GetComponent<RawImage>();
+                var airplane = new GameObject("StudyAirplane", typeof(RectTransform), typeof(Image))
+                    .GetComponent<Image>();
                 airplane.transform.SetParent(hitArea.transform, false);
                 Place(airplane.rectTransform, 3, 3, 38, 38);
-                airplane.texture = Resources.Load<Texture2D>("UI/OwnerPowerUp/study_airplane_figurine_v2");
+                airplane.sprite = PlayerCardGrowthBadgesView.GetStudySprite((PlayerStudyBadgeRank)study.Program.Rank);
+                airplane.preserveAspect = true;
+                airplane.gameObject.AddComponent<Baseball.Presentation.UI.CareerUiVisualElement>()
+                    .Initialize(Baseball.Presentation.UI.CareerUiVisualRole.DataImage);
                 airplane.raycastTarget = false;
             }
             if (!study.IsUnlocked)

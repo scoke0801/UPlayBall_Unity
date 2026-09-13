@@ -12,7 +12,7 @@ namespace Baseball.Tools.SimulationDiagnostics
 {
     internal static partial class Program
     {
-        /// <summary>실제 상세 엔진에서 동일 시드·동일 로스터의 무특성/C/S를 대조한다.</summary>
+        /// <summary>실제 상세 엔진에서 동일 시드·동일 로스터의 무특성/C/S/SS/SSS를 대조한다.</summary>
         private static int RunTraitComparison(string[] args)
         {
             int count=ParseCount(args,1,1000);
@@ -22,10 +22,11 @@ namespace Baseball.Tools.SimulationDiagnostics
             for(int variant=0;variant<=traits.definitions.Length;variant++)
             {
                 var definition=variant==0?null:traits.definitions[variant-1];
-                for(int rank=0;rank<(variant==0?1:2);rank++)
+                int[] rankIndices = { 0, 3, 4, 5 };
+                for(int rank=0;rank<(variant==0?1:rankIndices.Length);rank++)
                 {
                     var source=CreateRoster(1,50,50,50);
-                    var effect=definition==null?default:new CardTraitEffect(definition.kind,definition.effect*traits.multipliers[rank==0?0:3]);
+                    var effect=definition==null?default:new CardTraitEffect(definition.kind,definition.effect*traits.multipliers[rankIndices[rank]]);
                     Player Copy(Player player,bool pitcher,PitcherRole role=PitcherRole.Starter)
                     {
                         bool applies=definition!=null&&(definition.playerType==PlayerType.Pitcher)==pitcher;
@@ -49,7 +50,7 @@ namespace Baseball.Tools.SimulationDiagnostics
                         totals.Add(result); if(result.AwayBoxScore.Runs>result.HomeBoxScore.Runs) wins++;
                         unchecked{fingerprint=fingerprint*1099511628211UL+(ulong)(result.AwayBoxScore.Runs*100+result.HomeBoxScore.Runs);}
                     }
-                    Console.WriteLine($"Trait={definition?.kind.ToString()??"None"} Rank={(variant==0?"None":rank==0?"C":"S")} Games={count} Wins={wins} Fingerprint={fingerprint}");
+                    Console.WriteLine($"Trait={definition?.kind.ToString()??"None"} Rank={(variant==0?"None":((CardTraitRank)(rankIndices[rank]+1)).ToString())} Games={count} Wins={wins} Fingerprint={fingerprint}");
                     Console.WriteLine(totals.Format(count));
                 }
             }

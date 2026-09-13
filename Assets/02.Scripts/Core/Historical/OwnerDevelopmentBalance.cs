@@ -1,4 +1,5 @@
 using System;
+using Baseball.Core.Growth;
 
 namespace Baseball.Core.Historical
 {
@@ -28,20 +29,35 @@ namespace Baseball.Core.Historical
                 throw new ArgumentException("연구 등급 확률 합계는 100이어야 합니다.");
             if (slogans == null || slogans.Length == 0) throw new ArgumentException("슬로건 목록이 없습니다.");
             foreach (var slogan in slogans) slogan.Validate();
-            if (studyTiers == null || studyTiers.Length != 3) throw new ArgumentException("해외 훈련 세 등급이 필요합니다.");
+            if (studyTiers == null || studyTiers.Length != (int)CardStudyRank.SSS) throw new ArgumentException("해외 훈련 C~SSS 여섯 등급이 필요합니다.");
+            var assignedPrograms = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
             foreach (var tier in studyTiers)
-                if (tier.weeks < 1 || tier.weeks > 3 || tier.cost <= 0 || tier.growth < 1 || tier.greatBonus < 0
-                    || tier.greatProbability < 0 || tier.greatProbability > 1) throw new ArgumentException("해외 훈련 등급 값이 올바르지 않습니다.");
+            {
+                if (tier == null || tier.weeks < 1 || tier.cost <= 0 || tier.growth < 1 || tier.greatBonus < 0
+                    || double.IsNaN(tier.greatProbability) || tier.greatProbability < 0 || tier.greatProbability > 1
+                    || !Enum.IsDefined(typeof(LeagueGrade), tier.requiredLeagueGrade) || tier.programIds == null)
+                    throw new ArgumentException("해외 훈련 등급 값이 올바르지 않습니다.");
+                foreach (string id in tier.programIds)
+                    if (string.IsNullOrWhiteSpace(id) || !assignedPrograms.Add(id))
+                        throw new ArgumentException("유학 등급별 과정 ID가 비었거나 중복되었습니다.");
+            }
         }
         /// <summary>기존 목적지·성장 방향·해금을 유지하면서 기간과 보상을 PT 등급으로 변환한다.</summary>
         public OwnerCardGrowthBalanceTable ApplyStudyTiers(OwnerCardGrowthBalanceTable source)
         {
             Validate();
+            foreach (var configuredTier in studyTiers)
+                foreach (string id in configuredTier.programIds) source.GetStudyProgram(id);
             var programs = new CardStudyProgramDefinition[source.StudyPrograms.Count];
             for (int i = 0; i < programs.Length; i++)
             {
                 var program = source.StudyPrograms[i];
-                var tier = studyTiers[(int)program.UnlockRequirement.Kind];
+                int tierIndex = (int)program.UnlockRequirement.Kind;
+                for (int grade = 0; grade < studyTiers.Length; grade++)
+                    if (Array.IndexOf(studyTiers[grade].programIds, program.ProgramId) >= 0) tierIndex = grade;
+                var tier = studyTiers[tierIndex];
+                var rank = (CardStudyRank)(tierIndex + 1);
+                var unlock = tierIndex < 3 ? program.UnlockRequirement : CardStudyUnlockRequirement.Reach(tier.requiredLeagueGrade);
                 var rewards = new Baseball.Core.Growth.AbilityChange[program.Rewards.Count];
                 int total = 0; foreach (var reward in program.Rewards) total += reward.Amount;
                 int assigned = 0;
@@ -52,12 +68,13 @@ namespace Baseball.Core.Historical
                 }
                 rewards[0] = new Baseball.Core.Growth.AbilityChange(program.Rewards[0].Ability, tier.growth - assigned);
                 programs[i] = new CardStudyProgramDefinition(program.ProgramId, program.DisplayName, program.PlayerType, 0, tier.weeks,
-                    rewards, program.DestinationName, program.MapXPermille, program.MapYPermille, program.UnlockRequirement,
-                    tier.cost, tier.greatProbability, tier.greatBonus);
+                    rewards, program.DestinationName, program.MapXPermille, program.MapYPermille, unlock,
+                    tier.cost, tier.greatProbability, tier.greatBonus, rank);
             }
             return new OwnerCardGrowthBalanceTable(source.TrainingPrograms, programs);
         }
     }
+    /// <summary>랜덤 재활용의 비용·확률·누적 보상을 저작한다.</summary>
     [Serializable]
     public sealed class OwnerSkillFusionBalance
     {
@@ -65,27 +82,28 @@ namespace Baseball.Core.Historical
         public int pityFailures = 10, pointsPerCraft = 20;
         public double sameCategoryChance = .70, sameShapeChance = .50;
         public double gradeBonus = .10, categoryBonus = .20, shapeBonus = .25;
-        // 원작 확률이 아닌 싱글 플레이용 저작 값. 혼합 재료는 두 행을 평균한다.
-        public double[] gradeWeights = { 55,35,8,1.9,.1, 20,50,25,4.5,.5, 0,20,55,23,2, 0,0,20,75,5, 0,0,0,20,80 };
+        // C~S는 기존 SS 확률의 10%를 SSS로 나눠 상위 보상 빈도를 보존한다.
+        // SS의 동급 확률에서 5%p를 승급으로 옮기며 SSS는 최고 등급 유지 80%를 따른다.
+        public double[] gradeWeights = { 55,35,8,1.9,.09,.01, 20,50,25,4.5,.45,.05, 0,20,55,23,1.8,.2, 0,0,20,75,4.5,.5, 0,0,0,20,75,5, 0,0,0,0,20,80 };
         public void Validate()
         {
-            if (cost <= 0 || pityFailures < 1 || pointsPerCraft < 1 || gradeWeights == null || gradeWeights.Length != 25)
+            if (cost <= 0 || pityFailures < 1 || pointsPerCraft < 1 || gradeWeights == null || gradeWeights.Length != SkillBlockGradeCatalog.Count * SkillBlockGradeCatalog.Count)
                 throw new ArgumentException("합성 비용·천장·확률표가 올바르지 않습니다.");
             foreach (double value in new[] { sameCategoryChance, sameShapeChance, gradeBonus, categoryBonus, shapeBonus })
                 if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > 1)
                     throw new ArgumentException("합성 보정은 0~1 범위여야 합니다.");
-            for (int row = 0; row < 5; row++)
+            for (int row = 0; row < SkillBlockGradeCatalog.Count; row++)
             {
                 double total = 0, upgrades = 0;
-                for (int column = 0; column < 5; column++)
+                for (int column = 0; column < SkillBlockGradeCatalog.Count; column++)
                 {
-                    double value = gradeWeights[row * 5 + column];
+                    double value = gradeWeights[row * SkillBlockGradeCatalog.Count + column];
                     if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || (column < row - 1 && value != 0))
                         throw new ArgumentException("합성 등급 확률이 올바르지 않습니다.");
                     total += value;
                     if (column > row) upgrades += value;
                 }
-                if (Math.Abs(total - 100) > .000001 || (row < 4 && upgrades <= 0))
+                if (Math.Abs(total - 100) > .000001 || (row < SkillBlockGradeCatalog.Count - 1 && upgrades <= 0))
                     throw new ArgumentException("합성 확률 합계는 100이며 승급 가능성이 있어야 합니다.");
             }
         }
@@ -108,6 +126,8 @@ namespace Baseball.Core.Historical
     [Serializable]
     public sealed class OwnerStudyTierDefinition
     {
+        public string[] programIds = Array.Empty<string>();
+        public LeagueGrade requiredLeagueGrade;
         public int weeks;
         public long cost;
         public int growth;

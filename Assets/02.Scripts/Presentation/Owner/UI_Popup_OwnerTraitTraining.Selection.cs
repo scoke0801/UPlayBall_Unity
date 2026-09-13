@@ -22,6 +22,15 @@ namespace Baseball.Presentation.Owner
         private readonly List<Button> _partnerRows = new List<Button>();
         private readonly List<string> _partnerIds = new List<string>();
         private readonly List<Text> _partnerNames = new List<Text>(), _partnerValues = new List<Text>();
+        private readonly List<Text> _partnerDetails = new List<Text>();
+        private readonly Dictionary<string, int> _partnerExperience = new Dictionary<string, int>();
+        private readonly Dictionary<string, string> _partnerReasons = new Dictionary<string, string>();
+        private RectTransform _partnerToolbar;
+        private Button _partnerAvailability, _clearPartners;
+        private Text _partnerCount;
+        private bool _showUnavailable;
+        private const float PartnerRowHeight = 92f;
+        private const float PartnerRowSpacing = 8f;
         private Text _pickerEmpty, _partnerEmpty, _pickerCount;
         private string _pickerQuery = "", _partnerQuery = "";
         private float _pickerPosition = 1;
@@ -31,31 +40,63 @@ namespace Baseball.Presentation.Owner
         private void BuildPartnerList(RectTransform right)
         {
             _partnerSearch = Search(right, "PartnerSearch", "이름 · 구단 · 포지션 검색", .035f, .74f, .96f, .82f,
-                value => { _partnerQuery = value; RefreshPartners(); });
-            _partnerScroll = Scroll(right, "Partners", .035f, .35f, .965f, .72f, out _partnerContent);
+                value => { _partnerQuery = value; RefreshPartners(); _partnerScroll.verticalNormalizedPosition = 1; });
+            _partnerToolbar = Rect(right, "PartnerToolbar", .035f, .655f, .965f, .73f);
+            _partnerAvailability = Button(_partnerToolbar, "Availability", "참여 가능만", 0, .06f, .30f, .94f, () => {
+                _showUnavailable = !_showUnavailable; RefreshPartners(); _partnerScroll.verticalNormalizedPosition = 1;
+            });
+            _partnerCount = Label(_partnerToolbar, "Count", "", .33f, 0, 1, 1, 15);
+            _partnerCount.alignment = TextAnchor.MiddleRight;
+            _partnerScroll = Scroll(right, "Partners", .035f, .255f, .965f, .645f, out _partnerContent);
             _partnerEmpty = Label(right, "PartnerEmpty", "", .08f, .44f, .94f, .66f, 17);
+            Place(_partnerEmpty.rectTransform, .07f, .32f, .93f, .57f);
+            _clearPartners = Button(right, "ClearPartners", "선택 해제", .77f, .175f, .965f, .24f, () => {
+                _partners.Clear(); _isConfirming = false; Refresh(); _partnerSearch.Select();
+            });
         }
 
         private void RefreshPartners()
         {
             if (_collection == null) return;
             _partnerIds.Clear();
+            _partnerExperience.Clear(); _partnerReasons.Clear();
+            int available = 0, unavailable = 0;
+            string targetReason = Card() == null ? "훈련할 선수를 먼저 선택하세요." : "";
+            if (Card() != null)
+            {
+                try { OwnerTraitTrainingService.RequireAvailable(_manager.Runtime, _cardId); }
+                catch (InvalidOperationException e) { targetReason = e.Message; }
+            }
             foreach (var card in _collection.Cards)
             {
                 if (card.CardId == _cardId || !card.IsOwnedCard) continue;
                 if (!string.IsNullOrWhiteSpace(_partnerQuery) &&
                     (card.DisplayName + " " + card.TeamDisplayName + " " + OwnerCollectionPresentationBuilder.FormatPosition(card.Position))
                         .IndexOf(_partnerQuery, StringComparison.CurrentCultureIgnoreCase) < 0) continue;
+                string reason = targetReason; int experience = 0;
+                if (reason.Length == 0)
+                {
+                    try { experience = OwnerTraitTrainingService.PartnerExperience(_manager.Runtime, _cardId, card.CardId, _manager.TraitBalance); }
+                    catch (InvalidOperationException e) { reason = e.Message; }
+                }
+                if (reason.Length == 0) available++; else unavailable++;
+                if (!_showUnavailable && reason.Length > 0) continue;
                 _partnerIds.Add(card.CardId);
+                _partnerExperience[card.CardId] = experience; _partnerReasons[card.CardId] = reason;
             }
-            _partnerIds.Sort((a,b) => { int result = Snapshot(b).Cost.CompareTo(Snapshot(a).Cost); return result != 0 ? result : string.CompareOrdinal(a,b); });
+            _partnerIds.Sort((a,b) => {
+                int result = (_partnerReasons[a].Length > 0).CompareTo(_partnerReasons[b].Length > 0);
+                if (result == 0) result = _partnerExperience[b].CompareTo(_partnerExperience[a]);
+                return result != 0 ? result : string.CompareOrdinal(a,b);
+            });
             while (_partnerRows.Count < _partnerIds.Count)
             {
                 int index = _partnerRows.Count;
                 var row = Button(_partnerContent, "Partner" + index, " ", 0,0,1,1, () => SelectPartner(index));
                 row.GetComponentInChildren<Text>().text = "";
-                _partnerNames.Add(Label(row.transform, "Name", "", .035f, .05f, .69f, .95f, 16, true));
-                _partnerValues.Add(Label(row.transform, "Value", "", .70f, .05f, .965f, .95f, 16));
+                _partnerNames.Add(Label(row.transform, "Name", "", .025f, .55f, .70f, .95f, 18, true));
+                _partnerDetails.Add(Label(row.transform, "Details", "", .025f, .07f, .73f, .54f, 15));
+                _partnerValues.Add(Label(row.transform, "Value", "", .75f, .10f, .975f, .90f, 16));
                 _partnerValues[index].alignment = TextAnchor.MiddleRight;
                 _partnerRows.Add(row);
                 KeepFocusVisible(row,_partnerScroll);
@@ -64,21 +105,30 @@ namespace Baseball.Presentation.Owner
             {
                 bool visible = i < _partnerIds.Count; var row = _partnerRows[i]; row.gameObject.SetActive(visible);
                 if (!visible) continue;
-                string id = _partnerIds[i]; var card = Snapshot(id); string reason = ""; int experience = 0;
-                try { experience = OwnerTraitTrainingService.PartnerExperience(_manager.Runtime, _cardId, id, _manager.TraitBalance); }
-                catch (InvalidOperationException e) { reason = e.Message; }
+                string id = _partnerIds[i]; var card = Snapshot(id);
+                string reason = _partnerReasons[id]; int experience = _partnerExperience[id];
                 row.interactable = reason.Length == 0 && Card()?.Trait.HasCandidates != true;
-                Top((RectTransform)row.transform, i * 58, 56, 0, 1);
+                Top((RectTransform)row.transform, i * (PartnerRowHeight + PartnerRowSpacing), PartnerRowHeight, 0, 1);
                 bool selected = _partners.Contains(id);
-                _partnerNames[i].text = (selected ? "선택 · " : "보유 · ") + card.DisplayName + "  " + card.OriginYear
-                    + "\n" + (reason.Length > 0 ? reason : OwnerCollectionPresentationBuilder.FormatPosition(card.Position) + " · " + card.TeamDisplayName);
-                _manager.Runtime.TryGetOwnedCard(id, out var owned);
-                _partnerValues[i].text = reason.Length > 0 ? "참여 불가" : $"+{experience} 경험치\n잔여 {OwnerTraitTrainingService.RemainingUses(_manager.Runtime, id, _manager.TraitBalance)}회";
+                _partnerNames[i].text = (selected ? "선택됨  ·  " : "") + card.DisplayName + "  " + card.OriginYear;
+                _partnerDetails[i].text = reason.Length > 0 ? reason :
+                    OwnerCollectionPresentationBuilder.FormatPosition(card.Position) + " · " + card.TeamDisplayName
+                    + "\n파트너 활동 가능 " + OwnerTraitTrainingService.RemainingUses(_manager.Runtime, id, _manager.TraitBalance) + "회";
+                _partnerValues[i].text = reason.Length > 0 ? "참여 불가" : $"+{experience:N0} 경험치\n" + (selected ? "눌러서 해제" : "눌러서 선택");
+                _partnerValues[i].color = reason.Length > 0 ? OwnerDashboardStyle.Muted : OwnerDashboardStyle.Gold;
                 OwnerDashboardStyle.SetDataRow(row, selected, i % 2 == 0 ? OwnerDashboardStyle.TableSurface : OwnerDashboardStyle.TableAlternate);
             }
-            _partnerContent.sizeDelta = new Vector2(0, _partnerIds.Count * 58);
-            _partnerEmpty.gameObject.SetActive(_partnerIds.Count == 0);
-            _partnerEmpty.text = string.IsNullOrEmpty(_partnerQuery) ? "함께 훈련할 보유 선수가 없습니다." : "검색 결과가 없습니다. 검색어를 바꿔 주세요.";
+            _partnerContent.sizeDelta = new Vector2(0, Mathf.Max(0, _partnerIds.Count * (PartnerRowHeight + PartnerRowSpacing) - PartnerRowSpacing));
+            bool pending = Card()?.Trait.HasCandidates == true;
+            _partnerEmpty.gameObject.SetActive(!pending && _partnerIds.Count == 0);
+            _partnerEmpty.text = targetReason.Length > 0 ? targetReason : !string.IsNullOrEmpty(_partnerQuery)
+                ? "검색 결과가 없습니다. 검색어를 바꿔 주세요."
+                : unavailable > 0 ? "지금 참여 가능한 파트너가 없습니다.\n‘참여 가능만’을 눌러 전체 선수와 사유를 확인하세요."
+                : "함께 훈련할 보유 선수가 없습니다.";
+            _partnerToolbar.gameObject.SetActive(!pending); _clearPartners.gameObject.SetActive(!pending);
+            _clearPartners.interactable = _partners.Count > 0;
+            SetButtonText(_partnerAvailability, _showUnavailable ? "전체 선수" : "참여 가능만");
+            _partnerCount.text = $"참여 가능 {available:N0}명 · 불가 {unavailable:N0}명 · 경험치순";
             RefreshNavigation();
         }
 
@@ -87,7 +137,11 @@ namespace Baseball.Presentation.Owner
             string id = _partnerIds[index];
             if (!_partners.Remove(id))
             {
-                int rank = Math.Min(3, (int)_manager.TraitBalance.GetRank(Card().Trait.experience));
+                int rank = Math.Min(_manager.TraitBalance.slots.Length - 1, (int)_manager.TraitBalance.GetRank(Card().Trait.experience));
+                // 같은 인물의 다른 시즌 카드는 기존 선택을 교체하며 중복 지정하지 않는다.
+                string person = OwnerTraitTrainingService.Season(_manager.Runtime, id).PlayerPersonId;
+                _partners.RemoveAll(existing => OwnerTraitTrainingService.Season(_manager.Runtime, existing).PlayerPersonId == person);
+                if (_manager.TraitBalance.slots[rank] == 1) _partners.Clear();
                 if (_partners.Count >= _manager.TraitBalance.slots[rank])
                 { _feedback.text = "선택 슬롯이 찼습니다. 기존 파트너를 다시 눌러 해제하세요."; return; }
                 _partners.Add(id);
@@ -220,27 +274,27 @@ namespace Baseball.Presentation.Owner
         }
         private static void KeepFocusVisible(Selectable selectable,ScrollRect scroll)
         {
-            var trigger=selectable.GetComponent<EventTrigger>()??selectable.gameObject.AddComponent<EventTrigger>();
-            var entry=new EventTrigger.Entry{eventID=EventTriggerType.Select};
-            entry.callback.AddListener(_ => {
+            // EventTrigger는 등록하지 않은 휠·드래그도 소비하므로 선택 전용 공용 릴레이를 쓴다.
+            var relay = selectable.GetComponent<UICardGridFocusRelay>() ?? selectable.gameObject.AddComponent<UICardGridFocusRelay>();
+            relay.Selected = () => {
                 var corners=new Vector3[4]; ((RectTransform)selectable.transform).GetWorldCorners(corners);
                 float bottom=scroll.viewport.InverseTransformPoint(corners[0]).y;
                 float top=scroll.viewport.InverseTransformPoint(corners[1]).y;
                 float delta=top>scroll.viewport.rect.yMax?scroll.viewport.rect.yMax-top:
                     bottom<scroll.viewport.rect.yMin?scroll.viewport.rect.yMin-bottom:0;
                 scroll.content.anchoredPosition+=new Vector2(0,delta);
-            });
-            trigger.triggers.Add(entry);
+            };
         }
 
         private static ScrollRect Scroll(Transform parent, string name, float l,float b,float r,float t, out RectTransform content)
         {
-            var root = Rect(parent,name,l,b,r,t); var image = root.gameObject.AddComponent<Image>();
-            OwnerDashboardStyle.SetDataSurface(image,OwnerDashboardStyle.TableSurface,true);
-            var scroll = root.gameObject.AddComponent<ScrollRect>(); scroll.horizontal = false; scroll.movementType = ScrollRect.MovementType.Clamped;
-            var viewport = Rect(root,"Viewport",0,0,1,1); viewport.gameObject.AddComponent<RectMask2D>();
-            content = Rect(viewport,"Content",0,1,1,1); content.pivot = new Vector2(.5f,1);
-            scroll.viewport = viewport; scroll.content = content; return scroll;
+            var view = UIXScrollView.Create(parent, name, Vector2.zero, Vector2.zero, Vector2.zero,
+                false, true, OwnerDashboardStyle.TableSurface, OwnerDashboardStyle.Line, OwnerDashboardStyle.Gold, 12f);
+            Place(view.Root, l,b,r,t);
+            content = view.Content; content.anchorMin = new Vector2(0,1); content.anchorMax = Vector2.one;
+            content.pivot = new Vector2(.5f,1);
+            OwnerDashboardStyle.SetDataSurface(view.Viewport.GetComponent<Image>(), OwnerDashboardStyle.TableSurface, true);
+            return view.ScrollRect;
         }
         private static void Top(RectTransform rect, float top, float height, float left, float right)
         { rect.anchorMin = new Vector2(left,1); rect.anchorMax = new Vector2(right,1); rect.pivot = new Vector2(.5f,1);

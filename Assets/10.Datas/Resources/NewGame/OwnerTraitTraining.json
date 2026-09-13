@@ -1,8 +1,8 @@
 {
-  "experience": [100, 250, 500, 900],
-  "slots": [1, 1, 2, 3],
-  "multipliers": [1.0, 1.25, 1.55, 1.9],
-  "costMultipliers": [1.0, 1.5, 2.2, 3.2],
+  "experience": [100, 250, 500, 900, 1500, 2400],
+  "slots": [1, 1, 2, 3, 3, 3],
+  "multipliers": [1.0, 1.25, 1.55, 1.9, 2.25, 2.6],
+  "costMultipliers": [1.0, 1.5, 2.2, 3.2, 4.5, 6.0],
   "reserveExperience": 40,
   "starterExperience": 60,
   "partnerUses": 2,

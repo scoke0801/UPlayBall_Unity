@@ -6,7 +6,7 @@ namespace Baseball.Core.Historical
     /// <summary>성장 블록·커리어 레거시와 독립적인 카드 특성의 안정적인 식별자다.</summary>
     public enum CardTraitKind { None, Contact, Clutch, Leadoff, Power, Bunt, Defense, Running,
         EarlyStarter, PitchClutch, Strikeout, Groundball, Endurance, Setup, Closer }
-    public enum CardTraitRank { None, C, B, A, S }
+    public enum CardTraitRank { None, C, B, A, S, SS, SSS }
 
     /// <summary>후보 추첨과 파트너 사용량을 카드별로 보존한다.</summary>
     [Serializable]
@@ -80,10 +80,11 @@ namespace Baseball.Core.Historical
     [Serializable]
     public sealed class OwnerTraitTrainingBalance
     {
-        public int[] experience = { 100, 250, 500, 900 };
-        public int[] slots = { 1, 1, 2, 3 };
-        public double[] multipliers = { 1, 1.25, 1.55, 1.9 };
-        public double[] costMultipliers = { 1, 1.5, 2.2, 3.2 };
+        public int[] experience = { 100, 250, 500, 900, 1500, 2400 };
+        public int[] slots = { 1, 1, 2, 3, 3, 3 };
+        // 상위 등급도 조건부 효과를 유지하며 파트너 슬롯은 기존 세 명을 넘지 않는다.
+        public double[] multipliers = { 1, 1.25, 1.55, 1.9, 2.25, 2.6 };
+        public double[] costMultipliers = { 1, 1.5, 2.2, 3.2, 4.5, 6 };
         public int reserveExperience = 40, starterExperience = 60, partnerUses = 2;
         public int samePositionPercent = 20, sameTeamPercent = 10, performancePercent = 10;
         public int basePointCost = 20, rerollCost = 10, changeCost = 30;
@@ -110,9 +111,10 @@ namespace Baseball.Core.Historical
         public void Validate()
         {
             if (experience == null || slots == null || multipliers == null || costMultipliers == null
-                || experience.Length != 4 || slots.Length != 4 || multipliers.Length != 4 || costMultipliers.Length != 4)
-                throw new ArgumentException("특성훈련은 네 등급의 설정이 필요합니다.");
-            for (int i = 0; i < 4; i++)
+                || experience.Length != (int)CardTraitRank.SSS || slots.Length != experience.Length
+                || multipliers.Length != experience.Length || costMultipliers.Length != experience.Length)
+                throw new ArgumentException("특성훈련은 C~SSS 여섯 등급의 설정이 필요합니다.");
+            for (int i = 0; i < experience.Length; i++)
                 if (experience[i] <= (i == 0 ? 0 : experience[i - 1]) || slots[i] < 1 || slots[i] > 3
                     || !IsPositive(multipliers[i]) || !IsPositive(costMultipliers[i]))
                     throw new ArgumentException("특성 등급 설정이 올바르지 않습니다.");
@@ -127,7 +129,7 @@ namespace Baseball.Core.Historical
                 if (definition == null || definition.kind == CardTraitKind.None || !seen.Add(definition.kind)
                     || !Enum.IsDefined(typeof(CardTraitKind), definition.kind) || string.IsNullOrWhiteSpace(definition.name)
                     || string.IsNullOrWhiteSpace(definition.description) || !IsPositive(definition.effect)
-                    || definition.effect * multipliers[3] > (definition.kind == CardTraitKind.Power || definition.kind == CardTraitKind.Groundball
+                    || definition.effect * multipliers[multipliers.Length - 1] > (definition.kind == CardTraitKind.Power || definition.kind == CardTraitKind.Groundball
                         || definition.kind == CardTraitKind.Endurance || definition.kind == CardTraitKind.Running ? .5 : 30))
                     throw new ArgumentException("특성 정의가 올바르지 않습니다.");
             if (seen.Count != Enum.GetValues(typeof(CardTraitKind)).Length - 1)

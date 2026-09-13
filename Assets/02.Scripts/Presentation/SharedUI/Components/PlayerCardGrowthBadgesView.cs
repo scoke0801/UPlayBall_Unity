@@ -11,7 +11,8 @@ namespace Baseball.Presentation.SharedUI
     public sealed class PlayerCardGrowthBadgesView : MonoBehaviour, IPointerEnterHandler,
         IPointerExitHandler, ISelectHandler, IDeselectHandler
     {
-        private static readonly Sprite[] TraitSprites = new Sprite[5];
+        private static readonly Sprite[] TraitSprites = new Sprite[System.Enum.GetValues(typeof(PlayerTraitBadgeRank)).Length];
+        private static readonly Sprite[] StudySprites = new Sprite[System.Enum.GetValues(typeof(PlayerStudyBadgeRank)).Length];
         private static readonly Sprite[] BoardSprites = new Sprite[System.Enum.GetValues(typeof(PlayerBoardBadgeRank)).Length];
         private static Sprite _studySprite;
         private PlayerCardGrowthBadgeModel _model = PlayerCardGrowthBadgeModel.Empty;
@@ -28,6 +29,21 @@ namespace Baseball.Presentation.SharedUI
         private bool _isFocused;
         private Coroutine _transition;
         private float _badgeScale = 1f;
+
+        /// <summary>상세 화면 진입 시 기존 카드의 설명과 호버·포커스 표시 상태를 정리한다.</summary>
+        public static void DismissTooltips(Transform root)
+        {
+            if (root == null) return;
+            foreach (var view in root.GetComponentsInChildren<PlayerCardGrowthBadgesView>(true))
+            {
+                // 팝업은 아래 카드의 선택을 해제하지 않으므로 PointerExit만으로는 설명이 닫히지 않는다.
+                view._isHovered = view._isFocused = false;
+                view.HideTooltip();
+                if (view._transition != null) view.StopCoroutine(view._transition);
+                view._transition = null;
+                view.SetBadgeScale(1f);
+            }
+        }
 
         /// <summary>카드 재사용 시 이전 선수의 배지와 열려 있는 설명을 함께 교체한다.</summary>
         public static void Bind(RectTransform card, PlayerCardGrowthBadgeModel model,
@@ -56,7 +72,7 @@ namespace Baseball.Presentation.SharedUI
             view.SetIcon(ref view._trait, "TraitRankBadge", view._model.HasTrait,
                 view._model.HasTrait ? GetTraitSprite(view._model.TraitRank) : null);
             view.SetIcon(ref view._study, "StudyBadge", view._model.HasStudy,
-                view._model.HasStudy ? GetStudySprite() : null);
+                view._model.HasStudy ? GetStudySprite(view._model.StudyRank) : null);
             view.SetIcon(ref view._support, "SupportBadge", view._model.HasSupport,
                 view._model.HasSupport ? Resources.Load<Sprite>("UI/PlayerGrowthBadges/Support_v1") : null);
             view.SetIcon(ref view._board, "SkillBoardRankBadge", view._model.HasBoard,
@@ -92,12 +108,19 @@ namespace Baseball.Presentation.SharedUI
             int index = (int)rank;
             if (index < 1 || index >= BoardSprites.Length) return null;
             if (BoardSprites[index] == null)
-                BoardSprites[index] = Resources.Load<Sprite>("UI/PlayerGrowthBadges/BoardRank_" + rank);
+                BoardSprites[index] = Resources.Load<Sprite>("UI/PlayerGrowthBadges/SkillGrade_" + rank);
             return BoardSprites[index];
         }
 
-        public static Sprite GetStudySprite()
+        /// <summary>등급별 원화를 공유하고 등급 기록이 없는 카드만 공통 유학 아이콘을 쓴다.</summary>
+        public static Sprite GetStudySprite(PlayerStudyBadgeRank rank = PlayerStudyBadgeRank.None)
         {
+            int index = (int)rank;
+            if (index > 0 && index < StudySprites.Length)
+            {
+                if (StudySprites[index] == null) StudySprites[index] = Resources.Load<Sprite>("UI/PlayerGrowthBadges/StudyRank_" + rank);
+                return StudySprites[index];
+            }
             if (_studySprite == null) _studySprite = Resources.Load<Sprite>("UI/PlayerGrowthBadges/Study");
             return _studySprite;
         }
@@ -290,6 +313,7 @@ namespace Baseball.Presentation.SharedUI
         private string BuildTooltipDescription()
         {
             var text = new System.Text.StringBuilder();
+            if (_model.HasStudy) AppendTooltipSection(text, "유학", _model.StudyDescription);
             if (_model.HasTrait)
             {
                 string description = _model.TraitDescription;
@@ -298,7 +322,6 @@ namespace Baseball.Presentation.SharedUI
                     description = description.Substring(0, separator) + "\n" + description.Substring(separator + 3);
                 AppendTooltipSection(text, "특성", description);
             }
-            if (_model.HasStudy) AppendTooltipSection(text, "유학", _model.StudyDescription);
             if (_model.HasBoard) AppendTooltipSection(text, "스킬블록", _model.BoardDescription);
             if (_model.HasSupport) AppendTooltipSection(text, "서포트", _model.SupportDescription);
             return text.ToString();

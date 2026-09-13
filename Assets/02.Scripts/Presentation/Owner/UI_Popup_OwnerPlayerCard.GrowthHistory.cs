@@ -22,11 +22,10 @@ namespace Baseball.Presentation.Owner
         private readonly RectTransform[] _recordRows = new RectTransform[6];
         private RectTransform _recordTable;
         private RectTransform _historyBody;
-        private Text _historyTitle, _historyContext, _historyEmpty, _historyPage;
+        private Text _historyTitle, _historyContext, _historyEmpty;
         private Text _historyEntry;
-        private Button _historyPrevious, _historyNext;
+        private Text _historySecondColumn;
         private string[] _growthHistoryEntries = Array.Empty<string>();
-        private int _growthHistoryIndex;
         private int _recordTab;
         private bool _isHistoryOpen;
         private float _historyProgress;
@@ -35,7 +34,7 @@ namespace Baseball.Presentation.Owner
 
         private void BuildGrowthHistory(RectTransform root)
         {
-            _growthHistoryButton = CreateNavigationButton(root, "GrowthHistory", "성장 이력 · 기록", .5f, 0, .5f, 0, ToggleGrowthHistory);
+            _growthHistoryButton = CreateNavigationButton(root, "GrowthHistory", "기록", .5f, 0, .5f, 0, ToggleGrowthHistory);
             _growthHistoryButton.GetComponentInChildren<Text>().fontSize = 18;
             _growthHistoryRoot = Surface(root, "PlayerRecords", OwnerDashboardStyle.TableSurface, .5f, .5f, .5f, .5f);
             UIOwnerFrontOfficePanel.ApplyFramedSurface(_growthHistoryRoot);
@@ -68,31 +67,41 @@ namespace Baseball.Presentation.Owner
                     _recordCells[row, col] = RecordLabel(_recordRows[row], "Cell" + col, "",
                         col / 8f, .05f, (col + 1) / 8f, .95f, row == 0 ? 13 : 16, row != 0, TextAnchor.MiddleCenter);
             }
-            _historyBody = ContentRect(safe, "Development", 0, .16f, 1, .69f);
+            _historyBody = ContentRect(safe, "Development", 0, .025f, 1, .69f);
             var viewport = ContentRect(_historyBody, "Viewport", 0, 0, 1, 1);
             viewport.gameObject.AddComponent<RectMask2D>();
             var scroll = _historyBody.gameObject.AddComponent<ScrollRect>();
             var content = ContentRect(viewport, "Content", 0, 1, 1, 1);
             content.pivot = new Vector2(.5f, 1);
-            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            var layout = content.gameObject.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 24;
+            layout.childAlignment = TextAnchor.UpperLeft;
             layout.childControlHeight = true; layout.childControlWidth = true;
             layout.childForceExpandHeight = false;
             var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            _historyEntry = RecordLabel(content, "Entry", "", 0, 0, 1, 1, 18, true, TextAnchor.UpperLeft);
+            layout.padding = new RectOffset(16, 16, 12, 12);
+            var surface = content.gameObject.AddComponent<Image>();
+            OwnerDashboardStyle.ApplyInset(surface);
+            _historyEntry = RecordLabel(content, "Entry", "", 0, 0, 1, 1, 16, false, TextAnchor.UpperLeft);
+            _historyEntry.supportRichText = true;
             _historyEntry.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _historySecondColumn = RecordLabel(content, "SecondColumn", "", 0, 0, 1, 1, 16, false, TextAnchor.UpperLeft);
+            _historySecondColumn.supportRichText = true;
+            _historySecondColumn.horizontalOverflow = HorizontalWrapMode.Wrap;
+            foreach (Text column in new[] { _historyEntry, _historySecondColumn })
+            {
+                var width = column.gameObject.AddComponent<LayoutElement>();
+                width.minWidth = 0;
+                width.preferredWidth = 0;
+                width.flexibleWidth = 1;
+            }
             scroll.content = content; scroll.viewport = viewport; scroll.horizontal = false;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             _historyEmpty = RecordLabel(safe, "Empty", "", .05f, .30f, .95f, .65f, 18, false, TextAnchor.MiddleCenter);
-            _historyPrevious = CreateNavigationButton(safe, "PreviousEntry", "이전", 0, .025f, .16f, .10f,
-                () => { _growthHistoryIndex--; RefreshRecordPanel(); });
-            _historyNext = CreateNavigationButton(safe, "NextEntry", "다음", .40f, .025f, .56f, .10f,
-                () => { _growthHistoryIndex++; RefreshRecordPanel(); });
-            _historyPage = RecordLabel(safe, "Page", "", .17f, .025f, .39f, .10f, 14, false, TextAnchor.MiddleCenter);
             _traitTrainingButton = CreateNavigationButton(safe, "TraitTraining", "특성훈련", .65f, .025f, 1, .10f,
                 () => { string id = _historyCard.CardId; Close(); TraitTrainingRequested?.Invoke(id); });
-            foreach (var button in new[] { _historyPrevious, _historyNext, _traitTrainingButton })
-                button.GetComponentInChildren<Text>().fontSize = 16;
+            _traitTrainingButton.GetComponentInChildren<Text>().fontSize = 16;
             _growthHistoryRoot.gameObject.SetActive(false);
         }
 
@@ -119,7 +128,6 @@ namespace Baseball.Presentation.Owner
                 Array.Copy(_growthHistoryEntries, 0, entries, 1, _growthHistoryEntries.Length);
                 _growthHistoryEntries = entries;
             }
-            _growthHistoryIndex = 0;
             var runtime = OwnerModeManager.Instance?.Runtime;
             _playerRecord = card.IsOwnedCard && runtime != null
                 ? OwnerSeasonRecordsService.GetCurrentPlayerRecord(runtime, runtime.PlayerTeamSeasonKey, card.PlayerSeasonId) : null;
@@ -139,7 +147,7 @@ namespace Baseball.Presentation.Owner
         {
             _isHistoryOpen = !_isHistoryOpen;
             _growthHistoryRoot.gameObject.SetActive(true);
-            _growthHistoryButton.GetComponentInChildren<Text>().text = _isHistoryOpen ? "기록 접기" : "성장 이력 · 기록";
+            _growthHistoryButton.GetComponentInChildren<Text>().text = _isHistoryOpen ? "기록 접기" : "기록";
             if (EventSystem.current != null)
                 EventSystem.current.SetSelectedGameObject(_isHistoryOpen ? _recordTabs[_recordTab].gameObject : _growthHistoryButton.gameObject);
         }
@@ -170,20 +178,30 @@ namespace Baseball.Presentation.Owner
             if (!_historyCard.IsOwnedCard)
                 OwnerRuntimeUiFactory.SetAnchors(_recordTabs[2].GetComponent<RectTransform>(), new Vector2(0, .73f), new Vector2(1, .81f), Vector2.zero, Vector2.zero);
             _historyBody.gameObject.SetActive(growth);
-            _historyPrevious.gameObject.SetActive(growth);
-            _historyNext.gameObject.SetActive(growth);
-            _historyPage.gameObject.SetActive(growth);
             _traitTrainingButton.gameObject.SetActive(growth && _historyCard.IsOwnedCard && TraitTrainingRequested != null);
             _historyEmpty.gameObject.SetActive(false);
             _recordTable.gameObject.SetActive(!growth);
             if (growth)
             {
-                _growthHistoryIndex = Mathf.Clamp(_growthHistoryIndex, 0, _growthHistoryEntries.Length - 1);
-                _historyEntry.text = _growthHistoryEntries[_growthHistoryIndex];
+                var columns = new[] { new System.Text.StringBuilder(), new System.Text.StringBuilder() };
+                string headingColor = ColorUtility.ToHtmlStringRGB(OwnerDashboardStyle.Gold);
+                for (int i = 0; i < _growthHistoryEntries.Length; i++)
+                {
+                    var text = columns[i % 2];
+                    string value = _growthHistoryEntries[i].Trim();
+                    int split = value.IndexOf('\n');
+                    if (text.Length > 0) text.Append("\n\n");
+                    text.Append("<color=#").Append(headingColor).Append('>')
+                        .Append(split < 0 ? value : value.Substring(0, split)).Append("</color>");
+                    if (split >= 0) text.Append('\n').Append(value.Substring(split + 1).Trim());
+                }
+                _historyEntry.text = columns[0].ToString();
+                _historySecondColumn.text = columns[1].ToString();
+                _historySecondColumn.gameObject.SetActive(_growthHistoryEntries.Length > 1);
+                OwnerRuntimeUiFactory.SetAnchors(_historyBody,
+                    new Vector2(0, _traitTrainingButton.gameObject.activeSelf ? .14f : .025f),
+                    new Vector2(1, .69f), Vector2.zero, Vector2.zero);
                 _historyBody.GetComponent<ScrollRect>().verticalNormalizedPosition = 1;
-                _historyPage.text = (_growthHistoryIndex + 1) + " / " + _growthHistoryEntries.Length;
-                _historyPrevious.interactable = _growthHistoryIndex > 0;
-                _historyNext.interactable = _growthHistoryIndex + 1 < _growthHistoryEntries.Length;
                 return;
             }
             bool pitcher = _historyCard.Position == PlayerPosition.StartingPitcher || _historyCard.Position == PlayerPosition.ReliefPitcher;

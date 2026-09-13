@@ -102,7 +102,7 @@ namespace Baseball.Game.Historical
             balance.Validate();
             var card = RequireAvailable(runtime, cardId);
             if (card.Trait.HasCandidates) throw new InvalidOperationException("선수에게 부여할 특성을 먼저 선택하세요.");
-            if (card.Trait.rank == CardTraitRank.S) throw new InvalidOperationException("이 선수의 특성은 최고 등급입니다.");
+            if (card.Trait.rank == CardTraitRank.SSS) throw new InvalidOperationException("이 선수의 특성은 최고 등급입니다.");
             int target = (int)balance.GetRank(card.Trait.experience);
             if (partners == null || partners.Count == 0) throw new InvalidOperationException("훈련 파트너를 선택하세요.");
             if (partners.Count > balance.slots[target]) throw new InvalidOperationException("선택 가능한 파트너 슬롯을 초과했습니다.");
@@ -114,7 +114,7 @@ namespace Baseball.Game.Historical
                     throw new InvalidOperationException("같은 선수를 중복 지정할 수 없습니다.");
                 experience = checked(experience + PartnerExperience(runtime, cardId, partners[i], balance));
             }
-            int total = Math.Min(balance.experience[3], checked(card.Trait.experience + experience));
+            int total = Math.Min(balance.experience[balance.experience.Length - 1], checked(card.Trait.experience + experience));
             int points = checked((int)Math.Ceiling(balance.basePointCost * balance.costMultipliers[target] * partners.Count));
             long money = checked((long)Math.Ceiling(balance.baseMoneyCost * balance.costMultipliers[target] * partners.Count));
             if (card.Trait.trait == CardTraitKind.None && total >= balance.experience[0]) Eligible(runtime, cardId, balance);

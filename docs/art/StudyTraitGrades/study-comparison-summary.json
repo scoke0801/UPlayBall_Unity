@@ -1,0 +1,262 @@
+﻿[
+    {
+        "Case":  "Program=baseline_batter Games=1000 Wins=485",
+        "AVG":  0.298,
+        "ERA":  4.891,
+        "BB/K":  0.408,
+        "R/G(team)":  5.018,
+        "HR/G(team)":  1.055,
+        "BB%":  7.32,
+        "SO%":  17.95
+    },
+    {
+        "Case":  "Program=baseline_pitcher Games=1000 Wins=503",
+        "AVG":  0.299,
+        "ERA":  4.962,
+        "BB/K":  0.416,
+        "R/G(team)":  5.037,
+        "HR/G(team)":  1.073,
+        "BB%":  7.33,
+        "SO%":  17.62
+    },
+    {
+        "Case":  "Program=study_contact Games=1000 Wins=487",
+        "AVG":  0.298,
+        "ERA":  4.877,
+        "BB/K":  0.408,
+        "R/G(team)":  5.003,
+        "HR/G(team)":  1.048,
+        "BB%":  7.31,
+        "SO%":  17.91
+    },
+    {
+        "Case":  "Program=study_power Games=1000 Wins=491",
+        "AVG":  0.298,
+        "ERA":  4.88,
+        "BB/K":  0.406,
+        "R/G(team)":  5.019,
+        "HR/G(team)":  1.067,
+        "BB%":  7.31,
+        "SO%":  18
+    },
+    {
+        "Case":  "Program=study_defense Games=1000 Wins=484",
+        "AVG":  0.298,
+        "ERA":  4.892,
+        "BB/K":  0.408,
+        "R/G(team)":  5.019,
+        "HR/G(team)":  1.054,
+        "BB%":  7.32,
+        "SO%":  17.95
+    },
+    {
+        "Case":  "Program=study_batter_allround Games=1000 Wins=493",
+        "AVG":  0.3,
+        "ERA":  4.942,
+        "BB/K":  0.412,
+        "R/G(team)":  5.068,
+        "HR/G(team)":  1.06,
+        "BB%":  7.3,
+        "SO%":  17.72
+    },
+    {
+        "Case":  "Program=study_velocity Games=1000 Wins=515",
+        "AVG":  0.296,
+        "ERA":  4.818,
+        "BB/K":  0.399,
+        "R/G(team)":  4.918,
+        "HR/G(team)":  1.04,
+        "BB%":  7.26,
+        "SO%":  18.2
+    },
+    {
+        "Case":  "Program=study_command Games=1000 Wins=503",
+        "AVG":  0.299,
+        "ERA":  4.949,
+        "BB/K":  0.411,
+        "R/G(team)":  5.03,
+        "HR/G(team)":  1.077,
+        "BB%":  7.27,
+        "SO%":  17.69
+    },
+    {
+        "Case":  "Program=study_breaking Games=1000 Wins=513",
+        "AVG":  0.298,
+        "ERA":  4.888,
+        "BB/K":  0.415,
+        "R/G(team)":  4.964,
+        "HR/G(team)":  1.079,
+        "BB%":  7.4,
+        "SO%":  17.85
+    },
+    {
+        "Case":  "Program=study_stamina Games=1000 Wins=498",
+        "AVG":  0.299,
+        "ERA":  4.977,
+        "BB/K":  0.416,
+        "R/G(team)":  5.052,
+        "HR/G(team)":  1.071,
+        "BB%":  7.33,
+        "SO%":  17.6
+    },
+    {
+        "Case":  "Program=study_baserunning Games=1000 Wins=488",
+        "AVG":  0.298,
+        "ERA":  4.913,
+        "BB/K":  0.411,
+        "R/G(team)":  5.048,
+        "HR/G(team)":  1.06,
+        "BB%":  7.36,
+        "SO%":  17.89
+    },
+    {
+        "Case":  "Program=study_bunt Games=1000 Wins=497",
+        "AVG":  0.299,
+        "ERA":  4.928,
+        "BB/K":  0.408,
+        "R/G(team)":  5.051,
+        "HR/G(team)":  1.06,
+        "BB%":  7.28,
+        "SO%":  17.84
+    },
+    {
+        "Case":  "Program=study_batter_mental Games=1000 Wins=485",
+        "AVG":  0.299,
+        "ERA":  4.906,
+        "BB/K":  0.412,
+        "R/G(team)":  5.039,
+        "HR/G(team)":  1.065,
+        "BB%":  7.37,
+        "SO%":  17.88
+    },
+    {
+        "Case":  "Program=study_range Games=1000 Wins=485",
+        "AVG":  0.298,
+        "ERA":  4.894,
+        "BB/K":  0.408,
+        "R/G(team)":  5.02,
+        "HR/G(team)":  1.054,
+        "BB%":  7.32,
+        "SO%":  17.94
+    },
+    {
+        "Case":  "Program=study_stuff Games=1000 Wins=521",
+        "AVG":  0.294,
+        "ERA":  4.773,
+        "BB/K":  0.4,
+        "R/G(team)":  4.867,
+        "HR/G(team)":  1.062,
+        "BB%":  7.43,
+        "SO%":  18.58
+    },
+    {
+        "Case":  "Program=study_pitcher_mental Games=1000 Wins=501",
+        "AVG":  0.299,
+        "ERA":  4.981,
+        "BB/K":  0.416,
+        "R/G(team)":  5.062,
+        "HR/G(team)":  1.079,
+        "BB%":  7.33,
+        "SO%":  17.61
+    },
+    {
+        "Case":  "Program=study_pitch_mix Games=1000 Wins=528",
+        "AVG":  0.299,
+        "ERA":  4.913,
+        "BB/K":  0.413,
+        "R/G(team)":  5.012,
+        "HR/G(team)":  1.073,
+        "BB%":  7.34,
+        "SO%":  17.76
+    },
+    {
+        "Case":  "Program=study_pitcher_endurance Games=1000 Wins=503",
+        "AVG":  0.296,
+        "ERA":  4.837,
+        "BB/K":  0.404,
+        "R/G(team)":  4.936,
+        "HR/G(team)":  1.076,
+        "BB%":  7.31,
+        "SO%":  18.1
+    },
+    {
+        "Case":  "Program=study_gap_hitting Games=1000 Wins=496",
+        "AVG":  0.302,
+        "ERA":  5.016,
+        "BB/K":  0.417,
+        "R/G(team)":  5.13,
+        "HR/G(team)":  1.062,
+        "BB%":  7.34,
+        "SO%":  17.59
+    },
+    {
+        "Case":  "Program=study_power_focus Games=1000 Wins=502",
+        "AVG":  0.299,
+        "ERA":  4.953,
+        "BB/K":  0.411,
+        "R/G(team)":  5.091,
+        "HR/G(team)":  1.091,
+        "BB%":  7.35,
+        "SO%":  17.9
+    },
+    {
+        "Case":  "Program=study_small_ball Games=1000 Wins=491",
+        "AVG":  0.298,
+        "ERA":  4.903,
+        "BB/K":  0.409,
+        "R/G(team)":  5.035,
+        "HR/G(team)":  1.058,
+        "BB%":  7.33,
+        "SO%":  17.94
+    },
+    {
+        "Case":  "Program=study_clutch Games=1000 Wins=506",
+        "AVG":  0.3,
+        "ERA":  4.968,
+        "BB/K":  0.415,
+        "R/G(team)":  5.087,
+        "HR/G(team)":  1.062,
+        "BB%":  7.36,
+        "SO%":  17.73
+    },
+    {
+        "Case":  "Program=study_power_pitching Games=1000 Wins=502",
+        "AVG":  0.296,
+        "ERA":  4.799,
+        "BB/K":  0.402,
+        "R/G(team)":  4.887,
+        "HR/G(team)":  1.06,
+        "BB%":  7.31,
+        "SO%":  18.19
+    },
+    {
+        "Case":  "Program=study_breaking_command Games=1000 Wins=504",
+        "AVG":  0.299,
+        "ERA":  4.97,
+        "BB/K":  0.413,
+        "R/G(team)":  5.045,
+        "HR/G(team)":  1.075,
+        "BB%":  7.29,
+        "SO%":  17.65
+    },
+    {
+        "Case":  "Program=study_velocity_endurance Games=1000 Wins=501",
+        "AVG":  0.296,
+        "ERA":  4.827,
+        "BB/K":  0.404,
+        "R/G(team)":  4.907,
+        "HR/G(team)":  1.054,
+        "BB%":  7.34,
+        "SO%":  18.16
+    },
+    {
+        "Case":  "Program=study_pressure_pitching Games=1000 Wins=503",
+        "AVG":  0.298,
+        "ERA":  4.926,
+        "BB/K":  0.414,
+        "R/G(team)":  5.012,
+        "HR/G(team)":  1.093,
+        "BB%":  7.37,
+        "SO%":  17.8
+    }
+]

@@ -1,0 +1,572 @@
+﻿[
+    {
+        "Case":  "Trait=None Rank=None Games=1000 Wins=512 Fingerprint=9326782065082387492",
+        "AVG":  0.298,
+        "ERA":  4.923,
+        "BB/K":  0.408,
+        "R/G(team)":  5.005,
+        "HR/G(team)":  1.077,
+        "BB%":  7.35,
+        "SO%":  18.02
+    },
+    {
+        "Case":  "Trait=Contact Rank=C Games=1000 Wins=527 Fingerprint=2313592959809619740",
+        "AVG":  0.305,
+        "ERA":  5.093,
+        "BB/K":  0.414,
+        "R/G(team)":  5.189,
+        "HR/G(team)":  1.129,
+        "BB%":  7.17,
+        "SO%":  17.32
+    },
+    {
+        "Case":  "Trait=Contact Rank=S Games=1000 Wins=556 Fingerprint=1776540509889121534",
+        "AVG":  0.309,
+        "ERA":  5.301,
+        "BB/K":  0.43,
+        "R/G(team)":  5.413,
+        "HR/G(team)":  1.177,
+        "BB%":  7.14,
+        "SO%":  16.6
+    },
+    {
+        "Case":  "Trait=Contact Rank=SS Games=1000 Wins=564 Fingerprint=15918022241694105033",
+        "AVG":  0.312,
+        "ERA":  5.351,
+        "BB/K":  0.435,
+        "R/G(team)":  5.464,
+        "HR/G(team)":  1.169,
+        "BB%":  7.13,
+        "SO%":  16.4
+    },
+    {
+        "Case":  "Trait=Contact Rank=SSS Games=1000 Wins=568 Fingerprint=7096547717349029817",
+        "AVG":  0.313,
+        "ERA":  5.424,
+        "BB/K":  0.439,
+        "R/G(team)":  5.537,
+        "HR/G(team)":  1.193,
+        "BB%":  7.1,
+        "SO%":  16.17
+    },
+    {
+        "Case":  "Trait=Clutch Rank=C Games=1000 Wins=552 Fingerprint=231865484732283651",
+        "AVG":  0.302,
+        "ERA":  5.075,
+        "BB/K":  0.416,
+        "R/G(team)":  5.194,
+        "HR/G(team)":  1.123,
+        "BB%":  7.32,
+        "SO%":  17.6
+    },
+    {
+        "Case":  "Trait=Clutch Rank=S Games=1000 Wins=571 Fingerprint=4887412546534616979",
+        "AVG":  0.304,
+        "ERA":  5.16,
+        "BB/K":  0.416,
+        "R/G(team)":  5.271,
+        "HR/G(team)":  1.088,
+        "BB%":  7.23,
+        "SO%":  17.4
+    },
+    {
+        "Case":  "Trait=Clutch Rank=SS Games=1000 Wins=544 Fingerprint=898806265556220082",
+        "AVG":  0.305,
+        "ERA":  5.213,
+        "BB/K":  0.417,
+        "R/G(team)":  5.298,
+        "HR/G(team)":  1.098,
+        "BB%":  7.21,
+        "SO%":  17.28
+    },
+    {
+        "Case":  "Trait=Clutch Rank=SSS Games=1000 Wins=542 Fingerprint=18331128490836770937",
+        "AVG":  0.306,
+        "ERA":  5.322,
+        "BB/K":  0.423,
+        "R/G(team)":  5.407,
+        "HR/G(team)":  1.13,
+        "BB%":  7.25,
+        "SO%":  17.14
+    },
+    {
+        "Case":  "Trait=Leadoff Rank=C Games=1000 Wins=530 Fingerprint=16293021772298269362",
+        "AVG":  0.303,
+        "ERA":  5.004,
+        "BB/K":  0.412,
+        "R/G(team)":  5.107,
+        "HR/G(team)":  1.118,
+        "BB%":  7.22,
+        "SO%":  17.53
+    },
+    {
+        "Case":  "Trait=Leadoff Rank=S Games=1000 Wins=534 Fingerprint=17688629979998886720",
+        "AVG":  0.306,
+        "ERA":  5.074,
+        "BB/K":  0.418,
+        "R/G(team)":  5.165,
+        "HR/G(team)":  1.147,
+        "BB%":  7.17,
+        "SO%":  17.17
+    },
+    {
+        "Case":  "Trait=Leadoff Rank=SS Games=1000 Wins=538 Fingerprint=1288344204974030751",
+        "AVG":  0.307,
+        "ERA":  5.079,
+        "BB/K":  0.421,
+        "R/G(team)":  5.17,
+        "HR/G(team)":  1.149,
+        "BB%":  7.14,
+        "SO%":  16.96
+    },
+    {
+        "Case":  "Trait=Leadoff Rank=SSS Games=1000 Wins=556 Fingerprint=8816018292802625656",
+        "AVG":  0.309,
+        "ERA":  5.151,
+        "BB/K":  0.423,
+        "R/G(team)":  5.252,
+        "HR/G(team)":  1.165,
+        "BB%":  7.05,
+        "SO%":  16.69
+    },
+    {
+        "Case":  "Trait=Power Rank=C Games=1000 Wins=543 Fingerprint=2858167971951966236",
+        "AVG":  0.304,
+        "ERA":  5.103,
+        "BB/K":  0.412,
+        "R/G(team)":  5.183,
+        "HR/G(team)":  1.113,
+        "BB%":  7.41,
+        "SO%":  17.99
+    },
+    {
+        "Case":  "Trait=Power Rank=S Games=1000 Wins=556 Fingerprint=2390808801351900646",
+        "AVG":  0.308,
+        "ERA":  5.25,
+        "BB/K":  0.411,
+        "R/G(team)":  5.346,
+        "HR/G(team)":  1.142,
+        "BB%":  7.39,
+        "SO%":  17.96
+    },
+    {
+        "Case":  "Trait=Power Rank=SS Games=1000 Wins=572 Fingerprint=8307136752365569293",
+        "AVG":  0.309,
+        "ERA":  5.307,
+        "BB/K":  0.409,
+        "R/G(team)":  5.395,
+        "HR/G(team)":  1.151,
+        "BB%":  7.36,
+        "SO%":  17.99
+    },
+    {
+        "Case":  "Trait=Power Rank=SSS Games=1000 Wins=582 Fingerprint=17581282378712368498",
+        "AVG":  0.311,
+        "ERA":  5.388,
+        "BB/K":  0.411,
+        "R/G(team)":  5.484,
+        "HR/G(team)":  1.169,
+        "BB%":  7.38,
+        "SO%":  17.95
+    },
+    {
+        "Case":  "Trait=Bunt Rank=C Games=1000 Wins=511 Fingerprint=15416564764567492239",
+        "AVG":  0.298,
+        "ERA":  4.919,
+        "BB/K":  0.408,
+        "R/G(team)":  5.004,
+        "HR/G(team)":  1.076,
+        "BB%":  7.34,
+        "SO%":  18.02
+    },
+    {
+        "Case":  "Trait=Bunt Rank=S Games=1000 Wins=513 Fingerprint=17591959197763314274",
+        "AVG":  0.298,
+        "ERA":  4.924,
+        "BB/K":  0.408,
+        "R/G(team)":  5.008,
+        "HR/G(team)":  1.077,
+        "BB%":  7.34,
+        "SO%":  18.01
+    },
+    {
+        "Case":  "Trait=Bunt Rank=SS Games=1000 Wins=513 Fingerprint=17591959197763314274",
+        "AVG":  0.298,
+        "ERA":  4.922,
+        "BB/K":  0.408,
+        "R/G(team)":  5.008,
+        "HR/G(team)":  1.077,
+        "BB%":  7.34,
+        "SO%":  18.01
+    },
+    {
+        "Case":  "Trait=Bunt Rank=SSS Games=1000 Wins=514 Fingerprint=14161143952624317341",
+        "AVG":  0.298,
+        "ERA":  4.924,
+        "BB/K":  0.408,
+        "R/G(team)":  5.01,
+        "HR/G(team)":  1.077,
+        "BB%":  7.34,
+        "SO%":  18.01
+    },
+    {
+        "Case":  "Trait=Defense Rank=C Games=1000 Wins=530 Fingerprint=8493504415355529577",
+        "AVG":  0.297,
+        "ERA":  4.826,
+        "BB/K":  0.407,
+        "R/G(team)":  4.925,
+        "HR/G(team)":  1.075,
+        "BB%":  7.34,
+        "SO%":  18.02
+    },
+    {
+        "Case":  "Trait=Defense Rank=S Games=1000 Wins=528 Fingerprint=13149616856770904901",
+        "AVG":  0.296,
+        "ERA":  4.798,
+        "BB/K":  0.407,
+        "R/G(team)":  4.896,
+        "HR/G(team)":  1.079,
+        "BB%":  7.34,
+        "SO%":  18.04
+    },
+    {
+        "Case":  "Trait=Defense Rank=SS Games=1000 Wins=530 Fingerprint=343280364588861118",
+        "AVG":  0.295,
+        "ERA":  4.78,
+        "BB/K":  0.406,
+        "R/G(team)":  4.878,
+        "HR/G(team)":  1.077,
+        "BB%":  7.34,
+        "SO%":  18.06
+    },
+    {
+        "Case":  "Trait=Defense Rank=SSS Games=1000 Wins=531 Fingerprint=14795648121261415862",
+        "AVG":  0.295,
+        "ERA":  4.758,
+        "BB/K":  0.407,
+        "R/G(team)":  4.861,
+        "HR/G(team)":  1.075,
+        "BB%":  7.33,
+        "SO%":  18.04
+    },
+    {
+        "Case":  "Trait=Running Rank=C Games=1000 Wins=503 Fingerprint=12640336637242978357",
+        "AVG":  0.298,
+        "ERA":  4.923,
+        "BB/K":  0.406,
+        "R/G(team)":  5.003,
+        "HR/G(team)":  1.06,
+        "BB%":  7.31,
+        "SO%":  18.01
+    },
+    {
+        "Case":  "Trait=Running Rank=S Games=1000 Wins=514 Fingerprint=6347388071759712814",
+        "AVG":  0.299,
+        "ERA":  4.893,
+        "BB/K":  0.405,
+        "R/G(team)":  4.996,
+        "HR/G(team)":  1.058,
+        "BB%":  7.3,
+        "SO%":  18.05
+    },
+    {
+        "Case":  "Trait=Running Rank=SS Games=1000 Wins=503 Fingerprint=18119697641794900460",
+        "AVG":  0.299,
+        "ERA":  4.915,
+        "BB/K":  0.413,
+        "R/G(team)":  5.006,
+        "HR/G(team)":  1.045,
+        "BB%":  7.41,
+        "SO%":  17.95
+    },
+    {
+        "Case":  "Trait=Running Rank=SSS Games=1000 Wins=516 Fingerprint=12338332436544469100",
+        "AVG":  0.299,
+        "ERA":  4.9,
+        "BB/K":  0.407,
+        "R/G(team)":  4.991,
+        "HR/G(team)":  1.03,
+        "BB%":  7.33,
+        "SO%":  18.02
+    },
+    {
+        "Case":  "Trait=EarlyStarter Rank=C Games=1000 Wins=491 Fingerprint=6475982881189371702",
+        "AVG":  0.297,
+        "ERA":  4.838,
+        "BB/K":  0.408,
+        "R/G(team)":  4.928,
+        "HR/G(team)":  1.046,
+        "BB%":  7.38,
+        "SO%":  18.07
+    },
+    {
+        "Case":  "Trait=EarlyStarter Rank=S Games=1000 Wins=507 Fingerprint=3575681746009319149",
+        "AVG":  0.298,
+        "ERA":  4.91,
+        "BB/K":  0.409,
+        "R/G(team)":  5.012,
+        "HR/G(team)":  1.071,
+        "BB%":  7.41,
+        "SO%":  18.12
+    },
+    {
+        "Case":  "Trait=EarlyStarter Rank=SS Games=1000 Wins=514 Fingerprint=5812718542573936376",
+        "AVG":  0.298,
+        "ERA":  4.898,
+        "BB/K":  0.408,
+        "R/G(team)":  5.011,
+        "HR/G(team)":  1.077,
+        "BB%":  7.38,
+        "SO%":  18.08
+    },
+    {
+        "Case":  "Trait=EarlyStarter Rank=SSS Games=1000 Wins=515 Fingerprint=16656080408030493666",
+        "AVG":  0.298,
+        "ERA":  4.914,
+        "BB/K":  0.404,
+        "R/G(team)":  5.015,
+        "HR/G(team)":  1.067,
+        "BB%":  7.37,
+        "SO%":  18.27
+    },
+    {
+        "Case":  "Trait=PitchClutch Rank=C Games=1000 Wins=507 Fingerprint=16411883142440499555",
+        "AVG":  0.299,
+        "ERA":  4.935,
+        "BB/K":  0.41,
+        "R/G(team)":  5.024,
+        "HR/G(team)":  1.068,
+        "BB%":  7.36,
+        "SO%":  17.98
+    },
+    {
+        "Case":  "Trait=PitchClutch Rank=S Games=1000 Wins=505 Fingerprint=16342033803856525440",
+        "AVG":  0.298,
+        "ERA":  4.929,
+        "BB/K":  0.407,
+        "R/G(team)":  5.019,
+        "HR/G(team)":  1.089,
+        "BB%":  7.34,
+        "SO%":  18.03
+    },
+    {
+        "Case":  "Trait=PitchClutch Rank=SS Games=1000 Wins=503 Fingerprint=1248177141811590354",
+        "AVG":  0.297,
+        "ERA":  4.881,
+        "BB/K":  0.406,
+        "R/G(team)":  4.974,
+        "HR/G(team)":  1.081,
+        "BB%":  7.33,
+        "SO%":  18.05
+    },
+    {
+        "Case":  "Trait=PitchClutch Rank=SSS Games=1000 Wins=509 Fingerprint=8125239717595693690",
+        "AVG":  0.298,
+        "ERA":  4.905,
+        "BB/K":  0.406,
+        "R/G(team)":  4.995,
+        "HR/G(team)":  1.083,
+        "BB%":  7.33,
+        "SO%":  18.03
+    },
+    {
+        "Case":  "Trait=Strikeout Rank=C Games=1000 Wins=508 Fingerprint=11557532657966716625",
+        "AVG":  0.295,
+        "ERA":  4.803,
+        "BB/K":  0.399,
+        "R/G(team)":  4.908,
+        "HR/G(team)":  1.072,
+        "BB%":  7.41,
+        "SO%":  18.59
+    },
+    {
+        "Case":  "Trait=Strikeout Rank=S Games=1000 Wins=519 Fingerprint=15638044444791102530",
+        "AVG":  0.293,
+        "ERA":  4.7,
+        "BB/K":  0.39,
+        "R/G(team)":  4.806,
+        "HR/G(team)":  1.04,
+        "BB%":  7.41,
+        "SO%":  19
+    },
+    {
+        "Case":  "Trait=Strikeout Rank=SS Games=1000 Wins=512 Fingerprint=16905747358868677093",
+        "AVG":  0.291,
+        "ERA":  4.652,
+        "BB/K":  0.389,
+        "R/G(team)":  4.764,
+        "HR/G(team)":  1.024,
+        "BB%":  7.45,
+        "SO%":  19.12
+    },
+    {
+        "Case":  "Trait=Strikeout Rank=SSS Games=1000 Wins=528 Fingerprint=6596508180558310953",
+        "AVG":  0.291,
+        "ERA":  4.639,
+        "BB/K":  0.389,
+        "R/G(team)":  4.769,
+        "HR/G(team)":  1.024,
+        "BB%":  7.47,
+        "SO%":  19.22
+    },
+    {
+        "Case":  "Trait=Groundball Rank=C Games=1000 Wins=534 Fingerprint=2947554734022053787",
+        "AVG":  0.294,
+        "ERA":  4.735,
+        "BB/K":  0.408,
+        "R/G(team)":  4.836,
+        "HR/G(team)":  1.038,
+        "BB%":  7.34,
+        "SO%":  18.01
+    },
+    {
+        "Case":  "Trait=Groundball Rank=S Games=1000 Wins=547 Fingerprint=12845402478137899539",
+        "AVG":  0.292,
+        "ERA":  4.628,
+        "BB/K":  0.405,
+        "R/G(team)":  4.755,
+        "HR/G(team)":  1.007,
+        "BB%":  7.31,
+        "SO%":  18.03
+    },
+    {
+        "Case":  "Trait=Groundball Rank=SS Games=1000 Wins=551 Fingerprint=869404113471980044",
+        "AVG":  0.292,
+        "ERA":  4.634,
+        "BB/K":  0.404,
+        "R/G(team)":  4.768,
+        "HR/G(team)":  1.012,
+        "BB%":  7.28,
+        "SO%":  18.03
+    },
+    {
+        "Case":  "Trait=Groundball Rank=SSS Games=1000 Wins=556 Fingerprint=18076977109225465526",
+        "AVG":  0.29,
+        "ERA":  4.579,
+        "BB/K":  0.404,
+        "R/G(team)":  4.713,
+        "HR/G(team)":  0.996,
+        "BB%":  7.27,
+        "SO%":  17.99
+    },
+    {
+        "Case":  "Trait=Endurance Rank=C Games=1000 Wins=514 Fingerprint=8167353255603876880",
+        "AVG":  0.298,
+        "ERA":  4.899,
+        "BB/K":  0.409,
+        "R/G(team)":  5.013,
+        "HR/G(team)":  1.069,
+        "BB%":  7.35,
+        "SO%":  17.97
+    },
+    {
+        "Case":  "Trait=Endurance Rank=S Games=1000 Wins=500 Fingerprint=3787862132443321002",
+        "AVG":  0.299,
+        "ERA":  4.91,
+        "BB/K":  0.411,
+        "R/G(team)":  5.008,
+        "HR/G(team)":  1.075,
+        "BB%":  7.36,
+        "SO%":  17.92
+    },
+    {
+        "Case":  "Trait=Endurance Rank=SS Games=1000 Wins=500 Fingerprint=12371931286410819159",
+        "AVG":  0.3,
+        "ERA":  4.923,
+        "BB/K":  0.409,
+        "R/G(team)":  5.019,
+        "HR/G(team)":  1.076,
+        "BB%":  7.33,
+        "SO%":  17.94
+    },
+    {
+        "Case":  "Trait=Endurance Rank=SSS Games=1000 Wins=507 Fingerprint=18201737253151101231",
+        "AVG":  0.299,
+        "ERA":  4.933,
+        "BB/K":  0.409,
+        "R/G(team)":  5.035,
+        "HR/G(team)":  1.076,
+        "BB%":  7.33,
+        "SO%":  17.92
+    },
+    {
+        "Case":  "Trait=Setup Rank=C Games=1000 Wins=514 Fingerprint=13416024671126134557",
+        "AVG":  0.298,
+        "ERA":  4.894,
+        "BB/K":  0.406,
+        "R/G(team)":  4.978,
+        "HR/G(team)":  1.067,
+        "BB%":  7.34,
+        "SO%":  18.09
+    },
+    {
+        "Case":  "Trait=Setup Rank=S Games=1000 Wins=507 Fingerprint=3971282970980398214",
+        "AVG":  0.297,
+        "ERA":  4.859,
+        "BB/K":  0.403,
+        "R/G(team)":  4.944,
+        "HR/G(team)":  1.06,
+        "BB%":  7.33,
+        "SO%":  18.19
+    },
+    {
+        "Case":  "Trait=Setup Rank=SS Games=1000 Wins=514 Fingerprint=5189654420256598472",
+        "AVG":  0.296,
+        "ERA":  4.862,
+        "BB/K":  0.402,
+        "R/G(team)":  4.95,
+        "HR/G(team)":  1.064,
+        "BB%":  7.33,
+        "SO%":  18.21
+    },
+    {
+        "Case":  "Trait=Setup Rank=SSS Games=1000 Wins=515 Fingerprint=5646407940907343316",
+        "AVG":  0.296,
+        "ERA":  4.861,
+        "BB/K":  0.403,
+        "R/G(team)":  4.945,
+        "HR/G(team)":  1.06,
+        "BB%":  7.36,
+        "SO%":  18.25
+    },
+    {
+        "Case":  "Trait=Closer Rank=C Games=1000 Wins=510 Fingerprint=7678396468775531782",
+        "AVG":  0.298,
+        "ERA":  4.924,
+        "BB/K":  0.408,
+        "R/G(team)":  5.007,
+        "HR/G(team)":  1.078,
+        "BB%":  7.35,
+        "SO%":  18.02
+    },
+    {
+        "Case":  "Trait=Closer Rank=S Games=1000 Wins=510 Fingerprint=9311269725645507380",
+        "AVG":  0.298,
+        "ERA":  4.92,
+        "BB/K":  0.408,
+        "R/G(team)":  5.004,
+        "HR/G(team)":  1.077,
+        "BB%":  7.35,
+        "SO%":  18.03
+    },
+    {
+        "Case":  "Trait=Closer Rank=SS Games=1000 Wins=510 Fingerprint=18115065785487471246",
+        "AVG":  0.298,
+        "ERA":  4.919,
+        "BB/K":  0.408,
+        "R/G(team)":  5.003,
+        "HR/G(team)":  1.076,
+        "BB%":  7.35,
+        "SO%":  18.03
+    },
+    {
+        "Case":  "Trait=Closer Rank=SSS Games=1000 Wins=510 Fingerprint=18115065785487471246",
+        "AVG":  0.298,
+        "ERA":  4.919,
+        "BB/K":  0.408,
+        "R/G(team)":  5.003,
+        "HR/G(team)":  1.076,
+        "BB%":  7.35,
+        "SO%":  18.02
+    }
+]

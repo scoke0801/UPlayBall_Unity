@@ -86,8 +86,10 @@ namespace Baseball.Presentation.Owner
             Button(right, "Schedule", "일정 보기", .73f, .91f, .965f, .98f, () => { Close(); _schedule?.Invoke(); });
             Label(right, "PartnerSafety", "선수는 사라지지 않습니다 · 파트너 횟수만 사용", .035f, .82f, .96f, .90f, 16);
             BuildPartnerList(right);
-            _slots = Label(right, "SelectedPartners", "", .035f, .23f, .96f, .34f, 17, true);
-            _preview = Label(right, "Preview", "훈련 파트너를 선택하세요.", .035f, .04f, .96f, .21f, 20, true);
+            _slots = Label(right, "SelectedPartners", "", .035f, .175f, .74f, .245f, 17, true);
+            var result = Surface(right, "TrainingPreview", .035f, .025f, .965f, .165f);
+            OwnerDashboardStyle.ApplyInset(result.GetComponent<Image>());
+            _preview = Label(result, "Preview", "훈련 파트너를 선택하세요.", .025f, .08f, .975f, .92f, 18, true);
             var actionBar = Rect(_frame, "TrainingActionBar", .025f, .025f, .975f, .165f);
             OwnerDashboardStyle.ApplyActionBar(actionBar);
             _cost = Label(_frame, "Cost", "", .025f, .105f, .68f, .165f, 18, true);
@@ -119,9 +121,9 @@ namespace Baseball.Presentation.Owner
             if (_targetCard.gameObject.activeSelf) _targetCard.Bind(OwnerCollectionPresentationBuilder.CreateMiniCard(Snapshot(_cardId), false));
             _current.text = card == null ? "훈련할 선수를 선택하세요." : OwnerCardGrowthBadgeBuilder.DescribeTrait(card.Trait, balance);
             int total = card?.Trait.experience ?? 0;
-            int nextRank = Math.Min(3, (int)balance.GetRank(total));
-            _progress.text = card == null ? "선수 선택 후 성장 목표가 표시됩니다." : card.Trait.rank == CardTraitRank.S
-                ? $"S등급 · {total:N0} 경험치 · 최고 등급" : $"{(card.Trait.rank == CardTraitRank.None ? "미보유" : card.Trait.rank + "등급")} → {(CardTraitRank)(nextRank + 1)}   {total:N0} / {balance.experience[nextRank]:N0}";
+            int nextRank = Math.Min(balance.experience.Length - 1, (int)balance.GetRank(total));
+            _progress.text = card == null ? "선수 선택 후 성장 목표가 표시됩니다." : card.Trait.rank == CardTraitRank.SSS
+                ? $"SSS등급 · {total:N0} 경험치 · 최고 등급" : $"{(card.Trait.rank == CardTraitRank.None ? "미보유" : card.Trait.rank + "등급")} → {(CardTraitRank)(nextRank + 1)}   {total:N0} / {balance.experience[nextRank]:N0}";
             _progressFill.rectTransform.anchorMax = new Vector2(card == null ? 0 : Mathf.Clamp01((float)total / balance.experience[nextRank]), 1);
             bool pending = card != null && card.Trait.HasCandidates;
             _candidates.gameObject.SetActive(pending);
@@ -130,9 +132,12 @@ namespace Baseball.Presentation.Owner
             SetButtonText(_change, card?.Trait.freeChangeSeason == _seenSeason ? $"특성 변경 · {balance.changeCost} TP" : "특성 변경 · 이번 시즌 무료");
             _hasPreview = false; _train.interactable = false; _cost.text = "";
             _feedback.text = "선택한 파트너는 사라지지 않습니다.";
-            _slots.text = "선택 파트너 " + _partners.Count + " / " + balance.slots[nextRank];
-            foreach (string id in _partners) _slots.text += "  ·  " + Snapshot(id)?.DisplayName;
-            _preview.text = card == null ? "훈련할 선수를 선택하세요." : pending ? "03  후보를 비교하고 하나를 확정하세요." : "파트너 선택 즉시 비용과 성장 결과를 확인할 수 있습니다.";
+            _slots.text = "선택한 파트너  " + _partners.Count + " / " + balance.slots[nextRank];
+            for (int i = 0; i < _partners.Count; i++)
+                _slots.text += (i == 0 ? "\n" : " · ") + Snapshot(_partners[i])?.DisplayName;
+            _preview.text = card == null ? "훈련할 선수를 선택하세요." : pending ? "03  후보를 비교하고 하나를 확정하세요."
+                : balance.slots[nextRank] == 1 ? "파트너를 선택하면 성장과 비용이 표시됩니다.\n다른 선수를 누르면 파트너가 교체됩니다."
+                : "파트너를 선택하면 성장과 비용이 표시됩니다.\n선택한 선수를 다시 누르면 해제됩니다.";
             RefreshPartners();
             try
             {
@@ -171,7 +176,7 @@ namespace Baseball.Presentation.Owner
 
         private IEnumerator AnimateProgress(int before, int after)
         {
-            int denominator = _manager.TraitBalance.experience[Math.Min(3, (int)_manager.TraitBalance.GetRank(after))];
+            int denominator = _manager.TraitBalance.experience[Math.Min(_manager.TraitBalance.experience.Length - 1, (int)_manager.TraitBalance.GetRank(after))];
             for (float elapsed = 0; elapsed < .5f; elapsed += Time.unscaledDeltaTime)
             { _progressFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(Mathf.Lerp(before, after, elapsed / .5f) / denominator), 1); yield return null; }
             _progressFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01((float)after / denominator), 1); _animation = null;
@@ -247,11 +252,12 @@ namespace Baseball.Presentation.Owner
             var ranks = Surface(_help, "RankProgression", .035f, .35f, .61f, .57f);
             OwnerDashboardStyle.ApplyInset(ranks.GetComponent<Image>());
             Label(ranks, "Title", "누적 경험치로 성장하는 특성", .035f, .69f, .965f, .95f, 18, true);
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < _manager.TraitBalance.experience.Length; i++)
             {
-                float left = .035f + i * .24f;
-                Label(ranks, "Rank" + i, ((CardTraitRank)(i + 1)).ToString(), left, .34f, left + .21f, .67f, 24, true).color = OwnerDashboardStyle.Gold;
-                Label(ranks, "Experience" + i, $"{_manager.TraitBalance.experience[i]:N0} 경험치", left, .06f, left + .21f, .34f, 16);
+                float step = .93f / _manager.TraitBalance.experience.Length;
+                float left = .035f + i * step;
+                Label(ranks, "Rank" + i, ((CardTraitRank)(i + 1)).ToString(), left, .34f, left + step, .67f, 24, true).color = OwnerDashboardStyle.Gold;
+                Label(ranks, "Experience" + i, $"{_manager.TraitBalance.experience[i]:N0}", left, .06f, left + step, .34f, 16);
             }
             var rewards = Surface(_help, "Rewards", .63f, .35f, .965f, .57f);
             OwnerDashboardStyle.ApplyInset(rewards.GetComponent<Image>());

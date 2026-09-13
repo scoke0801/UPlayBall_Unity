@@ -40,24 +40,27 @@ namespace Baseball.Presentation.Owner
                 foreach (CardStudyProjectState project in growth.StudyProjects)
                     if (string.Equals(project.CardId, owned.CardId, System.StringComparison.Ordinal))
                         return new PlayerCardGrowthBadgeModel(PlayerStudyBadgeState.InProgress,
-                            DescribeStudyProject(project, studies) + DescribeStudyBonuses(owned), traitRank, traitDescription, supportGames: supportGames, boardRank: boardRank, boardDescription: boardDescription);
+                            DescribeStudyProject(project, studies) + DescribeStudyBonuses(owned), traitRank, traitDescription, supportGames: supportGames, boardRank: boardRank, boardDescription: boardDescription,
+                            studyRank: FindStudyRank(owned, studies, project.ProgramId));
             // LastStudySeason은 시작 시 저장된다. 진행 프로젝트가 없을 때만 완료 이력으로 표시한다.
             bool hasCompletedStudy = owned.LastStudySeason >= 0;
             for (int index = 0; !hasCompletedStudy && index < PlayerAbilityCatalog.AbilityCount; index++)
                 hasCompletedStudy = owned.Training.GetStudyBonus((PlayerAbility)index) > 0;
             return hasCompletedStudy
                 ? new PlayerCardGrowthBadgeModel(PlayerStudyBadgeState.Completed,
-                    DescribeCompletedStudies(owned, studies), traitRank: traitRank, traitDescription: traitDescription, supportGames: supportGames, boardRank: boardRank, boardDescription: boardDescription)
+                    DescribeCompletedStudies(owned, studies), traitRank: traitRank, traitDescription: traitDescription, supportGames: supportGames, boardRank: boardRank, boardDescription: boardDescription,
+                    studyRank: FindStudyRank(owned, studies))
                 : new PlayerCardGrowthBadgeModel(traitRank: traitRank, traitDescription: traitDescription, supportGames: supportGames, boardRank: boardRank, boardDescription: boardDescription);
         }
 
         private static PlayerBoardBadgeRank ToBoardRank(SkillBlockRarity rarity) => rarity switch
         {
-            SkillBlockRarity.Normal => PlayerBoardBadgeRank.N,
-            SkillBlockRarity.Rare => PlayerBoardBadgeRank.R,
-            SkillBlockRarity.Elite => PlayerBoardBadgeRank.E,
-            SkillBlockRarity.Unique => PlayerBoardBadgeRank.U,
-            SkillBlockRarity.Legendary => PlayerBoardBadgeRank.L,
+            SkillBlockRarity.Normal => PlayerBoardBadgeRank.C,
+            SkillBlockRarity.Rare => PlayerBoardBadgeRank.B,
+            SkillBlockRarity.Elite => PlayerBoardBadgeRank.A,
+            SkillBlockRarity.Unique => PlayerBoardBadgeRank.S,
+            SkillBlockRarity.Legendary => PlayerBoardBadgeRank.SS,
+            SkillBlockRarity.Mythic => PlayerBoardBadgeRank.SSS,
             _ => PlayerBoardBadgeRank.None
         };
 
@@ -135,9 +138,28 @@ namespace Baseball.Presentation.Owner
         private static void AppendStudyProgram(System.Text.StringBuilder text, CardStudyProgramDefinition program)
         {
             if (program == null) { text.Append("유학지 · 등급 기록 없음"); return; }
-            // ApplyStudyTiers와 같은 해금 단계가 실제 유학 등급을 결정한다.
-            int tier = (int)program.UnlockRequirement.Kind + 1;
-            text.Append(program.DestinationName).Append(" · ").Append(tier).Append(" 등급\n").Append(program.DisplayName);
+            string rank = program.Rank.ToString();
+            text.Append(program.DestinationName).Append("(").Append(rank).Append("등급)\n").Append(program.DisplayName);
+        }
+
+        /// <summary>진행 과정 또는 현재 활성 완료 효과에서 등급을 읽고, 기록이 없으면 추정하지 않는다.</summary>
+        private static PlayerStudyBadgeRank FindStudyRank(OwnedPlayerCardState owned, OwnerCardGrowthBalanceTable studies, string programId = null)
+        {
+            var rank = PlayerStudyBadgeRank.None;
+            if (studies == null) return rank;
+            foreach (var program in studies.StudyPrograms)
+            {
+                if (programId != null)
+                {
+                    if (program.ProgramId == programId) return (PlayerStudyBadgeRank)program.Rank;
+                    continue;
+                }
+                foreach (var entry in owned.Training.Ledger.Entries)
+                    if (entry.Source == OwnerGrowthSource.OverseasTraining && entry.IsActive &&
+                        (entry.DisplayName == program.DisplayName + " · 완료" || entry.DisplayName == program.DisplayName + " · 대성공"))
+                        rank = (PlayerStudyBadgeRank)System.Math.Max((int)rank, (int)program.Rank);
+            }
+            return rank;
         }
 
         private static string DescribeStudyBonuses(OwnedPlayerCardState owned, bool showEmpty = false)

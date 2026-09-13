@@ -15,7 +15,7 @@ namespace Baseball.Game.Historical
         public int maximumRank, blockCount, enhancement, studyCompletions;
         public SkillBlockRarity blockRarity;
         public CardTraitRank traitRank;
-        public CardStudyUnlockKind studyTier;
+        public CardStudyRank studyRank;
     }
 
     /// <summary>연습경기 상대의 성장 강도를 JSON에서 주입한다.</summary>
@@ -35,8 +35,8 @@ namespace Baseball.Game.Historical
                     tier.blockCount < 1 || tier.studyCompletions < 1 || tier.enhancement < 1 ||
                     tier.enhancement > OwnedPlayerCardState.MaximumEnhancementLevel ||
                     !Enum.IsDefined(typeof(SkillBlockRarity), tier.blockRarity) ||
-                    !Enum.IsDefined(typeof(CardStudyUnlockKind), tier.studyTier) ||
-                    tier.traitRank < CardTraitRank.C || tier.traitRank > CardTraitRank.S)
+                    tier.studyRank < CardStudyRank.C || tier.studyRank > CardStudyRank.SSS ||
+                    tier.traitRank < CardTraitRank.C || tier.traitRank > CardTraitRank.SSS)
                     throw new ArgumentException("연습경기 성장 단계가 올바르지 않습니다.");
                 previous = tier.maximumRank;
             }
@@ -44,7 +44,7 @@ namespace Baseball.Game.Historical
             for (int i = 1; i < tiers.Length; i++)
                 if (tiers[i].blockCount > tiers[i - 1].blockCount || tiers[i].blockRarity > tiers[i - 1].blockRarity ||
                     tiers[i].enhancement > tiers[i - 1].enhancement || tiers[i].studyCompletions > tiers[i - 1].studyCompletions ||
-                    tiers[i].studyTier > tiers[i - 1].studyTier ||
+                    tiers[i].studyRank > tiers[i - 1].studyRank ||
                     tiers[i].traitRank > tiers[i - 1].traitRank)
                     throw new ArgumentException("상위 순위의 성장 단계가 더 낮을 수 없습니다.");
         }
@@ -136,7 +136,8 @@ namespace Baseball.Game.Historical
                 var ceiling = season.CreateTrainingCeiling();
                 foreach (var program in _balance.OwnerCardGrowth.StudyPrograms)
                 {
-                    if (program.PlayerType != season.PlayerType || program.UnlockRequirement.Kind > tier.studyTier) continue;
+                    // 해금 종류는 보상 등급 순서가 아니다. 도전 순위에 지정한 등급 안에서 효과가 큰 과정을 고른다.
+                    if (program.PlayerType != season.PlayerType || program.Rank != tier.studyRank) continue;
                     int score = 0;
                     foreach (var reward in program.Rewards)
                         score += Math.Min(reward.Amount, Math.Max(0, ceiling.Get(reward.Ability) -

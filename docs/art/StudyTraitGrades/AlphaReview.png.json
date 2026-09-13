@@ -1,0 +1,74 @@
+﻿[
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\TraitRank_SS.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  26549,
+        "Partial":  1332,
+        "Opaque":  37655,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\TraitRank_SSS.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  25959,
+        "Partial":  1311,
+        "Opaque":  38266,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\StudyRank_C.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  20391,
+        "Partial":  968,
+        "Opaque":  44177,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\StudyRank_B.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  20346,
+        "Partial":  44507,
+        "Opaque":  683,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\StudyRank_A.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  20257,
+        "Partial":  44610,
+        "Opaque":  669,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\StudyRank_S.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  20753,
+        "Partial":  967,
+        "Opaque":  43816,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\StudyRank_SS.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  20415,
+        "Partial":  926,
+        "Opaque":  44195,
+        "TransparentCorners":  true
+    },
+    {
+        "Path":  "C:\\UsingProject\\UnityProject\\UPlayBall_Unity\\Assets\\10.Datas\\Resources\\UI\\PlayerGrowthBadges\\StudyRank_SSS.png",
+        "Width":  256,
+        "Height":  256,
+        "Transparent":  20319,
+        "Partial":  972,
+        "Opaque":  44245,
+        "TransparentCorners":  true
+    }
+]

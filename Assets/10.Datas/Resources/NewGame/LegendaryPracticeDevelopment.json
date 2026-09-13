@@ -1,9 +1,10 @@
 {
   "tiers": [
-    { "maximumRank": 20, "blockRarity": 3, "blockCount": 4, "enhancement": 5, "studyTier": 2, "studyCompletions": 2, "traitRank": 4 },
-    { "maximumRank": 40, "blockRarity": 3, "blockCount": 3, "enhancement": 4, "studyTier": 2, "studyCompletions": 1, "traitRank": 3 },
-    { "maximumRank": 60, "blockRarity": 2, "blockCount": 3, "enhancement": 3, "studyTier": 1, "studyCompletions": 1, "traitRank": 3 },
-    { "maximumRank": 80, "blockRarity": 1, "blockCount": 2, "enhancement": 2, "studyTier": 1, "studyCompletions": 1, "traitRank": 2 },
-    { "maximumRank": 100, "blockRarity": 0, "blockCount": 2, "enhancement": 1, "studyTier": 0, "studyCompletions": 1, "traitRank": 1 }
+    { "maximumRank": 10, "blockRarity": 5, "blockCount": 4, "enhancement": 5, "studyRank": 6, "studyCompletions": 2, "traitRank": 6 },
+    { "maximumRank": 20, "blockRarity": 4, "blockCount": 4, "enhancement": 5, "studyRank": 5, "studyCompletions": 2, "traitRank": 5 },
+    { "maximumRank": 40, "blockRarity": 3, "blockCount": 3, "enhancement": 4, "studyRank": 4, "studyCompletions": 1, "traitRank": 4 },
+    { "maximumRank": 60, "blockRarity": 2, "blockCount": 3, "enhancement": 3, "studyRank": 3, "studyCompletions": 1, "traitRank": 3 },
+    { "maximumRank": 80, "blockRarity": 1, "blockCount": 2, "enhancement": 2, "studyRank": 2, "studyCompletions": 1, "traitRank": 2 },
+    { "maximumRank": 100, "blockRarity": 0, "blockCount": 2, "enhancement": 1, "studyRank": 1, "studyCompletions": 1, "traitRank": 1 }
   ]
 }

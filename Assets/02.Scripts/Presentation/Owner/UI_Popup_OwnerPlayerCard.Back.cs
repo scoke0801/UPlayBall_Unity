@@ -55,8 +55,7 @@ namespace Baseball.Presentation.Owner
                 BuildDefenseDiagram(role, card.Position, card.IsPositionEvidenceMissing);
                 BuildPreferredBattingOrderBadge(role, card.PreferredBattingOrder);
             }
-            if (card.IsOwnedCard || card.PlacedSkillBlockCount > 0) BuildSkillBlockBoard(parent, paper, panel, card);
-            else BuildPublicLineupNotice(parent, paper, panel);
+            BuildSkillBlockBoard(parent, paper, panel, card);
         }
 
         private static void BuildPreferredBattingOrderBadge(RectTransform parent, PreferredBattingOrder preference)
@@ -169,15 +168,42 @@ namespace Baseball.Presentation.Owner
                 }
             }
             BuildPlacedSkillBlocks(grid, card.SkillBlockPlacements, definition.Width, definition.Height);
-            Label(section, "State", card.PlacedSkillBlockCount == 0 ? "장착한 블록이 없습니다" : "스킬 블록 장착 중",
-                .36f, .60f, .96f, .78f, 13, Gold);
-            Label(section, "Inventory", card.IsOwnedCard
-                    ? $"장착 {card.PlacedSkillBlockCount}개  ·  보관 {card.AvailableSkillBlockCount}개"
-                    : $"장착 {card.PlacedSkillBlockCount}개 · {card.StudyStatus}",
-                .36f, .40f, .96f, .56f, 11, PitchSilver).fontStyle = FontStyle.Normal;
-            Label(section, "Hint", card.IsOwnedCard ? "보유 선수 › 카드훈련에서 배치" : "상대 선수의 경기 적용 성장 정보",
-                .36f, .16f, .96f, .32f, 10, PitchSilver).fontStyle = FontStyle.Normal;
+            if (card.SkillBlockPlacements.Count == 0)
+            {
+                Label(section, "State", "스킬 블록 없음", .36f, .16f, .96f, .86f, 13, PitchSilver);
+                return;
+            }
+
+            // 4×4 보드의 네 칸짜리 블록마다 한 행을 배정한다.
+            for (int index = 0; index < card.SkillBlockPlacements.Count; index++)
+            {
+                OwnerSkillBlockPlacementSnapshot placement = card.SkillBlockPlacements[index];
+                float top = .90f - index * .21f;
+                Text row = Label(section, "EquippedSkillBlock_" + index,
+                    FormatSkillBlockCategory(placement.Category) + " · " +
+                    SkillBlockGradeCatalog.GetLabel(placement.Rarity) + " · " + placement.DisplayName,
+                    .36f, top - .17f, .96f, top, 13, PitchSilver);
+                row.alignment = TextAnchor.MiddleLeft;
+                row.fontStyle = FontStyle.Normal;
+            }
         }
+
+        private static string FormatSkillBlockCategory(SkillBlockCategory category) => category switch
+        {
+            SkillBlockCategory.Contact => "교타력",
+            SkillBlockCategory.Power => "장타력",
+            SkillBlockCategory.Baserunning => "주력",
+            SkillBlockCategory.Defense => "수비력",
+            SkillBlockCategory.BatterMental => "타자 정신력",
+            SkillBlockCategory.Velocity => "구속",
+            SkillBlockCategory.Control => "제구력",
+            SkillBlockCategory.Breaking => "변화구",
+            SkillBlockCategory.PitcherPhysical => "체력",
+            SkillBlockCategory.PitcherMental => "투수 정신력",
+            SkillBlockCategory.Bunt => "번트",
+            SkillBlockCategory.Stuff => "구위",
+            _ => "분류 없음"
+        };
 
         private static void BuildPlacedSkillBlocks(
             RectTransform grid,
@@ -221,7 +247,8 @@ namespace Baseball.Presentation.Owner
                     // 배치 모양만 회전하고 문양과 광원은 두 화면에서 항상 정방향을 유지한다.
                     tile.localEulerAngles = new Vector3(0, 0, -placement.RotationQuarterTurns * 90f);
                     SkillBlockVisual.ApplyDirectionalTile(tile.gameObject.AddComponent<RawImage>(), placement.Rarity,
-                        shapeCells, cellIndex, placement.RotationQuarterTurns);
+                        shapeCells, cellIndex, placement.RotationQuarterTurns,
+                        SkillBlockVisual.GetCategoryColor(placement.Category));
                 }
             }
         }

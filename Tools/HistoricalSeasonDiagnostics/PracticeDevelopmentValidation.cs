@@ -58,6 +58,13 @@ internal static class PracticeDevelopmentValidation
                     owned.LastStudySeason != tier.studyCompletions || owned.Trait.rank != tier.traitRank ||
                     owned.Trait.trainingSeason <= owned.LastStudySeason) throw new Exception("성장 단계가 다릅니다.");
                 if (!owned.SkillBoard.Placements.SequenceEqual(repeated.SkillBoard.Placements)) throw new Exception("장착 결정론 실패");
+                foreach (var effect in owned.Training.Ledger.Entries)
+                {
+                    if (effect.Source != OwnerGrowthSource.OverseasTraining) continue;
+                    var program = balance.OwnerCardGrowth.StudyPrograms.Single(p => effect.DisplayName == p.DisplayName + " · 완료");
+                    if (program.Rank != tier.studyRank || program.PlayerType != season.PlayerType)
+                        throw new Exception("유학 등급 또는 선수 유형이 다릅니다.");
+                }
                 foreach (var placement in owned.SkillBoard.Placements)
                 {
                     var block = balance.Growth.SkillBlocks.Single(b => b.BlockId == placement.Instance.DefinitionId);

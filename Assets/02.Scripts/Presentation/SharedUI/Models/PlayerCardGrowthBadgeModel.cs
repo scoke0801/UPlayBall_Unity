@@ -3,12 +3,15 @@ using System;
 namespace Baseball.Presentation.SharedUI
 {
     /// <summary>특성훈련의 확정 등급을 표시하는 계약이며 카드 종류·성장 블록 희귀도와 구분한다.</summary>
-    public enum PlayerTraitBadgeRank { None, C, B, A, S }
+    public enum PlayerTraitBadgeRank { None, C, B, A, S, SS, SSS }
+
+    /// <summary>카드 유학 과정에서 확정된 등급을 표시한다.</summary>
+    public enum PlayerStudyBadgeRank { None, C, B, A, S, SS, SSS }
 
     /// <summary>카드에 남는 유학 이력과 현재 진행 상태를 구분한다.</summary>
     public enum PlayerStudyBadgeState { None, InProgress, Completed }
     /// <summary>장착 블록의 Normal부터 Legendary까지 희귀도를 일대일로 표시한다.</summary>
-    public enum PlayerBoardBadgeRank { None, N, R, E, U, L }
+    public enum PlayerBoardBadgeRank { None, C, B, A, S, SS, SSS }
 
     /// <summary>카드 표시만 담당하는 불변 성장 배지 모델이다. 경험치로 등급을 추정하지 않는다.</summary>
     public sealed class PlayerCardGrowthBadgeModel
@@ -17,7 +20,7 @@ namespace Baseball.Presentation.SharedUI
 
         public PlayerCardGrowthBadgeModel(PlayerStudyBadgeState studyState = PlayerStudyBadgeState.None,
             string studyDescription = null, PlayerTraitBadgeRank traitRank = PlayerTraitBadgeRank.None,
-            string traitDescription = null, int supportGames = 0, string supportDescription = "", PlayerBoardBadgeRank boardRank = PlayerBoardBadgeRank.None, string boardDescription = "")
+            string traitDescription = null, int supportGames = 0, string supportDescription = "", PlayerBoardBadgeRank boardRank = PlayerBoardBadgeRank.None, string boardDescription = "", PlayerStudyBadgeRank studyRank = PlayerStudyBadgeRank.None)
         {
             if (!Enum.IsDefined(typeof(PlayerStudyBadgeState), studyState))
                 throw new ArgumentOutOfRangeException(nameof(studyState));
@@ -25,6 +28,8 @@ namespace Baseball.Presentation.SharedUI
                 throw new ArgumentOutOfRangeException(nameof(traitRank));
             if (traitRank != PlayerTraitBadgeRank.None && string.IsNullOrWhiteSpace(traitDescription))
                 throw new ArgumentException("특성명과 핵심 효과 설명이 필요합니다.", nameof(traitDescription));
+            if (!Enum.IsDefined(typeof(PlayerStudyBadgeRank), studyRank)) throw new ArgumentOutOfRangeException(nameof(studyRank));
+            StudyRank = studyRank;
             StudyState = studyState;
             BoardRank = boardRank;
             if (!Enum.IsDefined(typeof(PlayerBoardBadgeRank), boardRank))
@@ -50,6 +55,7 @@ namespace Baseball.Presentation.SharedUI
         }
 
         public PlayerStudyBadgeState StudyState { get; }
+        public PlayerStudyBadgeRank StudyRank { get; }
         public PlayerTraitBadgeRank TraitRank { get; }
         public string StudyDescription { get; }
         public string TraitDescription { get; }

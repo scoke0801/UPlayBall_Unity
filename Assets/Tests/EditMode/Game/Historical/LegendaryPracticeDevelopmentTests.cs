@@ -19,10 +19,10 @@ namespace Baseball.Tests.EditMode.Game.Historical
             tiers = new[] {
                 new LegendaryPracticeDevelopmentTier { maximumRank = 20, blockCount = 4,
                     blockRarity = SkillBlockRarity.Unique, enhancement = 5, studyCompletions = 2,
-                    studyTier = CardStudyUnlockKind.WinPostseason, traitRank = CardTraitRank.S },
+                    studyRank = CardStudyRank.A, traitRank = CardTraitRank.S },
                 new LegendaryPracticeDevelopmentTier { maximumRank = 100, blockCount = 2,
                     blockRarity = SkillBlockRarity.Normal, enhancement = 1, studyCompletions = 1,
-                    traitRank = CardTraitRank.C } }
+                    studyRank = CardStudyRank.C, traitRank = CardTraitRank.C } }
         };
 
         [TestCase(PlayerType.Batter, PlayerPosition.Catcher)]

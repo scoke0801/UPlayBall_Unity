@@ -10,12 +10,18 @@
     "cost": 2000, "pityFailures": 10, "pointsPerCraft": 20,
     "sameCategoryChance": 0.70, "sameShapeChance": 0.50,
     "gradeBonus": 0.10, "categoryBonus": 0.20, "shapeBonus": 0.25,
-    "gradeWeights": [55,35,8,1.9,0.1, 20,50,25,4.5,0.5, 0,20,55,23,2, 0,0,20,75,5, 0,0,0,20,80]
+    "gradeWeights": [55,35,8,1.9,0.09,0.01, 20,50,25,4.5,0.45,0.05, 0,20,55,23,1.8,0.2, 0,0,20,75,4.5,0.5, 0,0,0,20,75,5, 0,0,0,0,20,80]
   },
   "studyTiers": [
     { "weeks":1, "cost":120000, "growth":3, "greatProbability":0.20, "greatBonus":1 },
     { "weeks":2, "cost":350000, "growth":7, "greatProbability":0.15, "greatBonus":2 },
-    { "weeks":3, "cost":750000, "growth":12, "greatProbability":0.10, "greatBonus":3 }
+    { "weeks":3, "cost":750000, "growth":12, "greatProbability":0.10, "greatBonus":3 },
+    { "weeks":4, "cost":1300000, "growth":15, "greatProbability":0.10, "greatBonus":3,
+      "requiredLeagueGrade":3, "programIds":["study_stuff","study_pitcher_mental","study_baserunning","study_bunt"] },
+    { "weeks":5, "cost":2100000, "growth":18, "greatProbability":0.08, "greatBonus":4,
+      "requiredLeagueGrade":6, "programIds":["study_pitch_mix","study_pitcher_endurance","study_small_ball","study_clutch"] },
+    { "weeks":6, "cost":3200000, "growth":21, "greatProbability":0.06, "greatBonus":4,
+      "requiredLeagueGrade":9, "programIds":["study_gap_hitting","study_power_focus","study_velocity_endurance","study_pressure_pitching"] }
   ],
   "slogans": [
     { "id":"contact", "name":"정교한 야구", "target":1, "reliefOnly":false, "requiredAbility":0, "minimumAbility":70, "minimumAbilityByLevel":[70,65,65,60,60,60],
